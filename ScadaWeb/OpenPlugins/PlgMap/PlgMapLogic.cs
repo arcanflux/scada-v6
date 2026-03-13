@@ -5,6 +5,8 @@ using Scada.Lang;
 using Scada.Web.Lang;
 using Scada.Web.Plugins.PlgMap.Code;
 using Scada.Web.Services;
+using Scada.Web.TreeView;
+using Scada.Web.Users;
 
 namespace Scada.Web.Plugins.PlgMap
 {
@@ -28,6 +30,23 @@ namespace Scada.Web.Plugins.PlgMap
         /// Gets the view specifications.
         /// </summary>
         public override List<ViewSpec> ViewSpecs => [new MapViewSpec()];
+
+
+        /// <summary>
+        /// Gets the menu items available for the user.
+        /// </summary>
+        public override List<MenuItem> GetUserMenuItems(User user, UserRights userRights)
+        {
+            return
+            [
+                new MenuItem
+                {
+                    Text = Locale.IsRussian ? "Карта" : "Map",
+                    Url = "~/Map/MapView",
+                    SortOrder = MenuItemSortOrder.First
+                }
+            ];
+        }
 
 
         /// <summary>
