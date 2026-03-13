@@ -22,6 +22,4 @@
     </Reference>
   </ItemGroup>
 
-  <Import Project="..\PlgMap.Shared\PlgMap.Shared.projitems" Label="Shared" />
-
 </Project>
