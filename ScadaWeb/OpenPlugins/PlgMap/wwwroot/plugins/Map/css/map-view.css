@@ -1,0 +1,20 @@
+/* Map view styles */
+
+.map-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+}
+
+.map-marker-icon {
+    background: none !important;
+    border: none !important;
+}
+
+.map-popup-val {
+    font-weight: 600;
+    font-size: 1.05em;
+}

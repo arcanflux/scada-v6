@@ -1,0 +1,22 @@
+@page "{id:int?}"
+@model Scada.Web.Plugins.PlgMap.Areas.Map.Pages.MapViewModel
+@{
+    Layout = "_BasicLayout";
+}
+
+@section Styles {
+    <link href="~/plugins/Map/css/map-view.css" rel="stylesheet" asp-append-version="true" />
+}
+
+@section Scripts {
+    <script src="~/js/view-hub.js" asp-append-version="true"></script>
+    <script src="~/plugins/Map/js/map-view.js" asp-append-version="true"></script>
+    <script>
+        var mapViewOptions = {
+            viewID: @Model.ViewID,
+            refreshRate: @Model.RefreshRate
+        };
+    </script>
+}
+
+<div id="divMapContainer" class="map-container"></div>
