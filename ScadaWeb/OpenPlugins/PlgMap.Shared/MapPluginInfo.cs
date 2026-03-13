@@ -3,13 +3,13 @@
 
 using Scada.Lang;
 
-namespace Scada.Web.Plugins.PlgMap.Code
+namespace Scada.Web.Plugins.PlgMap
 {
     /// <summary>
     /// Represents information about the map plugin.
     /// <para>Представляет информацию о плагине карты.</para>
     /// </summary>
-    public class MapPluginInfo : LibraryInfo
+    internal class MapPluginInfo : LibraryInfo
     {
         /// <summary>
         /// The plugin code.

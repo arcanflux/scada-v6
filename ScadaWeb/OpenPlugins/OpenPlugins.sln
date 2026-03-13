@@ -49,6 +49,14 @@ Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "PlgSchBasicComp.Shared", "P
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PlgScheme.EditorWeb", "PlgScheme.EditorWeb\PlgScheme.EditorWeb.csproj", "{2418118A-C3C1-4BA0-A4D2-B3C9F76C4006}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "PlgMap", "PlgMap", "{7883318C-2262-41A8-AE61-654CEE242F1B}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PlgMap", "PlgMap\PlgMap.csproj", "{7A565580-17DA-4463-88DD-13F7A5FEB752}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PlgMap.View", "PlgMap.View\PlgMap.View.csproj", "{33F69AFE-4B12-4BD2-A66A-945CA844365F}"
+EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "PlgMap.Shared", "PlgMap.Shared\PlgMap.Shared.shproj", "{BFDAA93B-FA2C-4440-85A1-685620C1D341}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -119,6 +127,14 @@ Global
 		{2418118A-C3C1-4BA0-A4D2-B3C9F76C4006}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2418118A-C3C1-4BA0-A4D2-B3C9F76C4006}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2418118A-C3C1-4BA0-A4D2-B3C9F76C4006}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7A565580-17DA-4463-88DD-13F7A5FEB752}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7A565580-17DA-4463-88DD-13F7A5FEB752}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7A565580-17DA-4463-88DD-13F7A5FEB752}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7A565580-17DA-4463-88DD-13F7A5FEB752}.Release|Any CPU.Build.0 = Release|Any CPU
+		{33F69AFE-4B12-4BD2-A66A-945CA844365F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{33F69AFE-4B12-4BD2-A66A-945CA844365F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{33F69AFE-4B12-4BD2-A66A-945CA844365F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{33F69AFE-4B12-4BD2-A66A-945CA844365F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -142,6 +158,9 @@ Global
 		{48540890-21B4-4400-8290-071112B30D53} = {71F74BFA-D912-41E6-9982-9CAC6C61B324}
 		{A9CC759A-54F9-44FB-AD77-DD8F306668F7} = {AD970186-50D1-4A54-B711-CEFD8CC0471F}
 		{2418118A-C3C1-4BA0-A4D2-B3C9F76C4006} = {1C746D2E-749E-408B-A180-63AD78EFFAFC}
+		{7A565580-17DA-4463-88DD-13F7A5FEB752} = {7883318C-2262-41A8-AE61-654CEE242F1B}
+		{33F69AFE-4B12-4BD2-A66A-945CA844365F} = {7883318C-2262-41A8-AE61-654CEE242F1B}
+		{BFDAA93B-FA2C-4440-85A1-685620C1D341} = {7883318C-2262-41A8-AE61-654CEE242F1B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {19C6959B-66D1-4335-AA8A-0E2F23894099}
@@ -153,5 +172,8 @@ Global
 		PlgWebPage.Shared\PlgWebPage.Shared.projitems*{c85cd47d-4492-4229-8d28-8579b063365a}*SharedItemsImports = 5
 		PlgSchBasicComp.Shared\PlgSchBasicComp.Shared.projitems*{decef963-2048-4c8d-adf1-5f8c90d9b4a8}*SharedItemsImports = 5
 		PlgSchBasicComp.Shared\PlgSchBasicComp.Shared.projitems*{fd3deb6d-c6d7-4654-bb5c-b8bc0c97b4ac}*SharedItemsImports = 5
+		PlgMap.Shared\PlgMap.Shared.projitems*{bfdaa93b-fa2c-4440-85a1-685620c1d341}*SharedItemsImports = 13
+		PlgMap.Shared\PlgMap.Shared.projitems*{33f69afe-4b12-4bd2-a66a-945ca844365f}*SharedItemsImports = 5
+		PlgMap.Shared\PlgMap.Shared.projitems*{7a565580-17da-4463-88dd-13f7a5feb752}*SharedItemsImports = 5
 	EndGlobalSection
 EndGlobal
