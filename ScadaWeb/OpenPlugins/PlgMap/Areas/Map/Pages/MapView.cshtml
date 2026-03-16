@@ -12,10 +12,7 @@
     <script src="~/js/view-hub.js" asp-append-version="true"></script>
     <script src="~/plugins/Map/js/map-view.js" asp-append-version="true"></script>
     <script>
-        var mapViewOptions = {
-            viewID: @Model.ViewID,
-            refreshRate: @Model.RefreshRate
-        };
+        var mapViewOptions = @Json.Serialize(new { viewID = Model.ViewID, refreshRate = Model.RefreshRate });
     </script>
 }
 
