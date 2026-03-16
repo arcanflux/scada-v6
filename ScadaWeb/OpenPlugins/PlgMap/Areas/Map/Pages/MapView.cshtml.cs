@@ -26,9 +26,27 @@ namespace Scada.Web.Plugins.PlgMap.Areas.Map.Pages
 
         public void OnGet(int? id)
         {
-            ViewID = id ?? userContext.Views.GetFirstViewID() ?? 0;
+            ViewID = id ?? FindFirstMapViewID() ?? 0;
             RefreshRate = webContext.AppConfig.DisplayOptions.RefreshRate;
             ViewData["Title"] = "Map " + ViewID;
+        }
+
+        /// <summary>
+        /// Finds the first view with a .map file extension in the configuration database.
+        /// </summary>
+        private int? FindFirstMapViewID()
+        {
+            foreach (var viewEntity in webContext.ConfigDatabase.SortedViews)
+            {
+                if (!viewEntity.Hidden &&
+                    viewEntity.Path != null &&
+                    viewEntity.Path.EndsWith(".map", StringComparison.OrdinalIgnoreCase))
+                {
+                    return viewEntity.ViewID;
+                }
+            }
+
+            return userContext.Views.GetFirstViewID();
         }
     }
 }
