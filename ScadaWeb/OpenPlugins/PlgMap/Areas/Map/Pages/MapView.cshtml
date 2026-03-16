@@ -217,7 +217,20 @@
 
                 this.markerEntries = [];
 
-                for (let m of this.markers) {
+                for (let i = 0; i < this.markers.length; i++) {
+                    let m = this.markers[i];
+                    // normalize: support both old (cnlNum/caption) and new (channels/name) API
+                    if (!m.name && m.caption) m.name = m.caption;
+                    if (!m.name) m.name = "";
+                    if (!m.id) m.id = i + 1;
+                    if (!m.channels || m.channels.length === 0) {
+                        if (m.cnlNum) {
+                            m.channels = [{ cnlNum: m.cnlNum, alias: m.caption || "" }];
+                        } else {
+                            m.channels = [];
+                        }
+                    }
+
                     let lMarker = L.marker([m.lat, m.lng], {
                         icon: this._createMarkerIcon(null),
                         title: m.name

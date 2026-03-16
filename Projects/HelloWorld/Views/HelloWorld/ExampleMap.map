@@ -1,17 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Map>
+<MapView>
   <MapConfig centerLat="51.505" centerLng="-0.09" zoom="13" minZoom="2" maxZoom="19" />
-  <Marker id="1" name="Sensor Station 1" lat="51.505" lon="-0.09">
-    <Channel num="101" alias="T1" />
-    <Channel num="102" alias="T2" />
-    <Channel num="103" alias="P1" />
-  </Marker>
-  <Marker id="2" name="Pump Station" lat="51.51" lon="-0.1">
-    <Channel num="104" alias="T1" />
-    <Channel num="105" alias="P1" />
-  </Marker>
-  <Marker id="3" name="Substation A" lat="51.5" lon="-0.08">
-    <Channel num="106" alias="Voltage" />
-    <Channel num="107" alias="Current" />
-  </Marker>
-</Map>
+  <Markers>
+    <Marker id="1" name="Sensor Station 1" latitude="51.505" longitude="-0.09" cnlNum="101" caption="Sensor Station 1">
+      <Channel num="101" alias="T1" />
+      <Channel num="102" alias="T2" />
+      <Channel num="103" alias="P1" />
+    </Marker>
+    <Marker id="2" name="Pump Station" latitude="51.51" longitude="-0.1" cnlNum="104" caption="Pump Station">
+      <Channel num="104" alias="T1" />
+      <Channel num="105" alias="P1" />
+    </Marker>
+    <Marker id="3" name="Substation A" latitude="51.5" longitude="-0.08" cnlNum="106" caption="Substation A">
+      <Channel num="106" alias="Voltage" />
+      <Channel num="107" alias="Current" />
+    </Marker>
+  </Markers>
+</MapView>
