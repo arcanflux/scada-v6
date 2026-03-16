@@ -21,7 +21,7 @@
   <View>
     <ViewID>3</ViewID>
     <Path>HelloWorld\ExampleMap.map</Path>
-    <ViewTypeID xsi:nil="true" />
+    <ViewTypeID>6</ViewTypeID>
     <Title>Example Map</Title>
     <Ord xsi:nil="true" />
     <Hidden>false</Hidden>
