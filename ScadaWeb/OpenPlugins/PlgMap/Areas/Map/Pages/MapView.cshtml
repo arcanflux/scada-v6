@@ -28,9 +28,22 @@
             border: none !important;
         }
 
-        .map-popup-val {
+        .map-popup-table {
+            border-collapse: collapse;
+            font-size: 0.9em;
+            margin: 4px 0;
+        }
+
+        .map-popup-table td {
+            padding: 1px 6px 1px 0;
+        }
+
+        .map-popup-table .alias {
+            color: #666;
+        }
+
+        .map-popup-table .val {
             font-weight: 600;
-            font-size: 1.05em;
         }
 
         .map-popup-chart-link {
@@ -49,13 +62,67 @@
         .leaflet-control-attribution {
             display: none !important;
         }
+
+        /* Search bar */
+        .map-search-container {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            width: 320px;
+        }
+
+        .map-search-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid rgba(0,0,0,0.2);
+            border-radius: 4px;
+            font-size: 14px;
+            outline: none;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+            box-sizing: border-box;
+        }
+
+        .map-search-input:focus {
+            border-color: #0073aa;
+        }
+
+        .map-search-results {
+            background: #fff;
+            border: 1px solid #ccc;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            max-height: 250px;
+            overflow-y: auto;
+            display: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .map-search-results.show {
+            display: block;
+        }
+
+        .map-search-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 13px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .map-search-item:hover {
+            background: #f0f7ff;
+        }
+
+        .map-search-item:last-child {
+            border-bottom: none;
+        }
     </style>
 }
 
 @section Scripts {
     <script src="~/js/view-hub.js" asp-append-version="true"></script>
     <script>
-        // Map view for displaying SCADA markers on OpenStreetMap.
         var mapViewInstance = null;
 
         class MapViewManager {
@@ -67,14 +134,15 @@
                 this.refreshRate = options.refreshRate || 1000;
                 this.rootPath = this._detectRootPath();
                 this.map = null;
-                this.markers = [];
-                this.leafletMarkers = {};
+                this.markers = [];        // raw marker defs from API
+                this.markerEntries = [];   // {id, def, leafletMarker}
                 this.updateTimer = null;
+                this.curDataMap = {};       // cnlNum -> record
             }
 
             _detectRootPath() {
-                let base = document.querySelector("base");
-                return base ? base.getAttribute("href") : "/";
+                let b = document.querySelector("base");
+                return b ? b.getAttribute("href") : "/";
             }
 
             _apiRoot() {
@@ -143,82 +211,146 @@
                 }).setView([config.centerLat, config.centerLng], config.zoom);
 
                 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                    attribution: '',
                     maxZoom: config.maxZoom
                 }).addTo(this.map);
 
+                this.markerEntries = [];
+
                 for (let m of this.markers) {
-                    let marker = L.marker([m.lat, m.lng], {
+                    let lMarker = L.marker([m.lat, m.lng], {
                         icon: this._createMarkerIcon(null),
-                        title: m.caption
+                        title: m.name
                     }).addTo(this.map);
 
-                    let popupContent = this._buildPopupHtml(m, null);
-                    marker.bindPopup(popupContent);
+                    lMarker.bindPopup(this._buildPopupHtml(m));
 
-                    this.leafletMarkers[m.cnlNum] = { marker: marker, def: m };
+                    this.markerEntries.push({ id: m.id, def: m, leafletMarker: lMarker });
                 }
 
+                this._initSearch();
                 this._refreshData();
                 this.updateTimer = setInterval(() => this._refreshData(), this.refreshRate);
             }
 
-            _refreshData() {
-                fetch(this._apiRoot() + "GetCurData?viewID=" + this.viewID)
-                    .then(response => response.json())
-                    .then(dto => {
-                        if (dto.ok) {
-                            this._updateMarkers(dto.data.records);
-                        }
-                    })
-                    .catch(error => console.error("Map data refresh error:", error));
+            // --- Search ---
+            _initSearch() {
+                let input = document.getElementById("mapSearchInput");
+                let results = document.getElementById("mapSearchResults");
+                if (!input || !results) return;
+
+                input.addEventListener("input", () => {
+                    let query = input.value.trim().toLowerCase();
+                    if (query.length === 0) {
+                        results.classList.remove("show");
+                        results.innerHTML = "";
+                        return;
+                    }
+
+                    let matches = this.markerEntries.filter(e =>
+                        e.def.name.toLowerCase().includes(query)
+                    );
+
+                    if (matches.length === 0) {
+                        results.innerHTML = '<div class="map-search-item" style="color:#999">No results</div>';
+                        results.classList.add("show");
+                        return;
+                    }
+
+                    results.innerHTML = matches.slice(0, 20).map(e =>
+                        '<div class="map-search-item" data-marker-id="' + e.id + '">' +
+                        this._escapeHtml(e.def.name) + '</div>'
+                    ).join("");
+                    results.classList.add("show");
+                });
+
+                results.addEventListener("click", (ev) => {
+                    let item = ev.target.closest(".map-search-item");
+                    if (!item || !item.dataset.markerId) return;
+
+                    let id = parseInt(item.dataset.markerId, 10);
+                    let entry = this.markerEntries.find(e => e.id === id);
+                    if (entry) {
+                        this.map.setView(entry.leafletMarker.getLatLng(), 15);
+                        entry.leafletMarker.openPopup();
+                    }
+
+                    results.classList.remove("show");
+                    input.value = "";
+                });
+
+                // close results on outside click
+                document.addEventListener("click", (ev) => {
+                    if (!ev.target.closest(".map-search-container")) {
+                        results.classList.remove("show");
+                    }
+                });
             }
 
-            _buildPopupHtml(def, rec) {
-                let valText = rec ? this._escapeHtml(rec.text) : "--";
-                let html = "";
+            // --- Popups ---
+            _buildPopupHtml(def) {
+                let html = '<b>' + this._escapeHtml(def.name) + '</b>';
 
-                if (def.popupTemplate && rec) {
-                    html = def.popupTemplate
-                        .replace(/\{val\}/g, this._escapeHtml(rec.text))
-                        .replace(/\{stat\}/g, rec.stat);
-                } else if (def.caption) {
-                    html = '<b>' + this._escapeHtml(def.caption) + '</b><br/>' +
-                        '<span class="map-popup-val">' + valText + '</span>';
-                } else {
-                    html = '<span class="map-popup-val">' + valText + '</span>';
-                }
+                if (def.channels && def.channels.length > 0) {
+                    html += '<table class="map-popup-table">';
+                    for (let ch of def.channels) {
+                        let rec = this.curDataMap[ch.cnlNum];
+                        let valText = rec ? this._escapeHtml(rec.text) : "--";
+                        html += '<tr>' +
+                            '<td class="alias">' + this._escapeHtml(ch.alias || "Ch" + ch.cnlNum) + ':</td>' +
+                            '<td class="val" id="cnl-' + ch.cnlNum + '">' + valText + '</td>' +
+                            '</tr>';
+                    }
+                    html += '</table>';
 
-                if (def.cnlNum) {
-                    html += '<br/><a class="map-popup-chart-link" href="javascript:void(0)" ' +
-                        'onclick="mapViewInstance._openChart(' + def.cnlNum + ')">&#128200; Chart</a>';
+                    // chart link opens all channels at once
+                    let cnlNums = def.channels.map(c => c.cnlNum).join(",");
+                    html += '<a class="map-popup-chart-link" href="javascript:void(0)" ' +
+                        'onclick="mapViewInstance._openChart(\'' + cnlNums + '\')">&#128200; Chart</a>';
                 }
 
                 return html;
             }
 
-            _openChart(cnlNum) {
+            _openChart(cnlNums) {
                 if (typeof viewHub !== "undefined" && viewHub.features && viewHub.features.chart) {
-                    viewHub.features.chart.show(cnlNum);
+                    viewHub.features.chart.show(cnlNums);
                 } else {
-                    window.open(this.rootPath + "Chart/Chart?cnlNums=" + cnlNum + "&startDate=");
+                    window.open(this.rootPath + "Chart/Chart?cnlNums=" + cnlNums + "&startDate=");
                 }
             }
 
+            // --- Data refresh ---
+            _refreshData() {
+                fetch(this._apiRoot() + "GetCurData?viewID=" + this.viewID)
+                    .then(r => r.json())
+                    .then(dto => {
+                        if (dto.ok) {
+                            this._updateMarkers(dto.data.records);
+                        }
+                    })
+                    .catch(err => console.error("Map data refresh error:", err));
+            }
+
             _updateMarkers(records) {
-                let dataMap = {};
+                // update data map
                 for (let rec of records) {
-                    dataMap[rec.cnlNum] = rec;
+                    this.curDataMap[rec.cnlNum] = rec;
                 }
 
-                for (let cnlNum in this.leafletMarkers) {
-                    let entry = this.leafletMarkers[cnlNum];
-                    let rec = dataMap[cnlNum];
-                    if (!rec) continue;
+                for (let entry of this.markerEntries) {
+                    // determine worst status across all channels
+                    let worstStat = 0;
+                    for (let ch of entry.def.channels) {
+                        let rec = this.curDataMap[ch.cnlNum];
+                        if (rec && rec.stat > worstStat) {
+                            worstStat = rec.stat;
+                        }
+                    }
 
-                    let color = this._getColorForStatus(rec.stat);
-                    entry.marker.setIcon(this._createMarkerIcon(color));
-                    entry.marker.setPopupContent(this._buildPopupHtml(entry.def, rec));
+                    let color = this._getColorForStatus(worstStat);
+                    entry.leafletMarker.setIcon(this._createMarkerIcon(color));
+                    entry.leafletMarker.setPopupContent(this._buildPopupHtml(entry.def));
                 }
             }
 
@@ -261,6 +393,12 @@
         });
     </script>
 }
+
+<div class="map-search-container">
+    <input type="text" id="mapSearchInput" class="map-search-input"
+           placeholder="Search markers..." autocomplete="off" />
+    <div id="mapSearchResults" class="map-search-results"></div>
+</div>
 
 <div id="divMapContainer" class="map-container"
      data-view-id="@Model.ViewID"

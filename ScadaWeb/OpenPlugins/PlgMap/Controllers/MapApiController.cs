@@ -59,11 +59,15 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
                         },
                         Markers = mapView.Markers.Select(m => new MarkerDto
                         {
+                            Id = m.Id,
                             Lat = m.Latitude,
                             Lng = m.Longitude,
-                            CnlNum = m.CnlNum,
-                            Caption = m.Caption,
-                            PopupTemplate = m.PopupTemplate
+                            Name = m.Name,
+                            Channels = m.Channels.Select(c => new ChannelDto
+                            {
+                                CnlNum = c.CnlNum,
+                                Alias = c.Alias
+                            }).ToList()
                         }).ToList()
                     };
 

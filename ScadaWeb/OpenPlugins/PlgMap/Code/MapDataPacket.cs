@@ -38,15 +38,24 @@ namespace Scada.Web.Plugins.PlgMap.Code
     }
 
     /// <summary>
-    /// Represents a marker with its current channel data for the client.
+    /// Represents a channel reference inside a marker DTO.
+    /// </summary>
+    public class ChannelDto
+    {
+        public int CnlNum { get; set; }
+        public string Alias { get; set; }
+    }
+
+    /// <summary>
+    /// Represents a marker with its channel list for the client.
     /// </summary>
     public class MarkerDto
     {
+        public int Id { get; set; }
         public double Lat { get; set; }
         public double Lng { get; set; }
-        public int CnlNum { get; set; }
-        public string Caption { get; set; }
-        public string PopupTemplate { get; set; }
+        public string Name { get; set; }
+        public List<ChannelDto> Channels { get; set; }
     }
 
     /// <summary>
@@ -58,7 +67,7 @@ namespace Scada.Web.Plugins.PlgMap.Code
     }
 
     /// <summary>
-    /// Represents a single marker's current data record.
+    /// Represents a single channel's current data record.
     /// </summary>
     public class MarkerCurDataRecord
     {

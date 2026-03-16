@@ -45,16 +45,65 @@ namespace Scada.Web.Plugins.PlgMap.Code
             xmlDoc.Load(stream);
 
             XmlElement rootElem = xmlDoc.DocumentElement;
-            if (!rootElem.Name.Equals("MapView", StringComparison.OrdinalIgnoreCase))
-                throw new ScadaException(CommonPhrases.InvalidFileFormat);
+            string rootName = rootElem.Name;
 
-            // load map configuration
+            if (rootName.Equals("Map", StringComparison.OrdinalIgnoreCase))
+            {
+                // New format: <Map> with <Marker> children containing <Channel> elements
+                LoadNewFormat(rootElem);
+            }
+            else if (rootName.Equals("MapView", StringComparison.OrdinalIgnoreCase))
+            {
+                // Legacy format: <MapView> with <MapConfig> and <Markers>
+                LoadLegacyFormat(rootElem);
+            }
+            else
+            {
+                throw new ScadaException(CommonPhrases.InvalidFileFormat);
+            }
+        }
+
+        /// <summary>
+        /// Loads the new XML format with multi-channel markers.
+        /// </summary>
+        private void LoadNewFormat(XmlElement rootElem)
+        {
+            // load optional map config
             if (rootElem.SelectSingleNode("MapConfig") is XmlNode configNode)
             {
                 MapConfig = MapConfig.LoadFromXml(configNode);
             }
 
-            // load markers
+            // load markers directly under root
+            foreach (XmlNode markerNode in rootElem.SelectNodes("Marker"))
+            {
+                MapMarker marker = MapMarker.LoadFromXml(markerNode);
+                Markers.Add(marker);
+
+                foreach (MarkerChannel ch in marker.Channels)
+                {
+                    AddCnlNum(ch.CnlNum);
+                }
+            }
+
+            // auto-compute center if not specified and markers exist
+            if (Markers.Count > 0 && MapConfig.CenterLat == 0 && MapConfig.CenterLng == 0)
+            {
+                MapConfig.CenterLat = Markers.Average(m => m.Latitude);
+                MapConfig.CenterLng = Markers.Average(m => m.Longitude);
+            }
+        }
+
+        /// <summary>
+        /// Loads the legacy XML format (single channel per marker).
+        /// </summary>
+        private void LoadLegacyFormat(XmlElement rootElem)
+        {
+            if (rootElem.SelectSingleNode("MapConfig") is XmlNode configNode)
+            {
+                MapConfig = MapConfig.LoadFromXml(configNode);
+            }
+
             if (rootElem.SelectSingleNode("Markers") is XmlNode markersNode)
             {
                 foreach (XmlNode markerNode in markersNode.SelectNodes("Marker"))
@@ -62,8 +111,10 @@ namespace Scada.Web.Plugins.PlgMap.Code
                     MapMarker marker = MapMarker.LoadFromXml(markerNode);
                     Markers.Add(marker);
 
-                    // register channel numbers used by this marker
-                    AddCnlNum(marker.CnlNum);
+                    foreach (MarkerChannel ch in marker.Channels)
+                    {
+                        AddCnlNum(ch.CnlNum);
+                    }
                 }
             }
         }
