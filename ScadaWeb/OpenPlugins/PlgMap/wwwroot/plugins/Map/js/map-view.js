@@ -211,9 +211,14 @@ class MapViewManager {
 
 // Initialize when DOM is ready.
 document.addEventListener("DOMContentLoaded", function () {
-    if (typeof mapViewOptions !== "undefined") {
-        mapViewInstance = new MapViewManager(mapViewOptions);
-        mapViewInstance.init().catch(error => {
+    var container = document.getElementById("divMapContainer");
+    if (container && container.dataset.viewId) {
+        var options = {
+            viewID: parseInt(container.dataset.viewId, 10),
+            refreshRate: parseInt(container.dataset.refreshRate, 10) || 1000
+        };
+        mapViewInstance = new MapViewManager(options);
+        mapViewInstance.init().catch(function (error) {
             console.error("Map initialization failed:", error);
         });
     }

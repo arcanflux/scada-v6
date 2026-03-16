@@ -11,9 +11,8 @@
 @section Scripts {
     <script src="~/js/view-hub.js" asp-append-version="true"></script>
     <script src="~/plugins/Map/js/map-view.js" asp-append-version="true"></script>
-    <script>
-        var mapViewOptions = @Json.Serialize(new { viewID = Model.ViewID, refreshRate = Model.RefreshRate });
-    </script>
 }
 
-<div id="divMapContainer" class="map-container"></div>
+<div id="divMapContainer" class="map-container"
+     data-view-id="@Model.ViewID"
+     data-refresh-rate="@Model.RefreshRate"></div>
