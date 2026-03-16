@@ -32,6 +32,23 @@
             font-weight: 600;
             font-size: 1.05em;
         }
+
+        .map-popup-chart-link {
+            display: inline-block;
+            margin-top: 4px;
+            font-size: 0.85em;
+            cursor: pointer;
+            color: #0073aa;
+            text-decoration: none;
+        }
+
+        .map-popup-chart-link:hover {
+            text-decoration: underline;
+        }
+
+        .leaflet-control-attribution {
+            display: none !important;
+        }
     </style>
 }
 
@@ -136,9 +153,7 @@
                         title: m.caption
                     }).addTo(this.map);
 
-                    let popupContent = m.caption
-                        ? '<b>' + this._escapeHtml(m.caption) + '</b><br/><span class="map-popup-val">--</span>'
-                        : '<span class="map-popup-val">--</span>';
+                    let popupContent = this._buildPopupHtml(m, null);
                     marker.bindPopup(popupContent);
 
                     this.leafletMarkers[m.cnlNum] = { marker: marker, def: m };
@@ -159,6 +174,37 @@
                     .catch(error => console.error("Map data refresh error:", error));
             }
 
+            _buildPopupHtml(def, rec) {
+                let valText = rec ? this._escapeHtml(rec.text) : "--";
+                let html = "";
+
+                if (def.popupTemplate && rec) {
+                    html = def.popupTemplate
+                        .replace(/\{val\}/g, this._escapeHtml(rec.text))
+                        .replace(/\{stat\}/g, rec.stat);
+                } else if (def.caption) {
+                    html = '<b>' + this._escapeHtml(def.caption) + '</b><br/>' +
+                        '<span class="map-popup-val">' + valText + '</span>';
+                } else {
+                    html = '<span class="map-popup-val">' + valText + '</span>';
+                }
+
+                if (def.cnlNum) {
+                    html += '<br/><a class="map-popup-chart-link" href="javascript:void(0)" ' +
+                        'onclick="mapViewInstance._openChart(' + def.cnlNum + ')">&#128200; Chart</a>';
+                }
+
+                return html;
+            }
+
+            _openChart(cnlNum) {
+                if (typeof viewHub !== "undefined" && viewHub.features && viewHub.features.chart) {
+                    viewHub.features.chart.show(cnlNum);
+                } else {
+                    window.open(this.rootPath + "Chart/Chart?cnlNums=" + cnlNum + "&startDate=");
+                }
+            }
+
             _updateMarkers(records) {
                 let dataMap = {};
                 for (let rec of records) {
@@ -172,22 +218,7 @@
 
                     let color = this._getColorForStatus(rec.stat);
                     entry.marker.setIcon(this._createMarkerIcon(color));
-
-                    let def = entry.def;
-                    let popupText;
-
-                    if (def.popupTemplate) {
-                        popupText = def.popupTemplate
-                            .replace(/\{val\}/g, this._escapeHtml(rec.text))
-                            .replace(/\{stat\}/g, rec.stat);
-                    } else if (def.caption) {
-                        popupText = '<b>' + this._escapeHtml(def.caption) + '</b><br/>' +
-                            '<span class="map-popup-val">' + this._escapeHtml(rec.text) + '</span>';
-                    } else {
-                        popupText = '<span class="map-popup-val">' + this._escapeHtml(rec.text) + '</span>';
-                    }
-
-                    entry.marker.setPopupContent(popupText);
+                    entry.marker.setPopupContent(this._buildPopupHtml(entry.def, rec));
                 }
             }
 
