@@ -19,10 +19,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="wwwroot\plugins\Map\**" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Reference Include="ScadaCommon">
       <HintPath>..\..\..\ScadaCommon\ScadaCommon\bin\Release\netstandard2.0\ScadaCommon.dll</HintPath>
     </Reference>
