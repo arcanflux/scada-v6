@@ -40,6 +40,7 @@
     <Plugin code="PlgSchBasicComp" />
     <Plugin code="PlgStore" />
     <Plugin code="PlgWebPage" />
+    <Plugin code="PlgMap" />
   </Plugins>
   <PluginAssignment>
     <ChartFeature>PlgChart</ChartFeature>
