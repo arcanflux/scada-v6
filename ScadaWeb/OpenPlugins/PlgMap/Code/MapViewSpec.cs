@@ -24,7 +24,7 @@ namespace Scada.Web.Plugins.PlgMap.Code
         /// <summary>
         /// Gets the view icon URL.
         /// </summary>
-        public override string IconUrl => "~/plugins/Map/images/map-icon.png";
+        public override string IconUrl => "";
 
         /// <summary>
         /// Gets the view type.
