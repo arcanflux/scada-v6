@@ -28,37 +28,36 @@
             border: none !important;
         }
 
-        /* Popup */
+        /* Popup — compact */
         .leaflet-popup-content {
-            font-size: 14px;
-            line-height: 1.45;
+            font-size: 13px;
+            line-height: 1.35;
+            margin: 8px 10px;
         }
 
         .map-popup-table {
             border-collapse: collapse;
-            font-size: 14px;
-            margin: 6px 0;
+            font-size: 13px;
+            margin: 3px 0;
             width: 100%;
         }
 
         .map-popup-table td {
-            padding: 2px 8px 2px 0;
+            padding: 1px 6px 1px 0;
         }
 
         .map-popup-table .alias {
             color: #555;
-            font-size: 14px;
         }
 
         .map-popup-table .val {
             font-weight: 600;
-            font-size: 15px;
         }
 
         .map-popup-table .chart-btn {
             cursor: pointer;
             opacity: 0.5;
-            padding: 0 4px;
+            padding: 0 3px;
             vertical-align: middle;
             transition: opacity 0.15s;
         }
@@ -68,15 +67,15 @@
         }
 
         .map-popup-name {
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 700;
         }
 
         .map-popup-chart-btn {
             display: block;
-            margin-top: 8px;
-            padding: 5px 12px;
-            font-size: 13px;
+            margin-top: 5px;
+            padding: 4px 10px;
+            font-size: 12px;
             font-weight: 600;
             cursor: pointer;
             color: #fff;
@@ -170,9 +169,10 @@
             background: #fff;
             border-radius: 8px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            width: 780px;
-            max-width: 94vw;
-            max-height: 88vh;
+            width: 92vw;
+            max-width: 1200px;
+            height: 85vh;
+            max-height: 85vh;
             overflow: hidden;
             display: flex;
             flex-direction: column;
@@ -238,13 +238,14 @@
         .map-chart-body {
             padding: 12px 16px;
             flex: 1;
-            overflow-y: auto;
+            overflow: hidden;
         }
 
         .map-chart-canvas-wrap {
             position: relative;
             width: 100%;
-            height: 340px;
+            height: 100%;
+            min-height: 300px;
         }
 
         .map-chart-loading {
@@ -308,44 +309,23 @@
                 "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
             ];
 
-            // --- Localization ---
+            // --- Localization (RU) ---
             static LANG = {
-                ru: {
-                    searchPlaceholder: "Поиск маркеров...",
-                    noResults: "Нет результатов",
-                    combinedChart: "Совмещённый график",
-                    loading: "Загрузка...",
-                    loadingChart: "Загрузка данных графика...",
-                    noData: "Нет архивных данных",
-                    errorChart: "Ошибка загрузки данных",
-                    error: "Ошибка",
-                    period: "Период:",
-                    day1: "1 день",
-                    day3: "3 дня",
-                    day7: "7 дней",
-                    day14: "14 дней",
-                    day30: "30 дней",
-                    ago1h: "-1ч",
-                    now: "сейчас"
-                },
-                en: {
-                    searchPlaceholder: "Search markers...",
-                    noResults: "No results",
-                    combinedChart: "Combined Chart",
-                    loading: "Loading...",
-                    loadingChart: "Loading chart data...",
-                    noData: "No archive data available",
-                    errorChart: "Error loading chart data",
-                    error: "Error",
-                    period: "Period:",
-                    day1: "1 day",
-                    day3: "3 days",
-                    day7: "7 days",
-                    day14: "14 days",
-                    day30: "30 days",
-                    ago1h: "-1h",
-                    now: "now"
-                }
+                searchPlaceholder: "Поиск маркеров...",
+                noResults: "Нет результатов",
+                combinedChart: "Графики",
+                loading: "Загрузка...",
+                loadingChart: "Загрузка данных...",
+                noData: "Нет архивных данных",
+                errorChart: "Ошибка загрузки данных",
+                error: "Ошибка",
+                period: "Период:",
+                day1: "1 день",
+                day3: "3 дня",
+                day7: "7 дней",
+                day14: "14 дней",
+                ago1h: "-1ч",
+                now: "сейчас"
             };
 
             constructor(options) {
@@ -364,11 +344,7 @@
                 this._miniChartHideTimer = null;
                 this._combinedMarkerIdx = -1;
                 this._combinedDays = 1;
-
-                // detect language
-                let htmlLang = (document.documentElement.lang || "").toLowerCase();
-                this.isRu = htmlLang.startsWith("ru");
-                this.t = this.isRu ? MapViewManager.LANG.ru : MapViewManager.LANG.en;
+                this.t = MapViewManager.LANG;
             }
 
             _detectRootPath() {
@@ -379,14 +355,12 @@
             _apiRoot() { return this.rootPath + "Api/Map/"; }
             _mainApiRoot() { return this.rootPath + "Api/Main/"; }
 
-            // Formats a Date to locale-appropriate string: RU = "dd.MM HH:mm", EN = "MM/dd HH:mm"
             _fmtDateTime(d) {
                 let dd = String(d.getDate()).padStart(2, '0');
                 let mm = String(d.getMonth() + 1).padStart(2, '0');
                 let hh = String(d.getHours()).padStart(2, '0');
                 let mi = String(d.getMinutes()).padStart(2, '0');
-                if (this.isRu) return dd + '.' + mm + ' ' + hh + ':' + mi;
-                return mm + '/' + dd + ' ' + hh + ':' + mi;
+                return dd + '.' + mm + ' ' + hh + ':' + mi;
             }
 
             _fmtTime(d) {
@@ -447,10 +421,10 @@
 
             // --- Marker icons (zoom-dependent size) ---
             _getMarkerSize() {
-                if (!this.map) return 24;
+                if (!this.map) return 20;
                 let z = this.map.getZoom();
-                // scale from 16px at zoom 10 to 36px at zoom 18
-                return Math.round(Math.min(36, Math.max(16, 12 + z * 1.5)));
+                // scale: 8px at zoom 5, 14px at zoom 10, 24px at zoom 13, 36px at zoom 18
+                return Math.round(Math.min(36, Math.max(8, z * 2.2 - 3)));
             }
 
             _createMarkerIcon(color) {
@@ -550,7 +524,7 @@
                         title: m.name
                     }).addTo(this.map);
 
-                    lMarker.bindPopup(this._buildPopupHtml(m), { maxWidth: 340, minWidth: 180 });
+                    lMarker.bindPopup(this._buildPopupHtml(m), { maxWidth: 280, minWidth: 140 });
 
                     this.markerEntries.push({ id: m.id, def: m, leafletMarker: lMarker });
                 }
@@ -700,8 +674,7 @@
                     { days: 1, label: this.t.day1 },
                     { days: 3, label: this.t.day3 },
                     { days: 7, label: this.t.day7 },
-                    { days: 14, label: this.t.day14 },
-                    { days: 30, label: this.t.day30 }
+                    { days: 14, label: this.t.day14 }
                 ];
                 for (let p of periods) {
                     let cls = p.days === this._combinedDays ? "map-chart-period-btn active" : "map-chart-period-btn";
@@ -786,7 +759,7 @@
                 let self = this;
                 let xTimeFormats = this._combinedDays <= 1
                     ? { hour: 'HH:mm', minute: 'HH:mm' }
-                    : { hour: 'HH:mm', day: this.isRu ? 'dd.MM' : 'MM/dd' };
+                    : { hour: 'HH:mm', day: 'dd.MM' };
 
                 this._activeChart = new Chart(canvas, {
                     type: 'line',
@@ -912,6 +885,27 @@
                 }
             }
 
+            // Vertical crosshair line plugin for Chart.js
+            static _crosshairPlugin = {
+                id: 'crosshairLine',
+                afterDraw(chart) {
+                    if (chart.tooltip && chart.tooltip._active && chart.tooltip._active.length) {
+                        let x = chart.tooltip._active[0].element.x;
+                        let yAxis = chart.scales.y;
+                        let ctx = chart.ctx;
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.moveTo(x, yAxis.top);
+                        ctx.lineTo(x, yAxis.bottom);
+                        ctx.lineWidth = 1;
+                        ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+                        ctx.setLineDash([3, 3]);
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+                }
+            };
+
             _renderMiniChart(canvas, cnlNum, alias, color, histData) {
                 if (this._activeMiniChart) {
                     this._activeMiniChart.destroy();
@@ -959,13 +953,20 @@
                             spanGaps: false
                         }]
                     },
+                    plugins: [MapViewManager._crosshairPlugin],
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         animation: { duration: 200 },
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
                         plugins: {
                             legend: { display: false },
                             tooltip: {
+                                mode: 'index',
+                                intersect: false,
                                 titleFont: { size: 12 },
                                 bodyFont: { size: 12 },
                                 callbacks: {
