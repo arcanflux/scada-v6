@@ -28,29 +28,37 @@
             border: none !important;
         }
 
+        /* Popup */
+        .leaflet-popup-content {
+            font-size: 14px;
+            line-height: 1.45;
+        }
+
         .map-popup-table {
             border-collapse: collapse;
-            font-size: 0.9em;
-            margin: 4px 0;
+            font-size: 14px;
+            margin: 6px 0;
+            width: 100%;
         }
 
         .map-popup-table td {
-            padding: 1px 6px 1px 0;
+            padding: 2px 8px 2px 0;
         }
 
         .map-popup-table .alias {
-            color: #666;
+            color: #555;
+            font-size: 14px;
         }
 
         .map-popup-table .val {
             font-weight: 600;
+            font-size: 15px;
         }
 
         .map-popup-table .chart-btn {
             cursor: pointer;
             opacity: 0.5;
-            padding: 0 3px;
-            font-size: 14px;
+            padding: 0 4px;
             vertical-align: middle;
             transition: opacity 0.15s;
         }
@@ -59,17 +67,29 @@
             opacity: 1.0;
         }
 
-        .map-popup-chart-link {
-            display: inline-block;
-            margin-top: 4px;
-            font-size: 0.85em;
-            cursor: pointer;
-            color: #0073aa;
-            text-decoration: none;
+        .map-popup-name {
+            font-size: 15px;
+            font-weight: 700;
         }
 
-        .map-popup-chart-link:hover {
-            text-decoration: underline;
+        .map-popup-chart-btn {
+            display: block;
+            margin-top: 8px;
+            padding: 5px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #fff;
+            background: #0073aa;
+            border: none;
+            border-radius: 4px;
+            text-align: center;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .map-popup-chart-btn:hover {
+            background: #005f8a;
         }
 
         .leaflet-control-attribution {
@@ -150,9 +170,9 @@
             background: #fff;
             border-radius: 8px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            width: 720px;
-            max-width: 92vw;
-            max-height: 85vh;
+            width: 780px;
+            max-width: 94vw;
+            max-height: 88vh;
             overflow: hidden;
             display: flex;
             flex-direction: column;
@@ -165,12 +185,12 @@
             padding: 12px 16px;
             border-bottom: 1px solid #eee;
             font-weight: 600;
-            font-size: 1.05em;
+            font-size: 1.1em;
         }
 
         .map-chart-close {
             cursor: pointer;
-            font-size: 22px;
+            font-size: 24px;
             color: #888;
             line-height: 1;
             padding: 0 4px;
@@ -178,6 +198,41 @@
 
         .map-chart-close:hover {
             color: #333;
+        }
+
+        .map-chart-toolbar {
+            display: flex;
+            gap: 4px;
+            padding: 8px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .map-chart-toolbar label {
+            font-size: 13px;
+            color: #666;
+            margin-right: 4px;
+        }
+
+        .map-chart-period-btn {
+            padding: 4px 10px;
+            font-size: 12px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            background: #fff;
+            cursor: pointer;
+            color: #333;
+        }
+
+        .map-chart-period-btn:hover {
+            background: #f0f7ff;
+        }
+
+        .map-chart-period-btn.active {
+            background: #0073aa;
+            color: #fff;
+            border-color: #0073aa;
         }
 
         .map-chart-body {
@@ -189,7 +244,7 @@
         .map-chart-canvas-wrap {
             position: relative;
             width: 100%;
-            height: 320px;
+            height: 340px;
         }
 
         .map-chart-loading {
@@ -209,7 +264,7 @@
             border-radius: 6px;
             box-shadow: 0 4px 16px rgba(0,0,0,0.2);
             padding: 8px;
-            width: 340px;
+            width: 360px;
         }
 
         .map-minichart-tooltip.show {
@@ -218,14 +273,14 @@
 
         .map-minichart-title {
             font-weight: 600;
-            font-size: 0.85em;
+            font-size: 13px;
             margin-bottom: 4px;
             color: #333;
         }
 
         .map-minichart-canvas-wrap {
             width: 100%;
-            height: 160px;
+            height: 170px;
             position: relative;
         }
 
@@ -253,6 +308,46 @@
                 "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
             ];
 
+            // --- Localization ---
+            static LANG = {
+                ru: {
+                    searchPlaceholder: "Поиск маркеров...",
+                    noResults: "Нет результатов",
+                    combinedChart: "Совмещённый график",
+                    loading: "Загрузка...",
+                    loadingChart: "Загрузка данных графика...",
+                    noData: "Нет архивных данных",
+                    errorChart: "Ошибка загрузки данных",
+                    error: "Ошибка",
+                    period: "Период:",
+                    day1: "1 день",
+                    day3: "3 дня",
+                    day7: "7 дней",
+                    day14: "14 дней",
+                    day30: "30 дней",
+                    ago1h: "-1ч",
+                    now: "сейчас"
+                },
+                en: {
+                    searchPlaceholder: "Search markers...",
+                    noResults: "No results",
+                    combinedChart: "Combined Chart",
+                    loading: "Loading...",
+                    loadingChart: "Loading chart data...",
+                    noData: "No archive data available",
+                    errorChart: "Error loading chart data",
+                    error: "Error",
+                    period: "Period:",
+                    day1: "1 day",
+                    day3: "3 days",
+                    day7: "7 days",
+                    day14: "14 days",
+                    day30: "30 days",
+                    ago1h: "-1h",
+                    now: "now"
+                }
+            };
+
             constructor(options) {
                 this.viewID = options.viewID;
                 this.refreshRate = options.refreshRate || 1000;
@@ -267,7 +362,13 @@
                 this._activeChart = null;
                 this._activeMiniChart = null;
                 this._miniChartHideTimer = null;
-                this._popupsBuilt = new Set(); // track which marker popups are built
+                this._combinedMarkerIdx = -1;
+                this._combinedDays = 1;
+
+                // detect language
+                let htmlLang = (document.documentElement.lang || "").toLowerCase();
+                this.isRu = htmlLang.startsWith("ru");
+                this.t = this.isRu ? MapViewManager.LANG.ru : MapViewManager.LANG.en;
             }
 
             _detectRootPath() {
@@ -275,14 +376,26 @@
                 return b ? b.getAttribute("href") : "/";
             }
 
-            _apiRoot() {
-                return this.rootPath + "Api/Map/";
+            _apiRoot() { return this.rootPath + "Api/Map/"; }
+            _mainApiRoot() { return this.rootPath + "Api/Main/"; }
+
+            // Formats a Date to locale-appropriate string: RU = "dd.MM HH:mm", EN = "MM/dd HH:mm"
+            _fmtDateTime(d) {
+                let dd = String(d.getDate()).padStart(2, '0');
+                let mm = String(d.getMonth() + 1).padStart(2, '0');
+                let hh = String(d.getHours()).padStart(2, '0');
+                let mi = String(d.getMinutes()).padStart(2, '0');
+                if (this.isRu) return dd + '.' + mm + ' ' + hh + ':' + mi;
+                return mm + '/' + dd + ' ' + hh + ':' + mi;
             }
 
-            _mainApiRoot() {
-                return this.rootPath + "Api/Main/";
+            _fmtTime(d) {
+                let hh = String(d.getHours()).padStart(2, '0');
+                let mi = String(d.getMinutes()).padStart(2, '0');
+                return hh + ':' + mi;
             }
 
+            // --- Resource loading ---
             _loadLeafletCss() {
                 return new Promise((resolve) => {
                     if (document.querySelector('link[href*="leaflet"]')) { resolve(); return; }
@@ -320,7 +433,6 @@
                     let script = document.createElement("script");
                     script.src = MapViewManager.CHARTJS_URL;
                     script.onload = () => {
-                        // load date adapter after Chart.js
                         let adapter = document.createElement("script");
                         adapter.src = MapViewManager.CHARTJS_ADAPTER_URL;
                         adapter.onload = () => { this._chartJsLoaded = true; resolve(); };
@@ -333,20 +445,60 @@
                 return this._chartJsLoadPromise;
             }
 
+            // --- Marker icons (zoom-dependent size) ---
+            _getMarkerSize() {
+                if (!this.map) return 24;
+                let z = this.map.getZoom();
+                // scale from 16px at zoom 10 to 36px at zoom 18
+                return Math.round(Math.min(36, Math.max(16, 12 + z * 1.5)));
+            }
+
             _createMarkerIcon(color) {
                 color = color || "#3388ff";
-                let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">' +
-                    '<circle cx="12" cy="12" r="10" fill="' + color + '" stroke="#fff" stroke-width="2"/>' +
+                let size = this._getMarkerSize();
+                let r = Math.round(size * 0.42);
+                let sw = Math.max(1.5, size * 0.08);
+                let half = size / 2;
+                let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
+                    '<circle cx="' + half + '" cy="' + half + '" r="' + r + '" fill="' + color + '" stroke="#fff" stroke-width="' + sw + '"/>' +
                     '</svg>';
                 return L.divIcon({
                     html: svg,
                     className: "map-marker-icon",
-                    iconSize: [24, 24],
-                    iconAnchor: [12, 12],
-                    popupAnchor: [0, -14]
+                    iconSize: [size, size],
+                    iconAnchor: [half, half],
+                    popupAnchor: [0, -half - 2]
                 });
             }
 
+            _refreshAllMarkerIcons() {
+                for (let entry of this.markerEntries) {
+                    let worstStat = 0;
+                    for (let ch of entry.def.channels) {
+                        let rec = this.curDataMap[ch.cnlNum];
+                        if (rec && rec.stat > worstStat) worstStat = rec.stat;
+                    }
+                    let color = this._getColorForStatus(worstStat);
+                    entry.leafletMarker.setIcon(this._createMarkerIcon(color));
+                }
+            }
+
+            // --- Axis helpers ---
+            _getAxisLimits(alias) {
+                let a = (alias || "").toUpperCase();
+                if (a === "T1" || a === "T2") return { min: 0, max: 120, unit: "°C" };
+                if (a === "T3")               return { min: 0, max: 80,  unit: "°C" };
+                if (a === "P1" || a === "P2") return { min: 0, max: 25,  unit: "kgf/cm²" };
+                return null;
+            }
+
+            _getAxisGroup(alias) {
+                let a = (alias || "").toUpperCase();
+                if (a === "P1" || a === "P2") return "pressure";
+                return "temp";
+            }
+
+            // --- Init ---
             async init() {
                 await this._loadLeafletCss();
                 await this._loadLeafletJs();
@@ -362,6 +514,10 @@
 
                 let config = dto.data.config;
                 this.markers = dto.data.markers;
+
+                // set search placeholder
+                let searchInput = document.getElementById("mapSearchInput");
+                if (searchInput) searchInput.placeholder = this.t.searchPlaceholder;
 
                 this.map = L.map("divMapContainer", {
                     minZoom: config.minZoom,
@@ -394,10 +550,13 @@
                         title: m.name
                     }).addTo(this.map);
 
-                    lMarker.bindPopup(this._buildPopupHtml(m), { maxWidth: 320 });
+                    lMarker.bindPopup(this._buildPopupHtml(m), { maxWidth: 340, minWidth: 180 });
 
                     this.markerEntries.push({ id: m.id, def: m, leafletMarker: lMarker });
                 }
+
+                // resize markers on zoom
+                this.map.on('zoomend', () => this._refreshAllMarkerIcons());
 
                 this._initSearch();
                 this._initChartOverlay();
@@ -425,7 +584,8 @@
                     );
 
                     if (matches.length === 0) {
-                        results.innerHTML = '<div class="map-search-item" style="color:#999">No results</div>';
+                        results.innerHTML = '<div class="map-search-item" style="color:#999">' +
+                            this._escapeHtml(this.t.noResults) + '</div>';
                         results.classList.add("show");
                         return;
                     }
@@ -459,38 +619,9 @@
                 });
             }
 
-            // --- Popups ---
-
-            // Returns the consistent color for a channel based on its position in def.channels
-            _getChannelColor(def, cnlNum) {
-                let idx = def.channels.findIndex(c => c.cnlNum === cnlNum);
-                if (idx < 0) idx = 0;
-                return MapViewManager.CHART_COLORS[idx % MapViewManager.CHART_COLORS.length];
-            }
-
-            // Returns Y-axis limits for a channel alias
-            _getAxisLimits(alias) {
-                let a = (alias || "").toUpperCase();
-                if (a === "T1" || a === "T2") return { min: 0, max: 120, unit: "°C" };
-                if (a === "T3")               return { min: 0, max: 80,  unit: "°C" };
-                if (a === "P1" || a === "P2") return { min: 0, max: 25,  unit: "kgf/cm²" };
-                return null; // auto
-            }
-
-            // Returns "temp" or "pressure" axis group for combined chart
-            _getAxisGroup(alias) {
-                let a = (alias || "").toUpperCase();
-                if (a === "P1" || a === "P2") return "pressure";
-                return "temp";
-            }
-
+            // --- Popups (no Descr, bigger fonts, button for combined chart) ---
             _buildPopupHtml(def) {
-                let html = '<b>' + this._escapeHtml(def.name) + '</b>';
-
-                if (def.descr) {
-                    html += '<br/><span style="color:#666;font-size:0.85em">' +
-                        this._escapeHtml(def.descr) + '</span>';
-                }
+                let html = '<span class="map-popup-name">' + this._escapeHtml(def.name) + '</span>';
 
                 if (def.channels && def.channels.length > 0) {
                     html += '<table class="map-popup-table">';
@@ -508,7 +639,7 @@
                                 'onmouseenter="mapViewInstance._showMiniChart(event, ' + ch.cnlNum + ', \'' +
                                     this._escapeHtml(alias).replace(/'/g, "\\'") + '\', \'' + color + '\')" ' +
                                 'onmouseleave="mapViewInstance._scheduleMiniChartHide()">' +
-                                '<svg width="14" height="14" viewBox="0 0 14 14" style="vertical-align:middle">' +
+                                '<svg width="16" height="16" viewBox="0 0 14 14" style="vertical-align:middle">' +
                                 '<polyline points="1,12 4,6 7,9 10,3 13,7" fill="none" stroke="' + color + '" stroke-width="1.5"/>' +
                                 '</svg>' +
                             '</td>' +
@@ -516,12 +647,11 @@
                     }
                     html += '</table>';
 
-                    // Combined chart link
                     let markerIdx = this.markerEntries.findIndex(e => e.def === def);
                     if (markerIdx < 0) markerIdx = this.markers.indexOf(def);
-                    html += '<a class="map-popup-chart-link" href="javascript:void(0)" ' +
+                    html += '<button class="map-popup-chart-btn" ' +
                         'onclick="mapViewInstance._openCombinedChart(' + (markerIdx >= 0 ? markerIdx : 0) + ')">' +
-                        '&#128200; Combined Chart</a>';
+                        this._escapeHtml(this.t.combinedChart) + '</button>';
                 }
 
                 return html;
@@ -550,34 +680,62 @@
                 }
             }
 
-            async _openCombinedChart(markerIdx) {
+            async _openCombinedChart(markerIdx, days) {
                 let def = this.markers[markerIdx];
                 if (!def || !def.channels || def.channels.length === 0) return;
+
+                this._combinedMarkerIdx = markerIdx;
+                this._combinedDays = days || 1;
 
                 let overlay = document.getElementById("mapChartOverlay");
                 let title = document.getElementById("mapChartTitle");
                 let body = document.getElementById("mapChartBody");
+                let toolbar = document.getElementById("mapChartToolbar");
 
-                title.textContent = def.name || "Combined Chart";
-                body.innerHTML = '<div class="map-chart-loading">Loading chart data...</div>';
+                title.textContent = def.name || this.t.combinedChart;
+
+                // build period toolbar
+                toolbar.innerHTML = '<label>' + this._escapeHtml(this.t.period) + '</label>';
+                let periods = [
+                    { days: 1, label: this.t.day1 },
+                    { days: 3, label: this.t.day3 },
+                    { days: 7, label: this.t.day7 },
+                    { days: 14, label: this.t.day14 },
+                    { days: 30, label: this.t.day30 }
+                ];
+                for (let p of periods) {
+                    let cls = p.days === this._combinedDays ? "map-chart-period-btn active" : "map-chart-period-btn";
+                    toolbar.innerHTML += '<button class="' + cls + '" data-days="' + p.days + '">' +
+                        this._escapeHtml(p.label) + '</button>';
+                }
+
+                // wire period buttons
+                toolbar.querySelectorAll('.map-chart-period-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        let d = parseInt(btn.dataset.days, 10);
+                        this._openCombinedChart(this._combinedMarkerIdx, d);
+                    });
+                });
+
+                body.innerHTML = '<div class="map-chart-loading">' + this._escapeHtml(this.t.loadingChart) + '</div>';
                 overlay.classList.add("show");
 
                 try {
                     await this._loadChartJs();
-                    let histData = await this._fetchHistData(def.channels.map(c => c.cnlNum));
+                    let cnlNums = def.channels.map(c => c.cnlNum);
+                    let histData = await this._fetchHistData(cnlNums, this._combinedDays);
 
                     if (!histData) {
-                        body.innerHTML = '<div class="map-chart-loading">No archive data available</div>';
+                        body.innerHTML = '<div class="map-chart-loading">' + this._escapeHtml(this.t.noData) + '</div>';
                         return;
                     }
 
                     body.innerHTML = '<div class="map-chart-canvas-wrap"><canvas id="mapCombinedCanvas"></canvas></div>';
                     let canvas = document.getElementById("mapCombinedCanvas");
-
                     this._renderCombinedChart(canvas, def, histData);
                 } catch (err) {
                     console.error("Chart loading error:", err);
-                    body.innerHTML = '<div class="map-chart-loading">Error loading chart data</div>';
+                    body.innerHTML = '<div class="map-chart-loading">' + this._escapeHtml(this.t.errorChart) + '</div>';
                 }
             }
 
@@ -590,13 +748,11 @@
                 let timestamps = histData.timestamps.map(t => new Date(t.ms));
                 let datasets = [];
 
-                // Build a lookup: cnlNum -> trend index in histData
                 let cnlToTrendIdx = {};
                 for (let i = 0; i < histData.cnlNums.length; i++) {
                     cnlToTrendIdx[histData.cnlNums[i]] = i;
                 }
 
-                // Iterate in def.channels order so colors match the popup
                 for (let i = 0; i < def.channels.length; i++) {
                     let ch = def.channels[i];
                     let alias = ch.alias || ("Ch" + ch.cnlNum);
@@ -627,27 +783,30 @@
                     });
                 }
 
+                let self = this;
+                let xTimeFormats = this._combinedDays <= 1
+                    ? { hour: 'HH:mm', minute: 'HH:mm' }
+                    : { hour: 'HH:mm', day: this.isRu ? 'dd.MM' : 'MM/dd' };
+
                 this._activeChart = new Chart(canvas, {
                     type: 'line',
                     data: { datasets: datasets },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        interaction: {
-                            mode: 'index',
-                            intersect: false
-                        },
+                        interaction: { mode: 'index', intersect: false },
                         plugins: {
                             legend: {
                                 position: 'top',
-                                labels: { usePointStyle: true, pointStyle: 'line', boxWidth: 30 }
+                                labels: { usePointStyle: true, pointStyle: 'line', boxWidth: 30, font: { size: 13 } }
                             },
                             tooltip: {
+                                titleFont: { size: 13 },
+                                bodyFont: { size: 13 },
                                 callbacks: {
                                     title: function(items) {
                                         if (items.length > 0) {
-                                            let d = items[0].parsed.x;
-                                            return new Date(d).toLocaleString();
+                                            return self._fmtDateTime(new Date(items[0].parsed.x));
                                         }
                                         return '';
                                     }
@@ -657,24 +816,25 @@
                         scales: {
                             x: {
                                 type: 'time',
-                                time: {
-                                    displayFormats: { hour: 'HH:mm', minute: 'HH:mm', day: 'MMM d' }
-                                },
-                                title: { display: false }
+                                time: { displayFormats: xTimeFormats },
+                                title: { display: false },
+                                ticks: { font: { size: 12 } }
                             },
                             yTemp: {
                                 type: 'linear',
                                 position: 'left',
                                 min: 0,
                                 max: 120,
-                                title: { display: true, text: '°C' }
+                                title: { display: true, text: '°C', font: { size: 13 } },
+                                ticks: { font: { size: 12 } }
                             },
                             yPressure: {
                                 type: 'linear',
                                 position: 'right',
                                 min: 0,
                                 max: 25,
-                                title: { display: true, text: 'kgf/cm²' },
+                                title: { display: true, text: 'kgf/cm²', font: { size: 13 } },
+                                ticks: { font: { size: 12 } },
                                 grid: { drawOnChartArea: false }
                             }
                         }
@@ -682,7 +842,7 @@
                 });
             }
 
-            // --- Mini Chart Tooltip (hover per parameter) ---
+            // --- Mini Chart Tooltip (hover per parameter, 1h range) ---
             _initMiniChartTooltip() {
                 let tip = document.getElementById("mapMiniChartTooltip");
                 if (!tip) return;
@@ -703,20 +863,16 @@
                 let bodyEl = document.getElementById("mapMiniChartBody");
 
                 titleEl.textContent = alias + " (Ch " + cnlNum + ")";
-                bodyEl.innerHTML = '<div class="map-minichart-loading">Loading...</div>';
+                bodyEl.innerHTML = '<div class="map-minichart-loading">' + this._escapeHtml(this.t.loading) + '</div>';
 
-                // Position near the hovered element
                 let rect = event.target.getBoundingClientRect();
-                let tipWidth = 340;
+                let tipWidth = 360;
                 let left = rect.right + 8;
                 let top = rect.top - 40;
 
-                // keep within viewport
-                if (left + tipWidth > window.innerWidth) {
-                    left = rect.left - tipWidth - 8;
-                }
+                if (left + tipWidth > window.innerWidth) left = rect.left - tipWidth - 8;
                 if (top < 8) top = 8;
-                if (top + 200 > window.innerHeight) top = window.innerHeight - 210;
+                if (top + 210 > window.innerHeight) top = window.innerHeight - 220;
 
                 tip.style.left = left + "px";
                 tip.style.top = top + "px";
@@ -724,14 +880,14 @@
 
                 try {
                     await this._loadChartJs();
-                    let histData = await this._fetchHistData([cnlNum]);
+                    // fetch 1 hour for mini chart
+                    let histData = await this._fetchHistData([cnlNum], 1 / 24);
 
                     if (!histData || !histData.trends || histData.trends.length === 0) {
-                        bodyEl.innerHTML = '<div class="map-minichart-loading">No data</div>';
+                        bodyEl.innerHTML = '<div class="map-minichart-loading">' + this._escapeHtml(this.t.noData) + '</div>';
                         return;
                     }
 
-                    // check tooltip is still visible (user may have moved away)
                     if (!tip.classList.contains("show")) return;
 
                     bodyEl.innerHTML = '<div class="map-minichart-canvas-wrap"><canvas id="mapMiniCanvas"></canvas></div>';
@@ -739,7 +895,7 @@
                     this._renderMiniChart(canvas, cnlNum, alias, color, histData);
                 } catch (err) {
                     console.error("Mini chart error:", err);
-                    bodyEl.innerHTML = '<div class="map-minichart-loading">Error</div>';
+                    bodyEl.innerHTML = '<div class="map-minichart-loading">' + this._escapeHtml(this.t.error) + '</div>';
                 }
             }
 
@@ -770,17 +926,22 @@
                 }));
 
                 let limits = this._getAxisLimits(alias);
-                let yConfig = {
-                    ticks: { font: { size: 10 } }
-                };
+                let yConfig = { ticks: { font: { size: 11 } } };
                 if (limits) {
                     yConfig.min = limits.min;
                     yConfig.max = limits.max;
-                    yConfig.title = { display: true, text: limits.unit, font: { size: 10 } };
+                    yConfig.title = { display: true, text: limits.unit, font: { size: 11 } };
                 } else {
                     yConfig.beginAtZero = false;
                     yConfig.title = { display: false };
                 }
+
+                // fixed 1-hour range: -1h to now
+                let now = new Date();
+                let oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+                let ago1h = this.t.ago1h;
+                let nowLabel = this.t.now;
+                let self = this;
 
                 this._activeMiniChart = new Chart(canvas, {
                     type: 'line',
@@ -805,10 +966,12 @@
                         plugins: {
                             legend: { display: false },
                             tooltip: {
+                                titleFont: { size: 12 },
+                                bodyFont: { size: 12 },
                                 callbacks: {
                                     title: function(items) {
                                         if (items.length > 0) {
-                                            return new Date(items[0].parsed.x).toLocaleString();
+                                            return self._fmtTime(new Date(items[0].parsed.x));
                                         }
                                         return '';
                                     }
@@ -818,10 +981,19 @@
                         scales: {
                             x: {
                                 type: 'time',
+                                min: oneHourAgo.getTime(),
+                                max: now.getTime(),
                                 time: {
                                     displayFormats: { hour: 'HH:mm', minute: 'HH:mm' }
                                 },
-                                ticks: { font: { size: 10 } },
+                                ticks: {
+                                    font: { size: 11 },
+                                    callback: function(value, index, ticks) {
+                                        if (index === 0) return ago1h;
+                                        if (index === ticks.length - 1) return nowLabel;
+                                        return self._fmtTime(new Date(value));
+                                    }
+                                },
                                 title: { display: false }
                             },
                             y: yConfig
@@ -831,16 +1003,18 @@
             }
 
             // --- Historical Data Fetch ---
-            async _fetchHistData(cnlNums) {
-                let cacheKey = cnlNums.join(",");
+            async _fetchHistData(cnlNums, days) {
+                days = days || 1;
+                let cacheKey = cnlNums.join(",") + "_" + days;
                 let cached = this._chartCache[cacheKey];
-                if (cached && (Date.now() - cached.time) < 60000) {
+                // 60s cache for 1h data, 5min for longer periods
+                let cacheMs = days <= 1 / 24 ? 60000 : 300000;
+                if (cached && (Date.now() - cached.time) < cacheMs) {
                     return cached.data;
                 }
 
-                // Fetch last 24 hours of archive data
                 let endTime = new Date();
-                let startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
+                let startTime = new Date(endTime.getTime() - days * 24 * 60 * 60 * 1000);
 
                 let url = this._mainApiRoot() + "GetHistData" +
                     "?archiveBit=1" +
@@ -905,7 +1079,7 @@
                                     valEl.textContent = rec.text || "--";
                                 }
                             }
-                            continue; // skip full rebuild
+                            continue;
                         }
                     }
 
@@ -972,6 +1146,7 @@
             <span id="mapChartTitle">Chart</span>
             <span id="mapChartClose" class="map-chart-close">&times;</span>
         </div>
+        <div id="mapChartToolbar" class="map-chart-toolbar"></div>
         <div id="mapChartBody" class="map-chart-body">
             <div class="map-chart-loading">Loading...</div>
         </div>
