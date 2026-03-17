@@ -51,6 +51,17 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
             if (viewEntity == null || string.IsNullOrEmpty(viewEntity.Path))
                 return null;
 
+            return LoadMapViewFromPath(viewEntity);
+        }
+
+        /// <summary>
+        /// Loads a MapView from a View entity's path in storage.
+        /// </summary>
+        private MapView LoadMapViewFromPath(View viewEntity)
+        {
+            if (viewEntity == null || string.IsNullOrEmpty(viewEntity.Path))
+                return null;
+
             try
             {
                 using BinaryReader reader = webContext.Storage.OpenBinary(DataCategory.View, viewEntity.Path);
@@ -62,9 +73,60 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
             {
                 webContext.Log.WriteError(ex, Locale.IsRussian ?
                     "Ошибка при загрузке представления карты из хранилища для ид. {0}" :
-                    "Error loading map view from storage for ID {0}", viewID);
+                    "Error loading map view from storage for ID {0}", viewEntity.ViewID);
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Scans SortedViews for the first .map file and loads it from storage.
+        /// Used as a last-resort fallback when viewID is 0 or invalid.
+        /// </summary>
+        private MapView FindAndLoadFirstMapView()
+        {
+            // First, scan the config database for registered .map views
+            foreach (var viewEntity in webContext.ConfigDatabase.SortedViews)
+            {
+                if (!viewEntity.Hidden &&
+                    viewEntity.Path != null &&
+                    viewEntity.Path.EndsWith(".map", StringComparison.OrdinalIgnoreCase))
+                {
+                    MapView mapView = LoadMapViewFromPath(viewEntity);
+                    if (mapView != null)
+                        return mapView;
+                }
+            }
+
+            // Second, scan storage directly for .map files
+            try
+            {
+                ICollection<string> mapFiles = webContext.Storage.GetFileList(
+                    DataCategory.View, "", "*.map");
+
+                foreach (string filePath in mapFiles)
+                {
+                    try
+                    {
+                        View fakeEntity = new() { ViewID = 0, Path = filePath };
+                        using BinaryReader reader = webContext.Storage.OpenBinary(DataCategory.View, filePath);
+                        MapView mapView = new(fakeEntity);
+                        mapView.LoadView(reader.BaseStream);
+                        return mapView;
+                    }
+                    catch
+                    {
+                        // skip files that fail to parse
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                webContext.Log.WriteError(ex, Locale.IsRussian ?
+                    "Ошибка при поиске файлов карт в хранилище" :
+                    "Error scanning storage for map files");
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -109,20 +171,30 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
         {
             try
             {
-                if (viewLoader.GetView(viewID, true, out MapView mapView, out string errMsg))
+                string errMsg = null;
+                MapView mapView = null;
+
+                if (viewID > 0 && viewLoader.GetView(viewID, true, out mapView, out errMsg))
                 {
                     return Dto<MapDataPacket>.Success(BuildMapDataPacket(mapView));
                 }
 
-                // fallback: try loading the .map file directly from local storage
-                mapView = LoadMapViewFromStorage(viewID);
+                // fallback 1: try loading the specific view from local storage
+                MapView fallbackView = viewID > 0 ? LoadMapViewFromStorage(viewID) : null;
 
-                if (mapView != null)
+                // fallback 2: scan for any .map file in config database and storage
+                fallbackView ??= FindAndLoadFirstMapView();
+
+                if (fallbackView != null)
                 {
-                    return Dto<MapDataPacket>.Success(BuildMapDataPacket(mapView));
+                    return Dto<MapDataPacket>.Success(BuildMapDataPacket(fallbackView));
                 }
 
-                return Dto<MapDataPacket>.Fail(errMsg);
+                return Dto<MapDataPacket>.Fail(viewID > 0
+                    ? (errMsg ?? WebPhrases.UnableLoadView)
+                    : (Locale.IsRussian
+                        ? "Не найдены файлы карт (.map) в хранилище"
+                        : "No map files (.map) found in storage"));
             }
             catch (Exception ex)
             {
@@ -138,11 +210,20 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
         {
             try
             {
-                if (!viewLoader.GetView(viewID, out MapView mapView, out string errMsg))
+                MapView mapView = null;
+                string errMsg = null;
+
+                if (viewID > 0)
                 {
-                    // fallback: try loading from local storage
-                    mapView = LoadMapViewFromStorage(viewID);
+                    if (!viewLoader.GetView(viewID, out mapView, out errMsg))
+                    {
+                        // fallback: try loading from local storage by ID
+                        mapView = LoadMapViewFromStorage(viewID);
+                    }
                 }
+
+                // fallback: scan for any .map file
+                mapView ??= FindAndLoadFirstMapView();
 
                 if (mapView != null)
                 {
