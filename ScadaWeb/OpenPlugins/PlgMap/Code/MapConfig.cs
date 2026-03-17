@@ -15,12 +15,12 @@ namespace Scada.Web.Plugins.PlgMap.Code
         /// <summary>
         /// Gets or sets the initial map center latitude.
         /// </summary>
-        public double CenterLat { get; set; } = 51.505;
+        public double CenterLat { get; set; } = 55.030204;
 
         /// <summary>
         /// Gets or sets the initial map center longitude.
         /// </summary>
-        public double CenterLng { get; set; } = -0.09;
+        public double CenterLng { get; set; } = 82.920430;
 
         /// <summary>
         /// Gets or sets the initial zoom level (1-18).
@@ -45,9 +45,9 @@ namespace Scada.Web.Plugins.PlgMap.Code
         {
             return new MapConfig
             {
-                CenterLat = double.Parse(node.Attributes?["centerLat"]?.Value ?? "51.505",
+                CenterLat = double.Parse(node.Attributes?["centerLat"]?.Value ?? "55.030204",
                     CultureInfo.InvariantCulture),
-                CenterLng = double.Parse(node.Attributes?["centerLng"]?.Value ?? "-0.09",
+                CenterLng = double.Parse(node.Attributes?["centerLng"]?.Value ?? "82.920430",
                     CultureInfo.InvariantCulture),
                 Zoom = int.Parse(node.Attributes?["zoom"]?.Value ?? "13"),
                 MinZoom = int.Parse(node.Attributes?["minZoom"]?.Value ?? "2"),
