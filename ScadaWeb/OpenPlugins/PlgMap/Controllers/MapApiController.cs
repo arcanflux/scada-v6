@@ -156,9 +156,8 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
             try
             {
                 string errMsg = null;
-                MapView mapView = null;
 
-                if (viewID > 0 && viewLoader.GetView(viewID, true, out mapView, out errMsg))
+                if (viewID > 0 && viewLoader.GetView(viewID, true, out MapView mapView, out errMsg))
                 {
                     return Dto<MapDataPacket>.Success(BuildMapDataPacket(mapView));
                 }

@@ -3,7 +3,7 @@
 
 using Scada.Lang;
 
-namespace Scada.Web.Plugins.PlgMap
+namespace Scada.Web.Plugins.PlgMap.Code
 {
     /// <summary>
     /// Represents information about the map plugin.
