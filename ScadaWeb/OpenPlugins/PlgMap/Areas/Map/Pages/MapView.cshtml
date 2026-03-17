@@ -267,6 +267,7 @@
                 this._activeChart = null;
                 this._activeMiniChart = null;
                 this._miniChartHideTimer = null;
+                this._popupsBuilt = new Set(); // track which marker popups are built
             }
 
             _detectRootPath() {
@@ -459,6 +460,30 @@
             }
 
             // --- Popups ---
+
+            // Returns the consistent color for a channel based on its position in def.channels
+            _getChannelColor(def, cnlNum) {
+                let idx = def.channels.findIndex(c => c.cnlNum === cnlNum);
+                if (idx < 0) idx = 0;
+                return MapViewManager.CHART_COLORS[idx % MapViewManager.CHART_COLORS.length];
+            }
+
+            // Returns Y-axis limits for a channel alias
+            _getAxisLimits(alias) {
+                let a = (alias || "").toUpperCase();
+                if (a === "T1" || a === "T2") return { min: 0, max: 120, unit: "°C" };
+                if (a === "T3")               return { min: 0, max: 80,  unit: "°C" };
+                if (a === "P1" || a === "P2") return { min: 0, max: 25,  unit: "kgf/cm²" };
+                return null; // auto
+            }
+
+            // Returns "temp" or "pressure" axis group for combined chart
+            _getAxisGroup(alias) {
+                let a = (alias || "").toUpperCase();
+                if (a === "P1" || a === "P2") return "pressure";
+                return "temp";
+            }
+
             _buildPopupHtml(def) {
                 let html = '<b>' + this._escapeHtml(def.name) + '</b>';
 
@@ -474,16 +499,12 @@
                         let rec = this.curDataMap[ch.cnlNum];
                         let valText = rec ? this._escapeHtml(rec.text) : "--";
                         let alias = ch.alias || ("Ch" + ch.cnlNum);
-                        let colorIdx = i % MapViewManager.CHART_COLORS.length;
-                        let color = MapViewManager.CHART_COLORS[colorIdx];
+                        let color = MapViewManager.CHART_COLORS[i % MapViewManager.CHART_COLORS.length];
 
                         html += '<tr>' +
                             '<td class="alias">' + this._escapeHtml(alias) + ':</td>' +
-                            '<td class="val" id="cnl-' + ch.cnlNum + '">' + valText + '</td>' +
+                            '<td class="val" data-cnl="' + ch.cnlNum + '">' + valText + '</td>' +
                             '<td class="chart-btn" ' +
-                                'data-cnl="' + ch.cnlNum + '" ' +
-                                'data-alias="' + this._escapeHtml(alias) + '" ' +
-                                'data-color="' + color + '" ' +
                                 'onmouseenter="mapViewInstance._showMiniChart(event, ' + ch.cnlNum + ', \'' +
                                     this._escapeHtml(alias).replace(/'/g, "\\'") + '\', \'' + color + '\')" ' +
                                 'onmouseleave="mapViewInstance._scheduleMiniChartHide()">' +
@@ -569,17 +590,27 @@
                 let timestamps = histData.timestamps.map(t => new Date(t.ms));
                 let datasets = [];
 
+                // Build a lookup: cnlNum -> trend index in histData
+                let cnlToTrendIdx = {};
                 for (let i = 0; i < histData.cnlNums.length; i++) {
-                    let cnlNum = histData.cnlNums[i];
-                    let ch = def.channels.find(c => c.cnlNum === cnlNum);
-                    let alias = ch ? (ch.alias || "Ch" + cnlNum) : "Ch" + cnlNum;
-                    let color = MapViewManager.CHART_COLORS[i % MapViewManager.CHART_COLORS.length];
-                    let trend = histData.trends[i];
+                    cnlToTrendIdx[histData.cnlNums[i]] = i;
+                }
 
+                // Iterate in def.channels order so colors match the popup
+                for (let i = 0; i < def.channels.length; i++) {
+                    let ch = def.channels[i];
+                    let alias = ch.alias || ("Ch" + ch.cnlNum);
+                    let color = MapViewManager.CHART_COLORS[i % MapViewManager.CHART_COLORS.length];
+                    let trendIdx = cnlToTrendIdx[ch.cnlNum];
+                    if (trendIdx === undefined) continue;
+
+                    let trend = histData.trends[trendIdx];
                     let data = trend.map((rec, idx) => ({
                         x: timestamps[idx],
                         y: (rec && rec.d && rec.d.stat > 0) ? rec.d.val : null
                     }));
+
+                    let axisGroup = this._getAxisGroup(alias);
 
                     datasets.push({
                         label: alias,
@@ -591,7 +622,8 @@
                         pointHoverRadius: 4,
                         tension: 0.3,
                         fill: false,
-                        spanGaps: false
+                        spanGaps: false,
+                        yAxisID: axisGroup === "pressure" ? "yPressure" : "yTemp"
                     });
                 }
 
@@ -630,9 +662,20 @@
                                 },
                                 title: { display: false }
                             },
-                            y: {
-                                beginAtZero: false,
-                                title: { display: false }
+                            yTemp: {
+                                type: 'linear',
+                                position: 'left',
+                                min: 0,
+                                max: 120,
+                                title: { display: true, text: '°C' }
+                            },
+                            yPressure: {
+                                type: 'linear',
+                                position: 'right',
+                                min: 0,
+                                max: 25,
+                                title: { display: true, text: 'kgf/cm²' },
+                                grid: { drawOnChartArea: false }
                             }
                         }
                     }
@@ -726,6 +769,19 @@
                     y: (rec && rec.d && rec.d.stat > 0) ? rec.d.val : null
                 }));
 
+                let limits = this._getAxisLimits(alias);
+                let yConfig = {
+                    ticks: { font: { size: 10 } }
+                };
+                if (limits) {
+                    yConfig.min = limits.min;
+                    yConfig.max = limits.max;
+                    yConfig.title = { display: true, text: limits.unit, font: { size: 10 } };
+                } else {
+                    yConfig.beginAtZero = false;
+                    yConfig.title = { display: false };
+                }
+
                 this._activeMiniChart = new Chart(canvas, {
                     type: 'line',
                     data: {
@@ -768,11 +824,7 @@
                                 ticks: { font: { size: 10 } },
                                 title: { display: false }
                             },
-                            y: {
-                                beginAtZero: false,
-                                ticks: { font: { size: 10 } },
-                                title: { display: false }
-                            }
+                            y: yConfig
                         }
                     }
                 });
@@ -840,6 +892,23 @@
 
                     let color = this._getColorForStatus(worstStat);
                     entry.leafletMarker.setIcon(this._createMarkerIcon(color));
+
+                    // Update values in-place if popup is open, otherwise rebuild
+                    let popup = entry.leafletMarker.getPopup();
+                    if (popup && popup.isOpen()) {
+                        let popupEl = popup.getElement();
+                        if (popupEl) {
+                            for (let ch of entry.def.channels) {
+                                let valEl = popupEl.querySelector('td[data-cnl="' + ch.cnlNum + '"]');
+                                let rec = this.curDataMap[ch.cnlNum];
+                                if (valEl && rec) {
+                                    valEl.textContent = rec.text || "--";
+                                }
+                            }
+                            continue; // skip full rebuild
+                        }
+                    }
+
                     entry.leafletMarker.setPopupContent(this._buildPopupHtml(entry.def));
                 }
             }
