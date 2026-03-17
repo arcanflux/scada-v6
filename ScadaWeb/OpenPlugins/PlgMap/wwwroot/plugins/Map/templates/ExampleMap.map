@@ -1,19 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
-<MapView>
+<Map>
   <MapConfig centerLat="55.030204" centerLng="82.920430" zoom="13" minZoom="2" maxZoom="19" />
-  <Markers>
-    <Marker id="1" name="Sensor Station 1" latitude="55.030204" longitude="82.920430" cnlNum="101" caption="Sensor Station 1">
-      <Channel num="101" alias="T1" />
-      <Channel num="102" alias="T2" />
-      <Channel num="103" alias="P1" />
-    </Marker>
-    <Marker id="2" name="Pump Station" latitude="55.035" longitude="82.910" cnlNum="104" caption="Pump Station">
-      <Channel num="104" alias="T1" />
-      <Channel num="105" alias="P1" />
-    </Marker>
-    <Marker id="3" name="Substation A" latitude="55.025" longitude="82.935" cnlNum="106" caption="Substation A">
-      <Channel num="106" alias="Voltage" />
-      <Channel num="107" alias="Current" />
-    </Marker>
-  </Markers>
-</MapView>
+
+  <Marker id="1" name="ЦТП О-53" lat="55.027970" lon="82.96893">
+    <Channel num="1020" alias="T1" />
+    <Channel num="1021" alias="T2" />
+    <Channel num="1014" alias="T3" />
+    <Channel num="1022" alias="P1" />
+    <Channel num="1023" alias="P2" />
+  </Marker>
+
+  <Marker id="2" name="ЦТП О-08/62" lat="55.013095" lon="82.969334">
+    <Channel num="2013" alias="T1" />
+    <Channel num="2014" alias="T2" />
+    <Channel num="2007" alias="T3" />
+    <Channel num="2015" alias="P1" />
+    <Channel num="2016" alias="P2" />
+  </Marker>
+
+  <Marker id="3" name="ЦТП О-47" lat="55.018315" lon="82.977829">
+    <Channel num="3016" alias="T1" />
+    <Channel num="3017" alias="T2" />
+    <Channel num="3010" alias="T3" />
+    <Channel num="3018" alias="P1" />
+    <Channel num="3019" alias="P2" />
+  </Marker>
+
+  <Marker id="4" name="ЦТП з-11/66" lat="55.052510" lon="82.919827">
+    <Channel num="4031" alias="T1" />
+    <Channel num="4032" alias="T2" />
+    <Channel num="4025" alias="T3" />
+    <Channel num="4033" alias="P1" />
+    <Channel num="4034" alias="P2" />
+  </Marker>
+
+  <Marker id="5" name="ЦТП о-20/273" lat="55.004386" lon="82.978802">
+    <Channel num="5032" alias="T1" />
+    <Channel num="5033" alias="T2" />
+    <Channel num="5026" alias="T3" />
+    <Channel num="5034" alias="P1" />
+    <Channel num="5035" alias="P2" />
+  </Marker>
+</Map>
