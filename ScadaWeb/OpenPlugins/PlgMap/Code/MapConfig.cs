@@ -37,9 +37,14 @@ namespace Scada.Web.Plugins.PlgMap.Code
         /// </summary>
         public int MaxZoom { get; set; } = 19;
 
+        /// <summary>
+        /// Gets or sets the tile layer URL template.
+        /// </summary>
+        public string TileUrlTemplate { get; set; } = "";
+
 
         /// <summary>
-        /// Loads the map configuration from an XML node.
+        /// Loads the map configuration from a MapConfig XML node (compact format).
         /// </summary>
         public static MapConfig LoadFromXml(XmlNode node)
         {
@@ -53,6 +58,33 @@ namespace Scada.Web.Plugins.PlgMap.Code
                 MinZoom = int.Parse(node.Attributes?["minZoom"]?.Value ?? "2"),
                 MaxZoom = int.Parse(node.Attributes?["maxZoom"]?.Value ?? "19")
             };
+        }
+
+        /// <summary>
+        /// Loads the map configuration from v5.8-style InitialView and Tiling XML nodes.
+        /// </summary>
+        public static MapConfig LoadFromV58Xml(XmlNode initialViewNode, XmlNode tilingNode)
+        {
+            MapConfig config = new();
+
+            if (initialViewNode != null)
+            {
+                config.CenterLat = double.Parse(
+                    initialViewNode.SelectSingleNode("Lat")?.InnerText ?? "55.030204",
+                    CultureInfo.InvariantCulture);
+                config.CenterLng = double.Parse(
+                    initialViewNode.SelectSingleNode("Lon")?.InnerText ?? "82.920430",
+                    CultureInfo.InvariantCulture);
+                config.Zoom = int.Parse(
+                    initialViewNode.SelectSingleNode("Zoom")?.InnerText ?? "13");
+            }
+
+            if (tilingNode != null)
+            {
+                config.TileUrlTemplate = tilingNode.SelectSingleNode("UrlTemplate")?.InnerText ?? "";
+            }
+
+            return config;
         }
     }
 }

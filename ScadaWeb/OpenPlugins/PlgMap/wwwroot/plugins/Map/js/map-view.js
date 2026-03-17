@@ -7,6 +7,7 @@ var mapViewInstance = null;
 class MapViewManager {
     static LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
     static LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    static DEFAULT_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
     constructor(options) {
         this.viewID = options.viewID;
@@ -15,7 +16,7 @@ class MapViewManager {
 
         this.map = null;
         this.markers = [];       // marker definitions from server
-        this.leafletMarkers = {}; // keyed by cnlNum
+        this.leafletMarkers = {}; // keyed by marker id
         this.updateTimer = null;
     }
 
@@ -79,6 +80,37 @@ class MapViewManager {
         });
     }
 
+    // Builds the popup HTML content for a marker with all its channels.
+    _buildPopupContent(markerDef, dataMap) {
+        let html = `<b>${this._escapeHtml(markerDef.name)}</b>`;
+
+        if (markerDef.descr) {
+            html += `<br/><i>${this._escapeHtml(markerDef.descr)}</i>`;
+        }
+
+        html += `<table class="map-popup-table">`;
+
+        for (let ch of markerDef.channels) {
+            let alias = ch.alias || ("Ch " + ch.cnlNum);
+            let rec = dataMap[ch.cnlNum];
+            let valText = rec ? rec.text : "--";
+
+            html += `<tr>` +
+                `<td class="map-popup-alias">${this._escapeHtml(alias)}</td>` +
+                `<td class="map-popup-val">${this._escapeHtml(valText)}</td>` +
+                `</tr>`;
+        }
+
+        html += `</table>`;
+
+        if (markerDef.linkViewID > 0) {
+            html += `<a href="${this.rootPath}Map/MapView?viewID=${markerDef.linkViewID}" ` +
+                `class="map-popup-link">Details</a>`;
+        }
+
+        return html;
+    }
+
     // Initializes the Leaflet map and loads marker definitions.
     async init() {
         await this._loadLeafletCss();
@@ -103,8 +135,9 @@ class MapViewManager {
             maxZoom: config.maxZoom
         }).setView([config.centerLat, config.centerLng], config.zoom);
 
-        // Add OSM tile layer
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        // Add tile layer (use custom URL template if specified)
+        let tileUrl = config.tileUrlTemplate || MapViewManager.DEFAULT_TILE_URL;
+        L.tileLayer(tileUrl, {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
             maxZoom: config.maxZoom
         }).addTo(this.map);
@@ -113,15 +146,13 @@ class MapViewManager {
         for (let m of this.markers) {
             let marker = L.marker([m.lat, m.lng], {
                 icon: this._createMarkerIcon(null),
-                title: m.caption
+                title: m.name
             }).addTo(this.map);
 
-            let popupContent = m.caption
-                ? `<b>${this._escapeHtml(m.caption)}</b><br/><span class="map-popup-val">--</span>`
-                : `<span class="map-popup-val">--</span>`;
-            marker.bindPopup(popupContent);
+            let popupContent = this._buildPopupContent(m, {});
+            marker.bindPopup(popupContent, { maxWidth: 300 });
 
-            this.leafletMarkers[m.cnlNum] = { marker: marker, def: m };
+            this.leafletMarkers[m.id] = { marker: marker, def: m };
         }
 
         // Start data refresh
@@ -148,31 +179,26 @@ class MapViewManager {
             dataMap[rec.cnlNum] = rec;
         }
 
-        for (let cnlNum in this.leafletMarkers) {
-            let entry = this.leafletMarkers[cnlNum];
-            let rec = dataMap[cnlNum];
-            if (!rec) continue;
-
-            // Determine color based on status
-            let color = this._getColorForStatus(rec.stat);
-            entry.marker.setIcon(this._createMarkerIcon(color));
-
-            // Update popup content
+        for (let id in this.leafletMarkers) {
+            let entry = this.leafletMarkers[id];
             let def = entry.def;
-            let popupText;
 
-            if (def.popupTemplate) {
-                popupText = def.popupTemplate
-                    .replace(/\{val\}/g, this._escapeHtml(rec.text))
-                    .replace(/\{stat\}/g, rec.stat);
-            } else if (def.caption) {
-                popupText = `<b>${this._escapeHtml(def.caption)}</b><br/>` +
-                    `<span class="map-popup-val">${this._escapeHtml(rec.text)}</span>`;
-            } else {
-                popupText = `<span class="map-popup-val">${this._escapeHtml(rec.text)}</span>`;
+            // Determine color based on status channel or first channel
+            let statusRec = null;
+            if (def.statusCnlNum > 0) {
+                statusRec = dataMap[def.statusCnlNum];
+            } else if (def.channels.length > 0) {
+                statusRec = dataMap[def.channels[0].cnlNum];
             }
 
-            entry.marker.setPopupContent(popupText);
+            if (statusRec) {
+                let color = this._getColorForStatus(statusRec.stat);
+                entry.marker.setIcon(this._createMarkerIcon(color));
+            }
+
+            // Update popup content with all channel values
+            let popupContent = this._buildPopupContent(def, dataMap);
+            entry.marker.setPopupContent(popupContent);
         }
     }
 

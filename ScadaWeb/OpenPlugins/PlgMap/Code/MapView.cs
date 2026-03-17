@@ -49,8 +49,17 @@ namespace Scada.Web.Plugins.PlgMap.Code
 
             if (rootName.Equals("Map", StringComparison.OrdinalIgnoreCase))
             {
-                // New format: <Map> with <Marker> children containing <Channel> elements
-                LoadNewFormat(rootElem);
+                // v5.8 format: <Map> with <InitialView>, <Tiling>, <Locations>
+                // or new compact format: <Map> with <Marker> children
+                if (rootElem.SelectSingleNode("Locations") != null ||
+                    rootElem.SelectSingleNode("InitialView") != null)
+                {
+                    LoadV58Format(rootElem);
+                }
+                else
+                {
+                    LoadNewFormat(rootElem);
+                }
             }
             else if (rootName.Equals("MapView", StringComparison.OrdinalIgnoreCase))
             {
@@ -60,6 +69,32 @@ namespace Scada.Web.Plugins.PlgMap.Code
             else
             {
                 throw new ScadaException(CommonPhrases.InvalidFileFormat);
+            }
+        }
+
+        /// <summary>
+        /// Loads the v5.8 XML format with InitialView, Tiling, and Locations sections.
+        /// </summary>
+        private void LoadV58Format(XmlElement rootElem)
+        {
+            XmlNode initialViewNode = rootElem.SelectSingleNode("InitialView");
+            XmlNode tilingNode = rootElem.SelectSingleNode("Tiling");
+            MapConfig = MapConfig.LoadFromV58Xml(initialViewNode, tilingNode);
+
+            XmlNode locationsNode = rootElem.SelectSingleNode("Locations");
+            if (locationsNode != null)
+            {
+                int index = 1;
+                foreach (XmlNode locNode in locationsNode.SelectNodes("Location"))
+                {
+                    MapMarker marker = MapMarker.LoadFromLocationXml(locNode, index++);
+                    Markers.Add(marker);
+
+                    foreach (MarkerChannel ch in marker.Channels)
+                    {
+                        AddCnlNum(ch.CnlNum);
+                    }
+                }
             }
         }
 

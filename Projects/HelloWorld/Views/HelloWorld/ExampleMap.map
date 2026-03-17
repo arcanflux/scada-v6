@@ -1,44 +1,89 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Map>
-  <MapConfig centerLat="55.030204" centerLng="82.920430" zoom="13" minZoom="2" maxZoom="19" />
+  <Tiling>
+    <UrlTemplate>https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png</UrlTemplate>
+  </Tiling>
 
-  <Marker id="1" name="ЦТП О-53" lat="55.027970" lon="82.96893">
-    <Channel num="1020" alias="T1" />
-    <Channel num="1021" alias="T2" />
-    <Channel num="1014" alias="T3" />
-    <Channel num="1022" alias="P1" />
-    <Channel num="1023" alias="P2" />
-  </Marker>
+  <InitialView>
+    <Lat>55.030204</Lat>
+    <Lon>82.920430</Lon>
+    <Zoom>13</Zoom>
+  </InitialView>
 
-  <Marker id="2" name="ЦТП О-08/62" lat="55.013095" lon="82.969334">
-    <Channel num="2013" alias="T1" />
-    <Channel num="2014" alias="T2" />
-    <Channel num="2007" alias="T3" />
-    <Channel num="2015" alias="P1" />
-    <Channel num="2016" alias="P2" />
-  </Marker>
+  <Locations>
+    <Location>
+      <Lat>55.027970</Lat>
+      <Lon>82.96893</Lon>
+      <Name>ЦТП О-53</Name>
+      <Descr>Центральный тепловой пункт О-53</Descr>
+      <StatusCnlNum>0</StatusCnlNum>
+      <Data>
+        <DataItem cnlNum="1020">T1</DataItem>
+        <DataItem cnlNum="1021">T2</DataItem>
+        <DataItem cnlNum="1014">T3</DataItem>
+        <DataItem cnlNum="1022">P1</DataItem>
+        <DataItem cnlNum="1023">P2</DataItem>
+      </Data>
+    </Location>
 
-  <Marker id="3" name="ЦТП О-47" lat="55.018315" lon="82.977829">
-    <Channel num="3016" alias="T1" />
-    <Channel num="3017" alias="T2" />
-    <Channel num="3010" alias="T3" />
-    <Channel num="3018" alias="P1" />
-    <Channel num="3019" alias="P2" />
-  </Marker>
+    <Location>
+      <Lat>55.013095</Lat>
+      <Lon>82.969334</Lon>
+      <Name>ЦТП О-08/62</Name>
+      <Descr>Центральный тепловой пункт О-08/62</Descr>
+      <StatusCnlNum>0</StatusCnlNum>
+      <Data>
+        <DataItem cnlNum="2013">T1</DataItem>
+        <DataItem cnlNum="2014">T2</DataItem>
+        <DataItem cnlNum="2007">T3</DataItem>
+        <DataItem cnlNum="2015">P1</DataItem>
+        <DataItem cnlNum="2016">P2</DataItem>
+      </Data>
+    </Location>
 
-  <Marker id="4" name="ЦТП з-11/66" lat="55.052510" lon="82.919827">
-    <Channel num="4031" alias="T1" />
-    <Channel num="4032" alias="T2" />
-    <Channel num="4025" alias="T3" />
-    <Channel num="4033" alias="P1" />
-    <Channel num="4034" alias="P2" />
-  </Marker>
+    <Location>
+      <Lat>55.018315</Lat>
+      <Lon>82.977829</Lon>
+      <Name>ЦТП О-47</Name>
+      <Descr>Центральный тепловой пункт О-47</Descr>
+      <StatusCnlNum>0</StatusCnlNum>
+      <Data>
+        <DataItem cnlNum="3016">T1</DataItem>
+        <DataItem cnlNum="3017">T2</DataItem>
+        <DataItem cnlNum="3010">T3</DataItem>
+        <DataItem cnlNum="3018">P1</DataItem>
+        <DataItem cnlNum="3019">P2</DataItem>
+      </Data>
+    </Location>
 
-  <Marker id="5" name="ЦТП о-20/273" lat="55.004386" lon="82.978802">
-    <Channel num="5032" alias="T1" />
-    <Channel num="5033" alias="T2" />
-    <Channel num="5026" alias="T3" />
-    <Channel num="5034" alias="P1" />
-    <Channel num="5035" alias="P2" />
-  </Marker>
+    <Location>
+      <Lat>55.052510</Lat>
+      <Lon>82.919827</Lon>
+      <Name>ЦТП з-11/66</Name>
+      <Descr>Центральный тепловой пункт з-11/66</Descr>
+      <StatusCnlNum>0</StatusCnlNum>
+      <Data>
+        <DataItem cnlNum="4031">T1</DataItem>
+        <DataItem cnlNum="4032">T2</DataItem>
+        <DataItem cnlNum="4025">T3</DataItem>
+        <DataItem cnlNum="4033">P1</DataItem>
+        <DataItem cnlNum="4034">P2</DataItem>
+      </Data>
+    </Location>
+
+    <Location>
+      <Lat>55.004386</Lat>
+      <Lon>82.978802</Lon>
+      <Name>ЦТП о-20/273</Name>
+      <Descr>Центральный тепловой пункт о-20/273</Descr>
+      <StatusCnlNum>0</StatusCnlNum>
+      <Data>
+        <DataItem cnlNum="5032">T1</DataItem>
+        <DataItem cnlNum="5033">T2</DataItem>
+        <DataItem cnlNum="5026">T3</DataItem>
+        <DataItem cnlNum="5034">P1</DataItem>
+        <DataItem cnlNum="5035">P2</DataItem>
+      </Data>
+    </Location>
+  </Locations>
 </Map>

@@ -81,7 +81,8 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
                     CenterLng = mapView.MapConfig.CenterLng,
                     Zoom = mapView.MapConfig.Zoom,
                     MinZoom = mapView.MapConfig.MinZoom,
-                    MaxZoom = mapView.MapConfig.MaxZoom
+                    MaxZoom = mapView.MapConfig.MaxZoom,
+                    TileUrlTemplate = mapView.MapConfig.TileUrlTemplate
                 },
                 Markers = mapView.Markers.Select(m => new MarkerDto
                 {
@@ -89,6 +90,9 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
                     Lat = m.Latitude,
                     Lng = m.Longitude,
                     Name = m.Name,
+                    Descr = m.Description,
+                    StatusCnlNum = m.StatusCnlNum,
+                    LinkViewID = m.LinkViewID,
                     Channels = m.Channels.Select(c => new ChannelDto
                     {
                         CnlNum = c.CnlNum,

@@ -22,7 +22,31 @@ html, body {
     border: none !important;
 }
 
+.map-popup-table {
+    border-collapse: collapse;
+    margin-top: 4px;
+    width: 100%;
+}
+
+.map-popup-table td {
+    padding: 2px 6px;
+    border-bottom: 1px solid #eee;
+    font-size: 0.9em;
+}
+
+.map-popup-alias {
+    color: #666;
+    white-space: nowrap;
+}
+
 .map-popup-val {
     font-weight: 600;
     font-size: 1.05em;
+    text-align: right;
+}
+
+.map-popup-link {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 0.85em;
 }

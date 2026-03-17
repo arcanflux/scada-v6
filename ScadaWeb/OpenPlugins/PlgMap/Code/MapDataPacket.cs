@@ -35,6 +35,7 @@ namespace Scada.Web.Plugins.PlgMap.Code
         public int Zoom { get; set; }
         public int MinZoom { get; set; }
         public int MaxZoom { get; set; }
+        public string TileUrlTemplate { get; set; }
     }
 
     /// <summary>
@@ -55,6 +56,9 @@ namespace Scada.Web.Plugins.PlgMap.Code
         public double Lat { get; set; }
         public double Lng { get; set; }
         public string Name { get; set; }
+        public string Descr { get; set; }
+        public int StatusCnlNum { get; set; }
+        public int LinkViewID { get; set; }
         public List<ChannelDto> Channels { get; set; }
     }
 

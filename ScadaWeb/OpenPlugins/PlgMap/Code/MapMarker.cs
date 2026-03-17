@@ -50,13 +50,29 @@ namespace Scada.Web.Plugins.PlgMap.Code
         public string Name { get; set; } = "";
 
         /// <summary>
+        /// Gets or sets the marker description.
+        /// </summary>
+        public string Description { get; set; } = "";
+
+        /// <summary>
+        /// Gets or sets the status channel number. 0 means not specified.
+        /// Positive channel value = normal, otherwise needs attention.
+        /// </summary>
+        public int StatusCnlNum { get; set; }
+
+        /// <summary>
+        /// Gets or sets the linked view ID for detailed information. 0 means no link.
+        /// </summary>
+        public int LinkViewID { get; set; }
+
+        /// <summary>
         /// Gets the list of channels bound to this marker.
         /// </summary>
         public List<MarkerChannel> Channels { get; } = new();
 
 
         /// <summary>
-        /// Loads the marker from an XML node.
+        /// Loads the marker from an XML node (new compact format).
         /// </summary>
         public static MapMarker LoadFromXml(XmlNode node)
         {
@@ -93,6 +109,62 @@ namespace Scada.Web.Plugins.PlgMap.Code
                     {
                         CnlNum = cnlNum,
                         Alias = node.Attributes?["caption"]?.Value ?? ""
+                    });
+                }
+            }
+
+            return marker;
+        }
+
+        /// <summary>
+        /// Loads the marker from a v5.8-style Location XML node.
+        /// </summary>
+        public static MapMarker LoadFromLocationXml(XmlNode node, int index)
+        {
+            MapMarker marker = new()
+            {
+                Id = index,
+                Latitude = double.Parse(node.SelectSingleNode("Lat")?.InnerText ?? "0",
+                    CultureInfo.InvariantCulture),
+                Longitude = double.Parse(node.SelectSingleNode("Lon")?.InnerText ?? "0",
+                    CultureInfo.InvariantCulture),
+                Name = node.SelectSingleNode("Name")?.InnerText ?? "",
+                Description = node.SelectSingleNode("Descr")?.InnerText ?? "",
+                StatusCnlNum = int.Parse(node.SelectSingleNode("StatusCnlNum")?.InnerText ?? "0")
+            };
+
+            // parse Link viewID
+            XmlNode linkNode = node.SelectSingleNode("Link");
+            if (linkNode != null)
+            {
+                marker.LinkViewID = int.Parse(linkNode.Attributes?["viewID"]?.Value ?? "0");
+            }
+
+            // parse Data > DataItem elements
+            XmlNode dataNode = node.SelectSingleNode("Data");
+            if (dataNode != null)
+            {
+                foreach (XmlNode itemNode in dataNode.SelectNodes("DataItem"))
+                {
+                    string cnlNumStr = itemNode.Attributes?["cnlNum"]?.Value ?? "0";
+                    marker.Channels.Add(new MarkerChannel
+                    {
+                        CnlNum = int.Parse(cnlNumStr),
+                        Alias = itemNode.InnerText?.Trim() ?? ""
+                    });
+                }
+            }
+
+            // also register the StatusCnlNum as a channel if specified
+            if (marker.StatusCnlNum > 0)
+            {
+                bool alreadyExists = marker.Channels.Any(c => c.CnlNum == marker.StatusCnlNum);
+                if (!alreadyExists)
+                {
+                    marker.Channels.Insert(0, new MarkerChannel
+                    {
+                        CnlNum = marker.StatusCnlNum,
+                        Alias = "Status"
                     });
                 }
             }
