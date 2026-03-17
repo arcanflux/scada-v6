@@ -10,16 +10,8 @@ namespace Scada.Web.Plugins.PlgMap.Areas.Map.Pages
     /// Represents a map view page.
     /// <para>Представляет страницу представления карты.</para>
     /// </summary>
-    public class MapViewModel : PageModel
+    public class MapViewModel(IWebContext webContext, IUserContext userContext) : PageModel
     {
-        private readonly IWebContext webContext;
-        private readonly IUserContext userContext;
-
-        public MapViewModel(IWebContext webContext, IUserContext userContext)
-        {
-            this.webContext = webContext;
-            this.userContext = userContext;
-        }
 
         public int ViewID { get; set; }
         public int RefreshRate { get; set; }

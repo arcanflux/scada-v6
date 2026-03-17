@@ -68,7 +68,7 @@ namespace Scada.Web.Plugins.PlgMap.Code
         /// <summary>
         /// Gets the list of channels bound to this marker.
         /// </summary>
-        public List<MarkerChannel> Channels { get; } = new();
+        public List<MarkerChannel> Channels { get; } = [];
 
 
         /// <summary>

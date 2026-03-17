@@ -12,28 +12,17 @@ namespace Scada.Web.Plugins.PlgMap.Code
     /// Represents a map view containing markers with geographic coordinates.
     /// <para>Представляет представление карты с маркерами и географическими координатами.</para>
     /// </summary>
-    public class MapView : ViewBase
+    public class MapView(View viewEntity) : ViewBase(viewEntity)
     {
-        /// <summary>
-        /// Initializes a new instance of the class.
-        /// </summary>
-        public MapView(View viewEntity)
-            : base(viewEntity)
-        {
-            Markers = new List<MapMarker>();
-            MapConfig = new MapConfig();
-        }
-
-
         /// <summary>
         /// Gets the list of markers on the map.
         /// </summary>
-        public List<MapMarker> Markers { get; }
+        public List<MapMarker> Markers { get; } = [];
 
         /// <summary>
         /// Gets the map configuration.
         /// </summary>
-        public MapConfig MapConfig { get; private set; }
+        public MapConfig MapConfig { get; private set; } = new();
 
 
         /// <summary>

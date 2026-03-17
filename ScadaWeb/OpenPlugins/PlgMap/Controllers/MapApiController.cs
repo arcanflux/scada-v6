@@ -19,25 +19,9 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
     /// </summary>
     [ApiController]
     [Route("Api/Map/[action]")]
-    public class MapApiController : ControllerBase
+    public class MapApiController(IWebContext webContext, IUserContext userContext,
+        IClientAccessor clientAccessor, IViewLoader viewLoader) : ControllerBase
     {
-        private readonly IWebContext webContext;
-        private readonly IUserContext userContext;
-        private readonly IClientAccessor clientAccessor;
-        private readonly IViewLoader viewLoader;
-
-
-        /// <summary>
-        /// Initializes a new instance of the class.
-        /// </summary>
-        public MapApiController(IWebContext webContext, IUserContext userContext,
-            IClientAccessor clientAccessor, IViewLoader viewLoader)
-        {
-            this.webContext = webContext;
-            this.userContext = userContext;
-            this.clientAccessor = clientAccessor;
-            this.viewLoader = viewLoader;
-        }
 
 
         /// <summary>
@@ -146,7 +130,7 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
                     MaxZoom = mapView.MapConfig.MaxZoom,
                     TileUrlTemplate = mapView.MapConfig.TileUrlTemplate
                 },
-                Markers = mapView.Markers.Select(m => new MarkerDto
+                Markers = [.. mapView.Markers.Select(m => new MarkerDto
                 {
                     Id = m.Id,
                     Lat = m.Latitude,
@@ -155,12 +139,12 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
                     Descr = m.Description,
                     StatusCnlNum = m.StatusCnlNum,
                     LinkViewID = m.LinkViewID,
-                    Channels = m.Channels.Select(c => new ChannelDto
+                    Channels = [.. m.Channels.Select(c => new ChannelDto
                     {
                         CnlNum = c.CnlNum,
                         Alias = c.Alias
-                    }).ToList()
-                }).ToList()
+                    })]
+                })]
             };
         }
 
@@ -227,10 +211,10 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
 
                 if (mapView != null)
                 {
-                    int[] cnlNums = mapView.CnlNumList.ToArray();
+                    int[] cnlNums = [.. mapView.CnlNumList];
                     CnlData[] cnlDataArr = cnlNums.Length > 0
                         ? clientAccessor.ScadaClient.GetCurrentData(cnlNums, false, out _)
-                        : Array.Empty<CnlData>();
+                        : [];
 
                     CnlDataFormatter formatter = new(webContext.ConfigDatabase, userContext.TimeZone);
                     List<MarkerCurDataRecord> records = new(cnlNums.Length);
