@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<PlgMapDictionaries>
+  <Dictionary key="Scada.Web.Plugins.PlgMap.PlgMapLogic">
+    <Phrase key="MapMenuItem">Карта</Phrase>
+  </Dictionary>
+  <Dictionary key="Scada.Web.Plugins.PlgMap.Controllers.MapApiController">
+    <Phrase key="ErrorLoadingView">Ошибка при загрузке представления карты из хранилища для ид. {0}</Phrase>
+    <Phrase key="ErrorScanningStorage">Ошибка при поиске файлов карт в хранилище</Phrase>
+    <Phrase key="NoMapFilesFound">Не найдены файлы карт (.map) в хранилище</Phrase>
+  </Dictionary>
+  <Dictionary key="Scada.Web.Plugins.PlgMap.Code.MapMarker">
+    <Phrase key="Status">Статус</Phrase>
+  </Dictionary>
+  <Dictionary key="Scada.Web.Plugins.PlgMap.Areas.Map.Pages.MapView">
+    <Phrase key="PageTitle">Карта</Phrase>
+    <Phrase key="SearchPlaceholder">Поиск маркеров...</Phrase>
+    <Phrase key="ChartTitle">Графики</Phrase>
+    <Phrase key="Loading">Загрузка...</Phrase>
+  </Dictionary>
+  <Dictionary key="Scada.Web.Plugins.PlgMap.Areas.Map.Pages.MapView.Js">
+    <Phrase key="SearchPlaceholder">Поиск маркеров...</Phrase>
+    <Phrase key="NoResults">Нет результатов</Phrase>
+    <Phrase key="CombinedChart">Графики</Phrase>
+    <Phrase key="Loading">Загрузка...</Phrase>
+    <Phrase key="LoadingChart">Загрузка данных...</Phrase>
+    <Phrase key="NoData">Нет архивных данных</Phrase>
+    <Phrase key="ErrorChart">Ошибка загрузки данных</Phrase>
+    <Phrase key="Error">Ошибка</Phrase>
+    <Phrase key="ErrorPrefix">Ошибка: </Phrase>
+    <Phrase key="Period">Период:</Phrase>
+    <Phrase key="Day1">1 день</Phrase>
+    <Phrase key="Day3">3 дня</Phrase>
+    <Phrase key="Day7">7 дней</Phrase>
+    <Phrase key="Day14">14 дней</Phrase>
+    <Phrase key="Ago1h">-1ч</Phrase>
+    <Phrase key="Now">сейчас</Phrase>
+    <Phrase key="Channel">Кан</Phrase>
+    <Phrase key="Details">Подробнее</Phrase>
+    <Phrase key="PressureUnit">кгс/см²</Phrase>
+  </Dictionary>
+</PlgMapDictionaries>

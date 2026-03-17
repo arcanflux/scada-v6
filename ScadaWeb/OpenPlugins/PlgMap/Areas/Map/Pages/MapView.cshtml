@@ -309,23 +309,27 @@
                 "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
             ];
 
-            // --- Localization (RU) ---
+            // --- Localization (from SCADA language settings) ---
             static LANG = {
-                searchPlaceholder: "Поиск маркеров...",
-                noResults: "Нет результатов",
-                combinedChart: "Графики",
-                loading: "Загрузка...",
-                loadingChart: "Загрузка данных...",
-                noData: "Нет архивных данных",
-                errorChart: "Ошибка загрузки данных",
-                error: "Ошибка",
-                period: "Период:",
-                day1: "1 день",
-                day3: "3 дня",
-                day7: "7 дней",
-                day14: "14 дней",
-                ago1h: "-1ч",
-                now: "сейчас"
+                searchPlaceholder: "@Html.Raw(Model.JsDict.SearchPlaceholder)",
+                noResults: "@Html.Raw(Model.JsDict.NoResults)",
+                combinedChart: "@Html.Raw(Model.JsDict.CombinedChart)",
+                loading: "@Html.Raw(Model.JsDict.Loading)",
+                loadingChart: "@Html.Raw(Model.JsDict.LoadingChart)",
+                noData: "@Html.Raw(Model.JsDict.NoData)",
+                errorChart: "@Html.Raw(Model.JsDict.ErrorChart)",
+                error: "@Html.Raw(Model.JsDict.Error)",
+                errorPrefix: "@Html.Raw(Model.JsDict.ErrorPrefix)",
+                period: "@Html.Raw(Model.JsDict.Period)",
+                day1: "@Html.Raw(Model.JsDict.Day1)",
+                day3: "@Html.Raw(Model.JsDict.Day3)",
+                day7: "@Html.Raw(Model.JsDict.Day7)",
+                day14: "@Html.Raw(Model.JsDict.Day14)",
+                ago1h: "@Html.Raw(Model.JsDict.Ago1h)",
+                now: "@Html.Raw(Model.JsDict.Now)",
+                channel: "@Html.Raw(Model.JsDict.Channel)",
+                details: "@Html.Raw(Model.JsDict.Details)",
+                pressureUnit: "@Html.Raw(Model.JsDict.PressureUnit)"
             };
 
             constructor(options) {
@@ -462,7 +466,7 @@
                 let a = (alias || "").toUpperCase();
                 if (a === "T1" || a === "T2") return { min: 0, max: 120, unit: "°C" };
                 if (a === "T3")               return { min: 0, max: 80,  unit: "°C" };
-                if (a === "P1" || a === "P2") return { min: 0, max: 25,  unit: "kgf/cm²" };
+                if (a === "P1" || a === "P2") return { min: 0, max: 25,  unit: this.t.pressureUnit };
                 return null;
             }
 
@@ -482,7 +486,7 @@
 
                 if (!dto.ok) {
                     console.error("Failed to load map data:", dto.msg);
-                    document.getElementById("divMapContainer").textContent = "Error: " + dto.msg;
+                    document.getElementById("divMapContainer").textContent = this.t.errorPrefix + dto.msg;
                     return;
                 }
 
@@ -603,7 +607,7 @@
                         let ch = def.channels[i];
                         let rec = this.curDataMap[ch.cnlNum];
                         let valText = rec ? this._escapeHtml(rec.text) : "--";
-                        let alias = ch.alias || ("Ch" + ch.cnlNum);
+                        let alias = ch.alias || (this.t.channel + ch.cnlNum);
                         let color = MapViewManager.CHART_COLORS[i % MapViewManager.CHART_COLORS.length];
 
                         html += '<tr>' +
@@ -728,7 +732,7 @@
 
                 for (let i = 0; i < def.channels.length; i++) {
                     let ch = def.channels[i];
-                    let alias = ch.alias || ("Ch" + ch.cnlNum);
+                    let alias = ch.alias || (this.t.channel + ch.cnlNum);
                     let color = MapViewManager.CHART_COLORS[i % MapViewManager.CHART_COLORS.length];
                     let trendIdx = cnlToTrendIdx[ch.cnlNum];
                     if (trendIdx === undefined) continue;
@@ -806,7 +810,7 @@
                                 position: 'right',
                                 min: 0,
                                 max: 25,
-                                title: { display: true, text: 'kgf/cm²', font: { size: 13 } },
+                                title: { display: true, text: MapViewManager.LANG.pressureUnit, font: { size: 13 } },
                                 ticks: { font: { size: 12 } },
                                 grid: { drawOnChartArea: false }
                             }
@@ -835,7 +839,7 @@
                 let titleEl = document.getElementById("mapMiniChartTitle");
                 let bodyEl = document.getElementById("mapMiniChartBody");
 
-                titleEl.textContent = alias + " (Ch " + cnlNum + ")";
+                titleEl.textContent = alias + " (" + this.t.channel + " " + cnlNum + ")";
                 bodyEl.innerHTML = '<div class="map-minichart-loading">' + this._escapeHtml(this.t.loading) + '</div>';
 
                 let rect = event.target.getBoundingClientRect();
@@ -1132,7 +1136,7 @@
 
 <div class="map-search-container">
     <input type="text" id="mapSearchInput" class="map-search-input"
-           placeholder="Search markers..." autocomplete="off" />
+           placeholder="@Model.JsDict.SearchPlaceholder" autocomplete="off" />
     <div id="mapSearchResults" class="map-search-results"></div>
 </div>
 
@@ -1144,12 +1148,12 @@
 <div id="mapChartOverlay" class="map-chart-overlay">
     <div class="map-chart-panel">
         <div class="map-chart-header">
-            <span id="mapChartTitle">Chart</span>
+            <span id="mapChartTitle">@Model.JsDict.CombinedChart</span>
             <span id="mapChartClose" class="map-chart-close">&times;</span>
         </div>
         <div id="mapChartToolbar" class="map-chart-toolbar"></div>
         <div id="mapChartBody" class="map-chart-body">
-            <div class="map-chart-loading">Loading...</div>
+            <div class="map-chart-loading">@Model.JsDict.Loading</div>
         </div>
     </div>
 </div>

@@ -9,10 +9,20 @@ class MapViewManager {
     static LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
     static DEFAULT_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
+    // Default English phrases; overridden by options.lang or by the inline LANG
+    // object rendered from SCADA language dictionaries in MapView.cshtml.
+    static DEFAULT_LANG = {
+        channel: "Ch",
+        details: "Details",
+        error: "Error",
+        errorPrefix: "Error: "
+    };
+
     constructor(options) {
         this.viewID = options.viewID;
         this.refreshRate = options.refreshRate || 1000;
         this.rootPath = this._detectRootPath();
+        this.t = Object.assign({}, MapViewManager.DEFAULT_LANG, options.lang || {});
 
         this.map = null;
         this.markers = [];       // marker definitions from server
@@ -91,7 +101,7 @@ class MapViewManager {
         html += `<table class="map-popup-table">`;
 
         for (let ch of markerDef.channels) {
-            let alias = ch.alias || ("Ch " + ch.cnlNum);
+            let alias = ch.alias || (this.t.channel + " " + ch.cnlNum);
             let rec = dataMap[ch.cnlNum];
             let valText = rec ? rec.text : "--";
 
@@ -105,7 +115,7 @@ class MapViewManager {
 
         if (markerDef.linkViewID > 0) {
             html += `<a href="${this.rootPath}Map/MapView?viewID=${markerDef.linkViewID}" ` +
-                `class="map-popup-link">Details</a>`;
+                `class="map-popup-link">${this._escapeHtml(this.t.details)}</a>`;
         }
 
         return html;
@@ -122,7 +132,7 @@ class MapViewManager {
 
         if (!dto.ok) {
             console.error("Failed to load map data:", dto.msg);
-            document.getElementById("divMapContainer").textContent = "Error: " + dto.msg;
+            document.getElementById("divMapContainer").textContent = this.t.errorPrefix + dto.msg;
             return;
         }
 

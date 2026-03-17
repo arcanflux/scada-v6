@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Scada.Lang;
 using Scada.Web.Services;
 
 namespace Scada.Web.Plugins.PlgMap.Areas.Map.Pages
@@ -16,11 +17,19 @@ namespace Scada.Web.Plugins.PlgMap.Areas.Map.Pages
         public int ViewID { get; set; }
         public int RefreshRate { get; set; }
 
+        /// <summary>
+        /// Gets the JavaScript localization dictionary.
+        /// </summary>
+        public dynamic JsDict { get; private set; }
+
         public void OnGet(int? id)
         {
             ViewID = id ?? FindFirstMapViewID() ?? 0;
             RefreshRate = webContext.AppConfig.DisplayOptions.RefreshRate;
-            ViewData["Title"] = "Map " + ViewID;
+            JsDict = Locale.GetDictionary("Scada.Web.Plugins.PlgMap.Areas.Map.Pages.MapView.Js");
+
+            LocaleDict pageDict = Locale.GetDictionary("Scada.Web.Plugins.PlgMap.Areas.Map.Pages.MapView");
+            ViewData["Title"] = pageDict["PageTitle"] + " " + ViewID;
         }
 
         /// <summary>

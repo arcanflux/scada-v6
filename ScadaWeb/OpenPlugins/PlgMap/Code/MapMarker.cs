@@ -164,7 +164,7 @@ namespace Scada.Web.Plugins.PlgMap.Code
                     marker.Channels.Insert(0, new MarkerChannel
                     {
                         CnlNum = marker.StatusCnlNum,
-                        Alias = "Status"
+                        Alias = PluginPhrases.Status
                     });
                 }
             }

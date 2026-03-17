@@ -41,7 +41,7 @@ namespace Scada.Web.Plugins.PlgMap
             [
                 new MenuItem
                 {
-                    Text = Locale.IsRussian ? "Карта" : "Map",
+                    Text = PluginPhrases.MapMenuItem,
                     Url = "~/Map/MapView",
                     SortOrder = MenuItemSortOrder.First
                 }
@@ -56,6 +56,8 @@ namespace Scada.Web.Plugins.PlgMap
         {
             if (!Locale.LoadDictionaries(AppDirs.LangDir, Code, out string errMsg))
                 Log.WriteError(WebPhrases.PluginMessage, Code, errMsg);
+
+            PluginPhrases.Init();
         }
     }
 }

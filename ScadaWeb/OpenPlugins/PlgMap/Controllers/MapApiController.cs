@@ -4,7 +4,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Scada.Data.Entities;
 using Scada.Data.Models;
-using Scada.Lang;
 using Scada.Storages;
 using Scada.Web.Api;
 using Scada.Web.Lang;
@@ -55,9 +54,7 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
             }
             catch (Exception ex)
             {
-                webContext.Log.WriteError(ex, Locale.IsRussian ?
-                    "Ошибка при загрузке представления карты из хранилища для ид. {0}" :
-                    "Error loading map view from storage for ID {0}", viewEntity.ViewID);
+                webContext.Log.WriteError(ex, PluginPhrases.ErrorLoadingView, viewEntity.ViewID);
                 return null;
             }
         }
@@ -105,9 +102,7 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
             }
             catch (Exception ex)
             {
-                webContext.Log.WriteError(ex, Locale.IsRussian ?
-                    "Ошибка при поиске файлов карт в хранилище" :
-                    "Error scanning storage for map files");
+                webContext.Log.WriteError(ex, PluginPhrases.ErrorScanningStorage);
             }
 
             return null;
@@ -175,9 +170,7 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
 
                 return Dto<MapDataPacket>.Fail(viewID > 0
                     ? (errMsg ?? WebPhrases.UnableLoadView)
-                    : (Locale.IsRussian
-                        ? "Не найдены файлы карт (.map) в хранилище"
-                        : "No map files (.map) found in storage"));
+                    : PluginPhrases.NoMapFilesFound);
             }
             catch (Exception ex)
             {
