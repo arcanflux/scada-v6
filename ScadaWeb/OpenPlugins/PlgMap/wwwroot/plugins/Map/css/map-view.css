@@ -24,29 +24,149 @@ html, body {
 
 .map-popup-table {
     border-collapse: collapse;
-    margin-top: 4px;
-    width: 100%;
+    font-size: 0.9em;
+    margin: 4px 0;
 }
 
 .map-popup-table td {
-    padding: 2px 6px;
-    border-bottom: 1px solid #eee;
-    font-size: 0.9em;
+    padding: 1px 6px 1px 0;
 }
 
-.map-popup-alias {
+.map-popup-table .alias {
     color: #666;
-    white-space: nowrap;
 }
 
-.map-popup-val {
+.map-popup-table .val {
     font-weight: 600;
-    font-size: 1.05em;
-    text-align: right;
 }
 
-.map-popup-link {
+.map-popup-table .chart-btn {
+    cursor: pointer;
+    opacity: 0.5;
+    padding: 0 3px;
+    font-size: 14px;
+    vertical-align: middle;
+    transition: opacity 0.15s;
+}
+
+.map-popup-table .chart-btn:hover {
+    opacity: 1.0;
+}
+
+.map-popup-chart-link {
     display: inline-block;
     margin-top: 4px;
+    font-size: 0.85em;
+    cursor: pointer;
+    color: #0073aa;
+    text-decoration: none;
+}
+
+.map-popup-chart-link:hover {
+    text-decoration: underline;
+}
+
+/* Chart overlay panel */
+.map-chart-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+}
+
+.map-chart-overlay.show {
+    display: flex;
+}
+
+.map-chart-panel {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    width: 720px;
+    max-width: 92vw;
+    max-height: 85vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.map-chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid #eee;
+    font-weight: 600;
+    font-size: 1.05em;
+}
+
+.map-chart-close {
+    cursor: pointer;
+    font-size: 22px;
+    color: #888;
+    line-height: 1;
+    padding: 0 4px;
+}
+
+.map-chart-close:hover {
+    color: #333;
+}
+
+.map-chart-body {
+    padding: 12px 16px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.map-chart-canvas-wrap {
+    position: relative;
+    width: 100%;
+    height: 320px;
+}
+
+.map-chart-loading {
+    text-align: center;
+    color: #999;
+    padding: 40px;
+    font-size: 0.95em;
+}
+
+/* Hover mini-chart tooltip */
+.map-minichart-tooltip {
+    display: none;
+    position: fixed;
+    z-index: 3000;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    padding: 8px;
+    width: 340px;
+}
+
+.map-minichart-tooltip.show {
+    display: block;
+}
+
+.map-minichart-title {
+    font-weight: 600;
+    font-size: 0.85em;
+    margin-bottom: 4px;
+    color: #333;
+}
+
+.map-minichart-canvas-wrap {
+    width: 100%;
+    height: 160px;
+    position: relative;
+}
+
+.map-minichart-loading {
+    text-align: center;
+    color: #999;
+    padding: 20px 0;
     font-size: 0.85em;
 }

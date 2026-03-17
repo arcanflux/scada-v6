@@ -46,6 +46,19 @@
             font-weight: 600;
         }
 
+        .map-popup-table .chart-btn {
+            cursor: pointer;
+            opacity: 0.5;
+            padding: 0 3px;
+            font-size: 14px;
+            vertical-align: middle;
+            transition: opacity 0.15s;
+        }
+
+        .map-popup-table .chart-btn:hover {
+            opacity: 1.0;
+        }
+
         .map-popup-chart-link {
             display: inline-block;
             margin-top: 4px;
@@ -117,6 +130,111 @@
         .map-search-item:last-child {
             border-bottom: none;
         }
+
+        /* Chart overlay panel */
+        .map-chart-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .map-chart-overlay.show {
+            display: flex;
+        }
+
+        .map-chart-panel {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            width: 720px;
+            max-width: 92vw;
+            max-height: 85vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .map-chart-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid #eee;
+            font-weight: 600;
+            font-size: 1.05em;
+        }
+
+        .map-chart-close {
+            cursor: pointer;
+            font-size: 22px;
+            color: #888;
+            line-height: 1;
+            padding: 0 4px;
+        }
+
+        .map-chart-close:hover {
+            color: #333;
+        }
+
+        .map-chart-body {
+            padding: 12px 16px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .map-chart-canvas-wrap {
+            position: relative;
+            width: 100%;
+            height: 320px;
+        }
+
+        .map-chart-loading {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+            font-size: 0.95em;
+        }
+
+        /* Hover mini-chart tooltip */
+        .map-minichart-tooltip {
+            display: none;
+            position: fixed;
+            z-index: 3000;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            padding: 8px;
+            width: 340px;
+        }
+
+        .map-minichart-tooltip.show {
+            display: block;
+        }
+
+        .map-minichart-title {
+            font-weight: 600;
+            font-size: 0.85em;
+            margin-bottom: 4px;
+            color: #333;
+        }
+
+        .map-minichart-canvas-wrap {
+            width: 100%;
+            height: 160px;
+            position: relative;
+        }
+
+        .map-minichart-loading {
+            text-align: center;
+            color: #999;
+            padding: 20px 0;
+            font-size: 0.85em;
+        }
     </style>
 }
 
@@ -128,16 +246,27 @@
         class MapViewManager {
             static LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
             static LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+            static CHARTJS_URL = "https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js";
+            static CHARTJS_ADAPTER_URL = "https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js";
+            static CHART_COLORS = [
+                "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+                "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
+            ];
 
             constructor(options) {
                 this.viewID = options.viewID;
                 this.refreshRate = options.refreshRate || 1000;
                 this.rootPath = this._detectRootPath();
                 this.map = null;
-                this.markers = [];        // raw marker defs from API
-                this.markerEntries = [];   // {id, def, leafletMarker}
+                this.markers = [];
+                this.markerEntries = [];
                 this.updateTimer = null;
-                this.curDataMap = {};       // cnlNum -> record
+                this.curDataMap = {};
+                this._chartJsLoaded = false;
+                this._chartCache = {};
+                this._activeChart = null;
+                this._activeMiniChart = null;
+                this._miniChartHideTimer = null;
             }
 
             _detectRootPath() {
@@ -147,6 +276,10 @@
 
             _apiRoot() {
                 return this.rootPath + "Api/Map/";
+            }
+
+            _mainApiRoot() {
+                return this.rootPath + "Api/Main/";
             }
 
             _loadLeafletCss() {
@@ -173,6 +306,30 @@
                     script.onerror = reject;
                     document.head.appendChild(script);
                 });
+            }
+
+            _loadChartJs() {
+                if (this._chartJsLoadPromise) return this._chartJsLoadPromise;
+                this._chartJsLoadPromise = new Promise((resolve, reject) => {
+                    if (this._chartJsLoaded || typeof Chart !== "undefined") {
+                        this._chartJsLoaded = true;
+                        resolve();
+                        return;
+                    }
+                    let script = document.createElement("script");
+                    script.src = MapViewManager.CHARTJS_URL;
+                    script.onload = () => {
+                        // load date adapter after Chart.js
+                        let adapter = document.createElement("script");
+                        adapter.src = MapViewManager.CHARTJS_ADAPTER_URL;
+                        adapter.onload = () => { this._chartJsLoaded = true; resolve(); };
+                        adapter.onerror = reject;
+                        document.head.appendChild(adapter);
+                    };
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
+                return this._chartJsLoadPromise;
             }
 
             _createMarkerIcon(color) {
@@ -210,7 +367,8 @@
                     maxZoom: config.maxZoom
                 }).setView([config.centerLat, config.centerLng], config.zoom);
 
-                L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                let tileUrl = config.tileUrlTemplate || "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+                L.tileLayer(tileUrl, {
                     attribution: '',
                     maxZoom: config.maxZoom
                 }).addTo(this.map);
@@ -219,7 +377,6 @@
 
                 for (let i = 0; i < this.markers.length; i++) {
                     let m = this.markers[i];
-                    // normalize: support both old (cnlNum/caption) and new (channels/name) API
                     if (!m.name && m.caption) m.name = m.caption;
                     if (!m.name) m.name = "";
                     if (!m.id) m.id = i + 1;
@@ -236,12 +393,14 @@
                         title: m.name
                     }).addTo(this.map);
 
-                    lMarker.bindPopup(this._buildPopupHtml(m));
+                    lMarker.bindPopup(this._buildPopupHtml(m), { maxWidth: 320 });
 
                     this.markerEntries.push({ id: m.id, def: m, leafletMarker: lMarker });
                 }
 
                 this._initSearch();
+                this._initChartOverlay();
+                this._initMiniChartTooltip();
                 this._refreshData();
                 this.updateTimer = setInterval(() => this._refreshData(), this.refreshRate);
             }
@@ -292,7 +451,6 @@
                     input.value = "";
                 });
 
-                // close results on outside click
                 document.addEventListener("click", (ev) => {
                     if (!ev.target.closest(".map-search-container")) {
                         results.classList.remove("show");
@@ -304,33 +462,354 @@
             _buildPopupHtml(def) {
                 let html = '<b>' + this._escapeHtml(def.name) + '</b>';
 
+                if (def.descr) {
+                    html += '<br/><span style="color:#666;font-size:0.85em">' +
+                        this._escapeHtml(def.descr) + '</span>';
+                }
+
                 if (def.channels && def.channels.length > 0) {
                     html += '<table class="map-popup-table">';
-                    for (let ch of def.channels) {
+                    for (let i = 0; i < def.channels.length; i++) {
+                        let ch = def.channels[i];
                         let rec = this.curDataMap[ch.cnlNum];
                         let valText = rec ? this._escapeHtml(rec.text) : "--";
+                        let alias = ch.alias || ("Ch" + ch.cnlNum);
+                        let colorIdx = i % MapViewManager.CHART_COLORS.length;
+                        let color = MapViewManager.CHART_COLORS[colorIdx];
+
                         html += '<tr>' +
-                            '<td class="alias">' + this._escapeHtml(ch.alias || "Ch" + ch.cnlNum) + ':</td>' +
+                            '<td class="alias">' + this._escapeHtml(alias) + ':</td>' +
                             '<td class="val" id="cnl-' + ch.cnlNum + '">' + valText + '</td>' +
+                            '<td class="chart-btn" ' +
+                                'data-cnl="' + ch.cnlNum + '" ' +
+                                'data-alias="' + this._escapeHtml(alias) + '" ' +
+                                'data-color="' + color + '" ' +
+                                'onmouseenter="mapViewInstance._showMiniChart(event, ' + ch.cnlNum + ', \'' +
+                                    this._escapeHtml(alias).replace(/'/g, "\\'") + '\', \'' + color + '\')" ' +
+                                'onmouseleave="mapViewInstance._scheduleMiniChartHide()">' +
+                                '<svg width="14" height="14" viewBox="0 0 14 14" style="vertical-align:middle">' +
+                                '<polyline points="1,12 4,6 7,9 10,3 13,7" fill="none" stroke="' + color + '" stroke-width="1.5"/>' +
+                                '</svg>' +
+                            '</td>' +
                             '</tr>';
                     }
                     html += '</table>';
 
-                    // chart link opens all channels at once
-                    let cnlNums = def.channels.map(c => c.cnlNum).join(",");
+                    // Combined chart link
+                    let markerIdx = this.markerEntries.findIndex(e => e.def === def);
+                    if (markerIdx < 0) markerIdx = this.markers.indexOf(def);
                     html += '<a class="map-popup-chart-link" href="javascript:void(0)" ' +
-                        'onclick="mapViewInstance._openChart(\'' + cnlNums + '\')">&#128200; Chart</a>';
+                        'onclick="mapViewInstance._openCombinedChart(' + (markerIdx >= 0 ? markerIdx : 0) + ')">' +
+                        '&#128200; Combined Chart</a>';
                 }
 
                 return html;
             }
 
-            _openChart(cnlNums) {
-                if (typeof viewHub !== "undefined" && viewHub.features && viewHub.features.chart) {
-                    viewHub.features.chart.show(cnlNums);
-                } else {
-                    window.open(this.rootPath + "Chart/Chart?cnlNums=" + cnlNums + "&startDate=");
+            // --- Chart Overlay (Combined) ---
+            _initChartOverlay() {
+                let overlay = document.getElementById("mapChartOverlay");
+                if (!overlay) return;
+
+                overlay.addEventListener("click", (ev) => {
+                    if (ev.target === overlay) this._closeChartOverlay();
+                });
+
+                document.getElementById("mapChartClose").addEventListener("click", () => {
+                    this._closeChartOverlay();
+                });
+            }
+
+            _closeChartOverlay() {
+                let overlay = document.getElementById("mapChartOverlay");
+                overlay.classList.remove("show");
+                if (this._activeChart) {
+                    this._activeChart.destroy();
+                    this._activeChart = null;
                 }
+            }
+
+            async _openCombinedChart(markerIdx) {
+                let def = this.markers[markerIdx];
+                if (!def || !def.channels || def.channels.length === 0) return;
+
+                let overlay = document.getElementById("mapChartOverlay");
+                let title = document.getElementById("mapChartTitle");
+                let body = document.getElementById("mapChartBody");
+
+                title.textContent = def.name || "Combined Chart";
+                body.innerHTML = '<div class="map-chart-loading">Loading chart data...</div>';
+                overlay.classList.add("show");
+
+                try {
+                    await this._loadChartJs();
+                    let histData = await this._fetchHistData(def.channels.map(c => c.cnlNum));
+
+                    if (!histData) {
+                        body.innerHTML = '<div class="map-chart-loading">No archive data available</div>';
+                        return;
+                    }
+
+                    body.innerHTML = '<div class="map-chart-canvas-wrap"><canvas id="mapCombinedCanvas"></canvas></div>';
+                    let canvas = document.getElementById("mapCombinedCanvas");
+
+                    this._renderCombinedChart(canvas, def, histData);
+                } catch (err) {
+                    console.error("Chart loading error:", err);
+                    body.innerHTML = '<div class="map-chart-loading">Error loading chart data</div>';
+                }
+            }
+
+            _renderCombinedChart(canvas, def, histData) {
+                if (this._activeChart) {
+                    this._activeChart.destroy();
+                    this._activeChart = null;
+                }
+
+                let timestamps = histData.timestamps.map(t => new Date(t.ms));
+                let datasets = [];
+
+                for (let i = 0; i < histData.cnlNums.length; i++) {
+                    let cnlNum = histData.cnlNums[i];
+                    let ch = def.channels.find(c => c.cnlNum === cnlNum);
+                    let alias = ch ? (ch.alias || "Ch" + cnlNum) : "Ch" + cnlNum;
+                    let color = MapViewManager.CHART_COLORS[i % MapViewManager.CHART_COLORS.length];
+                    let trend = histData.trends[i];
+
+                    let data = trend.map((rec, idx) => ({
+                        x: timestamps[idx],
+                        y: (rec && rec.d && rec.d.stat > 0) ? rec.d.val : null
+                    }));
+
+                    datasets.push({
+                        label: alias,
+                        data: data,
+                        borderColor: color,
+                        backgroundColor: color + "20",
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        tension: 0.3,
+                        fill: false,
+                        spanGaps: false
+                    });
+                }
+
+                this._activeChart = new Chart(canvas, {
+                    type: 'line',
+                    data: { datasets: datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: { usePointStyle: true, pointStyle: 'line', boxWidth: 30 }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    title: function(items) {
+                                        if (items.length > 0) {
+                                            let d = items[0].parsed.x;
+                                            return new Date(d).toLocaleString();
+                                        }
+                                        return '';
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    displayFormats: { hour: 'HH:mm', minute: 'HH:mm', day: 'MMM d' }
+                                },
+                                title: { display: false }
+                            },
+                            y: {
+                                beginAtZero: false,
+                                title: { display: false }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // --- Mini Chart Tooltip (hover per parameter) ---
+            _initMiniChartTooltip() {
+                let tip = document.getElementById("mapMiniChartTooltip");
+                if (!tip) return;
+
+                tip.addEventListener("mouseenter", () => {
+                    clearTimeout(this._miniChartHideTimer);
+                });
+                tip.addEventListener("mouseleave", () => {
+                    this._hideMiniChart();
+                });
+            }
+
+            async _showMiniChart(event, cnlNum, alias, color) {
+                clearTimeout(this._miniChartHideTimer);
+
+                let tip = document.getElementById("mapMiniChartTooltip");
+                let titleEl = document.getElementById("mapMiniChartTitle");
+                let bodyEl = document.getElementById("mapMiniChartBody");
+
+                titleEl.textContent = alias + " (Ch " + cnlNum + ")";
+                bodyEl.innerHTML = '<div class="map-minichart-loading">Loading...</div>';
+
+                // Position near the hovered element
+                let rect = event.target.getBoundingClientRect();
+                let tipWidth = 340;
+                let left = rect.right + 8;
+                let top = rect.top - 40;
+
+                // keep within viewport
+                if (left + tipWidth > window.innerWidth) {
+                    left = rect.left - tipWidth - 8;
+                }
+                if (top < 8) top = 8;
+                if (top + 200 > window.innerHeight) top = window.innerHeight - 210;
+
+                tip.style.left = left + "px";
+                tip.style.top = top + "px";
+                tip.classList.add("show");
+
+                try {
+                    await this._loadChartJs();
+                    let histData = await this._fetchHistData([cnlNum]);
+
+                    if (!histData || !histData.trends || histData.trends.length === 0) {
+                        bodyEl.innerHTML = '<div class="map-minichart-loading">No data</div>';
+                        return;
+                    }
+
+                    // check tooltip is still visible (user may have moved away)
+                    if (!tip.classList.contains("show")) return;
+
+                    bodyEl.innerHTML = '<div class="map-minichart-canvas-wrap"><canvas id="mapMiniCanvas"></canvas></div>';
+                    let canvas = document.getElementById("mapMiniCanvas");
+                    this._renderMiniChart(canvas, cnlNum, alias, color, histData);
+                } catch (err) {
+                    console.error("Mini chart error:", err);
+                    bodyEl.innerHTML = '<div class="map-minichart-loading">Error</div>';
+                }
+            }
+
+            _scheduleMiniChartHide() {
+                this._miniChartHideTimer = setTimeout(() => this._hideMiniChart(), 300);
+            }
+
+            _hideMiniChart() {
+                let tip = document.getElementById("mapMiniChartTooltip");
+                tip.classList.remove("show");
+                if (this._activeMiniChart) {
+                    this._activeMiniChart.destroy();
+                    this._activeMiniChart = null;
+                }
+            }
+
+            _renderMiniChart(canvas, cnlNum, alias, color, histData) {
+                if (this._activeMiniChart) {
+                    this._activeMiniChart.destroy();
+                    this._activeMiniChart = null;
+                }
+
+                let timestamps = histData.timestamps.map(t => new Date(t.ms));
+                let trend = histData.trends[0];
+                let data = trend.map((rec, idx) => ({
+                    x: timestamps[idx],
+                    y: (rec && rec.d && rec.d.stat > 0) ? rec.d.val : null
+                }));
+
+                this._activeMiniChart = new Chart(canvas, {
+                    type: 'line',
+                    data: {
+                        datasets: [{
+                            label: alias,
+                            data: data,
+                            borderColor: color,
+                            backgroundColor: color + "20",
+                            borderWidth: 1.5,
+                            pointRadius: 0,
+                            pointHoverRadius: 3,
+                            tension: 0.3,
+                            fill: true,
+                            spanGaps: false
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: { duration: 200 },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    title: function(items) {
+                                        if (items.length > 0) {
+                                            return new Date(items[0].parsed.x).toLocaleString();
+                                        }
+                                        return '';
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    displayFormats: { hour: 'HH:mm', minute: 'HH:mm' }
+                                },
+                                ticks: { font: { size: 10 } },
+                                title: { display: false }
+                            },
+                            y: {
+                                beginAtZero: false,
+                                ticks: { font: { size: 10 } },
+                                title: { display: false }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // --- Historical Data Fetch ---
+            async _fetchHistData(cnlNums) {
+                let cacheKey = cnlNums.join(",");
+                let cached = this._chartCache[cacheKey];
+                if (cached && (Date.now() - cached.time) < 60000) {
+                    return cached.data;
+                }
+
+                // Fetch last 24 hours of archive data
+                let endTime = new Date();
+                let startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
+
+                let url = this._mainApiRoot() + "GetHistData" +
+                    "?archiveBit=1" +
+                    "&startTime=" + encodeURIComponent(startTime.toISOString()) +
+                    "&endTime=" + encodeURIComponent(endTime.toISOString()) +
+                    "&endInclusive=true" +
+                    "&cnlNums=" + encodeURIComponent(cnlNums.join(","));
+
+                try {
+                    let resp = await fetch(url);
+                    let dto = await resp.json();
+
+                    if (dto.ok && dto.data) {
+                        this._chartCache[cacheKey] = { data: dto.data, time: Date.now() };
+                        return dto.data;
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch hist data:", err);
+                }
+
+                return null;
             }
 
             // --- Data refresh ---
@@ -346,13 +825,11 @@
             }
 
             _updateMarkers(records) {
-                // update data map
                 for (let rec of records) {
                     this.curDataMap[rec.cnlNum] = rec;
                 }
 
                 for (let entry of this.markerEntries) {
-                    // determine worst status across all channels
                     let worstStat = 0;
                     for (let ch of entry.def.channels) {
                         let rec = this.curDataMap[ch.cnlNum];
@@ -387,6 +864,8 @@
 
             destroy() {
                 if (this.updateTimer) { clearInterval(this.updateTimer); this.updateTimer = null; }
+                if (this._activeChart) { this._activeChart.destroy(); this._activeChart = null; }
+                if (this._activeMiniChart) { this._activeMiniChart.destroy(); this._activeMiniChart = null; }
                 if (this.map) { this.map.remove(); this.map = null; }
             }
         }
@@ -416,3 +895,22 @@
 <div id="divMapContainer" class="map-container"
      data-view-id="@Model.ViewID"
      data-refresh-rate="@Model.RefreshRate"></div>
+
+<!-- Combined Chart Overlay -->
+<div id="mapChartOverlay" class="map-chart-overlay">
+    <div class="map-chart-panel">
+        <div class="map-chart-header">
+            <span id="mapChartTitle">Chart</span>
+            <span id="mapChartClose" class="map-chart-close">&times;</span>
+        </div>
+        <div id="mapChartBody" class="map-chart-body">
+            <div class="map-chart-loading">Loading...</div>
+        </div>
+    </div>
+</div>
+
+<!-- Mini Chart Tooltip (hover) -->
+<div id="mapMiniChartTooltip" class="map-minichart-tooltip">
+    <div id="mapMiniChartTitle" class="map-minichart-title"></div>
+    <div id="mapMiniChartBody"></div>
+</div>
