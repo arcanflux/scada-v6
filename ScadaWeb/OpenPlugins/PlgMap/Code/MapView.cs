@@ -62,6 +62,27 @@ namespace Scada.Web.Plugins.PlgMap.Code
         }
 
         /// <summary>
+        /// Adds a marker and its channel numbers, skipping on error.
+        /// </summary>
+        private void AddMarkerSafe(Func<MapMarker> loadFunc)
+        {
+            try
+            {
+                MapMarker marker = loadFunc();
+                Markers.Add(marker);
+
+                foreach (MarkerChannel ch in marker.Channels)
+                {
+                    AddCnlNum(ch.CnlNum);
+                }
+            }
+            catch
+            {
+                // skip markers that fail to parse
+            }
+        }
+
+        /// <summary>
         /// Loads the v5.8 XML format with InitialView, Tiling, and Locations sections.
         /// </summary>
         private void LoadV58Format(XmlElement rootElem)
@@ -76,13 +97,8 @@ namespace Scada.Web.Plugins.PlgMap.Code
                 int index = 1;
                 foreach (XmlNode locNode in locationsNode.SelectNodes("Location"))
                 {
-                    MapMarker marker = MapMarker.LoadFromLocationXml(locNode, index++);
-                    Markers.Add(marker);
-
-                    foreach (MarkerChannel ch in marker.Channels)
-                    {
-                        AddCnlNum(ch.CnlNum);
-                    }
+                    int idx = index++;
+                    AddMarkerSafe(() => MapMarker.LoadFromLocationXml(locNode, idx));
                 }
             }
         }
@@ -101,13 +117,7 @@ namespace Scada.Web.Plugins.PlgMap.Code
             // load markers directly under root
             foreach (XmlNode markerNode in rootElem.SelectNodes("Marker"))
             {
-                MapMarker marker = MapMarker.LoadFromXml(markerNode);
-                Markers.Add(marker);
-
-                foreach (MarkerChannel ch in marker.Channels)
-                {
-                    AddCnlNum(ch.CnlNum);
-                }
+                AddMarkerSafe(() => MapMarker.LoadFromXml(markerNode));
             }
 
             // auto-compute center if not specified and markers exist
@@ -132,13 +142,7 @@ namespace Scada.Web.Plugins.PlgMap.Code
             {
                 foreach (XmlNode markerNode in markersNode.SelectNodes("Marker"))
                 {
-                    MapMarker marker = MapMarker.LoadFromXml(markerNode);
-                    Markers.Add(marker);
-
-                    foreach (MarkerChannel ch in marker.Channels)
-                    {
-                        AddCnlNum(ch.CnlNum);
-                    }
+                    AddMarkerSafe(() => MapMarker.LoadFromXml(markerNode));
                 }
             }
         }

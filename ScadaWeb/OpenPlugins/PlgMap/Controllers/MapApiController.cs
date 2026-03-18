@@ -9,6 +9,7 @@ using Scada.Web.Api;
 using Scada.Web.Lang;
 using Scada.Web.Plugins.PlgMap.Code;
 using Scada.Web.Services;
+using System.Collections.Concurrent;
 
 namespace Scada.Web.Plugins.PlgMap.Controllers
 {
@@ -21,11 +22,59 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
     public class MapApiController(IWebContext webContext, IUserContext userContext,
         IClientAccessor clientAccessor, IViewLoader viewLoader) : ControllerBase
     {
+        /// <summary>
+        /// In-memory cache of loaded MapViews keyed by viewID.
+        /// Avoids re-parsing large .map files on every data refresh.
+        /// </summary>
+        private static readonly ConcurrentDictionary<int, MapViewCacheEntry> ViewCache = new();
+        private static readonly TimeSpan ViewCacheTTL = TimeSpan.FromMinutes(10);
+
+
+        /// <summary>
+        /// Gets a MapView from cache or loads it fresh.
+        /// </summary>
+        private MapView GetOrLoadMapView(int viewID, out string errMsg)
+        {
+            errMsg = null;
+
+            // try cache first
+            if (ViewCache.TryGetValue(viewID, out MapViewCacheEntry entry) &&
+                DateTime.UtcNow - entry.LoadedAt < ViewCacheTTL)
+            {
+                return entry.View;
+            }
+
+            // try loading from local storage first (fast, avoids SCADA Server roundtrip)
+            MapView mapView = viewID > 0 ? LoadMapViewFromStorage(viewID) : null;
+
+            // fallback: try the standard ViewLoader (goes through SCADA Server)
+            if (mapView == null && viewID > 0)
+            {
+                if (viewLoader.GetView(viewID, true, out mapView, out errMsg))
+                {
+                    // success via ViewLoader
+                }
+                else
+                {
+                    mapView = null;
+                }
+            }
+
+            // fallback: scan for any .map file
+            mapView ??= FindAndLoadFirstMapView();
+
+            // cache the result
+            if (mapView != null)
+            {
+                ViewCache[viewID] = new MapViewCacheEntry { View = mapView, LoadedAt = DateTime.UtcNow };
+            }
+
+            return mapView;
+        }
 
 
         /// <summary>
         /// Tries to load a MapView by parsing the .map file directly from local storage.
-        /// Used as a fallback when the ViewLoader cannot retrieve the view from the server.
         /// </summary>
         private MapView LoadMapViewFromStorage(int viewID)
         {
@@ -61,7 +110,6 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
 
         /// <summary>
         /// Scans SortedViews for the first .map file and loads it from storage.
-        /// Used as a last-resort fallback when viewID is 0 or invalid.
         /// </summary>
         private MapView FindAndLoadFirstMapView()
         {
@@ -150,22 +198,11 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
         {
             try
             {
-                string errMsg = null;
+                MapView mapView = GetOrLoadMapView(viewID, out string errMsg);
 
-                if (viewID > 0 && viewLoader.GetView(viewID, true, out MapView mapView, out errMsg))
+                if (mapView != null)
                 {
                     return Dto<MapDataPacket>.Success(BuildMapDataPacket(mapView));
-                }
-
-                // fallback 1: try loading the specific view from local storage
-                MapView fallbackView = viewID > 0 ? LoadMapViewFromStorage(viewID) : null;
-
-                // fallback 2: scan for any .map file in config database and storage
-                fallbackView ??= FindAndLoadFirstMapView();
-
-                if (fallbackView != null)
-                {
-                    return Dto<MapDataPacket>.Success(BuildMapDataPacket(fallbackView));
                 }
 
                 return Dto<MapDataPacket>.Fail(viewID > 0
@@ -186,20 +223,7 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
         {
             try
             {
-                MapView mapView = null;
-                string errMsg = null;
-
-                if (viewID > 0)
-                {
-                    if (!viewLoader.GetView(viewID, out mapView, out errMsg))
-                    {
-                        // fallback: try loading from local storage by ID
-                        mapView = LoadMapViewFromStorage(viewID);
-                    }
-                }
-
-                // fallback: scan for any .map file
-                mapView ??= FindAndLoadFirstMapView();
+                MapView mapView = GetOrLoadMapView(viewID, out string errMsg);
 
                 if (mapView != null)
                 {
@@ -237,6 +261,16 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
                 webContext.Log.WriteError(ex.BuildErrorMessage(WebPhrases.ErrorInWebApi, nameof(GetCurData)));
                 return Dto<MarkerCurData>.Fail(ex.Message);
             }
+        }
+
+
+        /// <summary>
+        /// Cache entry for a loaded MapView.
+        /// </summary>
+        private class MapViewCacheEntry
+        {
+            public MapView View { get; set; }
+            public DateTime LoadedAt { get; set; }
         }
     }
 }
