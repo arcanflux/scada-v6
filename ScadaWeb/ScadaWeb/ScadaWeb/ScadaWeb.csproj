@@ -38,6 +38,12 @@
     <Content Include="..\ScadaWebCommon\Lang\ScadaWeb.ru-RU.xml" Link="lang\ScadaWeb.ru-RU.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="..\..\OpenPlugins\PlgMap\lang\PlgMap.en-GB.xml" Link="lang\PlgMap.en-GB.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\OpenPlugins\PlgMap\lang\PlgMap.ru-RU.xml" Link="lang\PlgMap.ru-RU.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
