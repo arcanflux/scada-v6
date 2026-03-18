@@ -193,18 +193,8 @@ class MapViewManager {
             let entry = this.leafletMarkers[id];
             let def = entry.def;
 
-            // Determine color based on status channel or first channel
-            let statusRec = null;
-            if (def.statusCnlNum > 0) {
-                statusRec = dataMap[def.statusCnlNum];
-            } else if (def.channels.length > 0) {
-                statusRec = dataMap[def.channels[0].cnlNum];
-            }
-
-            if (statusRec) {
-                let color = this._getColorForStatus(statusRec.stat);
-                entry.marker.setIcon(this._createMarkerIcon(color));
-            }
+            let color = this._getMarkerColor(def, dataMap);
+            entry.marker.setIcon(this._createMarkerIcon(color));
 
             // Update popup content with all channel values
             let popupContent = this._buildPopupContent(def, dataMap);
@@ -212,16 +202,23 @@ class MapViewManager {
         }
     }
 
-    // Returns a color string based on SCADA channel status.
-    _getColorForStatus(stat) {
-        switch (stat) {
-            case 0:   return "#999";    // undefined
-            case 2:   return "#28a745"; // normal (defined)
-            case 3:   return "#ffc107"; // warning
-            case 4:   return "#dc3545"; // error / alarm
-            case 5:   return "#dc3545"; // critical
-            default:  return "#3388ff"; // default blue
+    // Returns aggregate marker color based on how many channels are working.
+    // Gray (#999) = no channels working, Yellow (#f0ad4e) = some working,
+    // Blue (#3388ff) = all working or single channel working.
+    _getMarkerColor(def, dataMap) {
+        let channels = def.channels || [];
+        if (channels.length === 0) return "#999";
+
+        let total = channels.length;
+        let working = 0;
+        for (let ch of channels) {
+            let rec = dataMap[ch.cnlNum];
+            if (rec && rec.stat > 0) working++;
         }
+
+        if (working === 0) return "#999";      // gray - none working
+        if (working < total) return "#f0ad4e";  // amber - partial
+        return "#3388ff";                        // blue - all working
     }
 
     // Escapes HTML special characters.

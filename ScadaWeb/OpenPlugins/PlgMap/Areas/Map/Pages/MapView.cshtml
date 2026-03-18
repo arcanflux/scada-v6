@@ -451,12 +451,7 @@
 
             _refreshAllMarkerIcons() {
                 for (let entry of this.markerEntries) {
-                    let worstStat = 0;
-                    for (let ch of entry.def.channels) {
-                        let rec = this.curDataMap[ch.cnlNum];
-                        if (rec && rec.stat > worstStat) worstStat = rec.stat;
-                    }
-                    let color = this._getColorForStatus(worstStat);
+                    let color = this._getMarkerColor(entry.def);
                     entry.leafletMarker.setIcon(this._createMarkerIcon(color));
                 }
             }
@@ -1061,15 +1056,7 @@
                 }
 
                 for (let entry of this.markerEntries) {
-                    let worstStat = 0;
-                    for (let ch of entry.def.channels) {
-                        let rec = this.curDataMap[ch.cnlNum];
-                        if (rec && rec.stat > worstStat) {
-                            worstStat = rec.stat;
-                        }
-                    }
-
-                    let color = this._getColorForStatus(worstStat);
+                    let color = this._getMarkerColor(entry.def);
                     entry.leafletMarker.setIcon(this._createMarkerIcon(color));
 
                     // Update values in-place if popup is open, otherwise rebuild
@@ -1092,15 +1079,24 @@
                 }
             }
 
-            _getColorForStatus(stat) {
-                switch (stat) {
-                    case 0:   return "#999";
-                    case 2:   return "#28a745";
-                    case 3:   return "#ffc107";
-                    case 4:   return "#dc3545";
-                    case 5:   return "#dc3545";
-                    default:  return "#3388ff";
+            // Returns aggregate marker color based on how many channels are working.
+            // Gray (#999) = no channels working, Yellow (#f0ad4e) = some working,
+            // Blue (#3388ff) = all working or single channel working.
+            _getMarkerColor(def) {
+                let channels = def.channels || [];
+                if (channels.length === 0) return "#999";
+
+                let total = channels.length;
+                let working = 0;
+                for (let ch of channels) {
+                    let rec = this.curDataMap[ch.cnlNum];
+                    // stat > 0 means the channel has a defined status (working)
+                    if (rec && rec.stat > 0) working++;
                 }
+
+                if (working === 0) return "#999";      // gray - none working
+                if (working < total) return "#f0ad4e";  // amber - partial
+                return "#3388ff";                        // blue - all working
             }
 
             _escapeHtml(text) {
