@@ -700,7 +700,7 @@
                 for (let i = 0; i < stCh.length; i++) {
                     let ch = stCh[i];
                     let rec = this.curDataMap[ch.cnlNum];
-                    let on = !!(rec && rec.stat > 0);
+                    let on = !!(rec && rec.val >= 1);
                     let dotColor = on ? "#d32f2f" : "#777";
                     let label = this._escapeHtml(ch.alias || (this.t.channel + " " + ch.cnlNum));
                     html += '<div class="map-status-row">' +
