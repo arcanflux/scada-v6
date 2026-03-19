@@ -529,7 +529,7 @@
                 if (!stCh || stCh.length === 0) return [];
                 return stCh.map(ch => {
                     let rec = this.curDataMap[ch.cnlNum];
-                    return { alias: ch.alias, on: !!(rec && rec.stat > 0), cnlNum: ch.cnlNum };
+                    return { alias: ch.alias, on: !!(rec && rec.val >= 1), cnlNum: ch.cnlNum };
                 });
             }
 
