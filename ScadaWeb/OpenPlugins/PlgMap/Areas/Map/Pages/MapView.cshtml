@@ -360,7 +360,6 @@
                 day1: "@Html.Raw(Model.JsDict.Day1)",
                 day3: "@Html.Raw(Model.JsDict.Day3)",
                 day7: "@Html.Raw(Model.JsDict.Day7)",
-                day14: "@Html.Raw(Model.JsDict.Day14)",
                 ago1h: "@Html.Raw(Model.JsDict.Ago1h)",
                 now: "@Html.Raw(Model.JsDict.Now)",
                 channel: "@Html.Raw(Model.JsDict.Channel)",
@@ -786,8 +785,7 @@
                 let periods = [
                     { days: 1, label: this.t.day1 },
                     { days: 3, label: this.t.day3 },
-                    { days: 7, label: this.t.day7 },
-                    { days: 14, label: this.t.day14 }
+                    { days: 7, label: this.t.day7 }
                 ];
                 for (let p of periods) {
                     let cls = p.days === this._combinedDays ? "map-chart-period-btn active" : "map-chart-period-btn";
