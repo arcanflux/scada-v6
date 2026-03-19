@@ -71,6 +71,12 @@
             font-weight: 700;
         }
 
+        .map-popup-descr {
+            font-size: 12px;
+            color: #666;
+            margin: 2px 0 4px 0;
+        }
+
         .map-popup-chart-btn {
             display: block;
             margin-top: 5px;
@@ -169,10 +175,10 @@
             background: #fff;
             border-radius: 8px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            width: 92vw;
-            max-width: 1200px;
-            height: 85vh;
-            max-height: 85vh;
+            width: 94vw;
+            max-width: 94vw;
+            height: 90vh;
+            max-height: 90vh;
             overflow: hidden;
             display: flex;
             flex-direction: column;
@@ -592,9 +598,12 @@
                 });
             }
 
-            // --- Popups (no Descr, bigger fonts, button for combined chart) ---
+            // --- Popups (bigger fonts, button for combined chart) ---
             _buildPopupHtml(def) {
                 let html = '<span class="map-popup-name">' + this._escapeHtml(def.name) + '</span>';
+                if (def.descr) {
+                    html += '<div class="map-popup-descr">' + this._escapeHtml(def.descr) + '</div>';
+                }
 
                 if (def.channels && def.channels.length > 0) {
                     html += '<table class="map-popup-table">';
