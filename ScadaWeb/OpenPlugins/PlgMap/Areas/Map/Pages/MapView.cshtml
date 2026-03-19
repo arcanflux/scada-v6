@@ -507,7 +507,7 @@
                     let dotY = dotR + 1;
                     for (let i = 0; i < n; i++) {
                         let dx = startX + i * dotSpacing;
-                        let dColor = statusDots[i].on ? "#2e7d32" : "#777";
+                        let dColor = statusDots[i].on ? "#d32f2f" : "#777";
                         svg += '<circle cx="' + dx.toFixed(1) + '" cy="' + dotY + '" r="' + dotR +
                             '" fill="' + dColor + '" stroke="#fff" stroke-width="' + dotSw + '"/>';
                     }
@@ -701,7 +701,7 @@
                     let ch = stCh[i];
                     let rec = this.curDataMap[ch.cnlNum];
                     let on = !!(rec && rec.stat > 0);
-                    let dotColor = on ? "#2e7d32" : "#777";
+                    let dotColor = on ? "#d32f2f" : "#777";
                     let label = this._escapeHtml(ch.alias || (this.t.channel + " " + ch.cnlNum));
                     html += '<div class="map-status-row">' +
                         '<span class="map-status-dot" style="background:' + dotColor + '"></span>' +
