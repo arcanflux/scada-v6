@@ -437,28 +437,61 @@
                 return Math.round(Math.min(36, Math.max(8, z * 2.2 - 3)));
             }
 
-            _createMarkerIcon(color) {
+            _createMarkerIcon(color, channelStatuses) {
                 color = color || "#3388ff";
                 let size = this._getMarkerSize();
                 let r = Math.round(size * 0.42);
                 let sw = Math.max(1.5, size * 0.08);
-                let half = size / 2;
-                let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
-                    '<circle cx="' + half + '" cy="' + half + '" r="' + r + '" fill="' + color + '" stroke="#fff" stroke-width="' + sw + '"/>' +
-                    '</svg>';
+
+                // extra space above for status dots
+                let dotR = Math.max(2, Math.round(size * 0.1));
+                let hasDots = channelStatuses && channelStatuses.length > 0 && size >= 14;
+                let pad = hasDots ? dotR * 2 + 2 : 0;
+                let totalH = size + pad;
+                let cx = size / 2;
+                let cy = pad + size / 2;
+
+                let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + totalH + '" viewBox="0 0 ' + size + ' ' + totalH + '">' +
+                    '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + color + '" stroke="#fff" stroke-width="' + sw + '"/>';
+
+                // draw status dots in arc above marker
+                if (hasDots) {
+                    let n = channelStatuses.length;
+                    let dotSw = Math.max(0.5, dotR * 0.3);
+                    let totalWidth = n * dotR * 2 + (n - 1) * dotR * 0.6;
+                    let startX = cx - totalWidth / 2 + dotR;
+                    let dotY = dotR + 1;
+                    for (let i = 0; i < n; i++) {
+                        let dx = startX + i * (dotR * 2 + dotR * 0.6);
+                        let dColor = channelStatuses[i] ? MapViewManager.CHART_COLORS[i % MapViewManager.CHART_COLORS.length] : "#bbb";
+                        svg += '<circle cx="' + dx.toFixed(1) + '" cy="' + dotY + '" r="' + dotR + '" fill="' + dColor + '" stroke="#fff" stroke-width="' + dotSw + '"/>';
+                    }
+                }
+
+                svg += '</svg>';
                 return L.divIcon({
                     html: svg,
                     className: "map-marker-icon",
-                    iconSize: [size, size],
-                    iconAnchor: [half, half],
-                    popupAnchor: [0, -half - 2]
+                    iconSize: [size, totalH],
+                    iconAnchor: [cx, cy],
+                    popupAnchor: [0, -cy - 2]
+                });
+            }
+
+            // Returns array of booleans: true = channel working (stat > 0)
+            _getChannelStatuses(def) {
+                if (!def.channels) return [];
+                return def.channels.map(ch => {
+                    let rec = this.curDataMap[ch.cnlNum];
+                    return !!(rec && rec.stat > 0);
                 });
             }
 
             _refreshAllMarkerIcons() {
                 for (let entry of this.markerEntries) {
                     let color = this._getMarkerColor(entry.def);
-                    entry.leafletMarker.setIcon(this._createMarkerIcon(color));
+                    let chSt = this._getChannelStatuses(entry.def);
+                    entry.leafletMarker.setIcon(this._createMarkerIcon(color, chSt));
                 }
             }
 
@@ -1066,7 +1099,8 @@
 
                 for (let entry of this.markerEntries) {
                     let color = this._getMarkerColor(entry.def);
-                    entry.leafletMarker.setIcon(this._createMarkerIcon(color));
+                    let chSt = this._getChannelStatuses(entry.def);
+                    entry.leafletMarker.setIcon(this._createMarkerIcon(color, chSt));
 
                     // Update values in-place if popup is open, otherwise rebuild
                     let popup = entry.leafletMarker.getPopup();
