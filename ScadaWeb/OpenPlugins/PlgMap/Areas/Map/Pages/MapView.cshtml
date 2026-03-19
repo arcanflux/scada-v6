@@ -69,12 +69,15 @@
         .map-popup-name {
             font-size: 14px;
             font-weight: 700;
+            display: block;
+            text-align: center;
         }
 
         .map-popup-descr {
             font-size: 12px;
             color: #666;
             margin: 2px 0 4px 0;
+            text-align: center;
         }
 
         .map-popup-chart-btn {
@@ -121,10 +124,10 @@
         }
         .map-status-dot {
             display: inline-block;
-            width: 8px;
-            height: 8px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
-            border: 1px solid rgba(0,0,0,0.15);
+            border: 1.5px solid rgba(0,0,0,0.25);
             flex-shrink: 0;
         }
         .map-status-label {
@@ -217,11 +220,17 @@
         .map-chart-header {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: center;
             padding: 12px 16px;
             border-bottom: 1px solid #eee;
             font-weight: 600;
             font-size: 1.1em;
+            position: relative;
+        }
+
+        .map-chart-header #mapChartClose {
+            position: absolute;
+            right: 16px;
         }
 
         .map-chart-close {
@@ -243,6 +252,7 @@
             border-bottom: 1px solid #f0f0f0;
             flex-wrap: wrap;
             align-items: center;
+            justify-content: center;
         }
 
         .map-chart-toolbar label {
@@ -492,12 +502,12 @@
                 // draw status indicator dots above marker
                 if (hasDots) {
                     let n = statusDots.length;
-                    let dotSw = Math.max(0.6, dotR * 0.25);
+                    let dotSw = Math.max(1, dotR * 0.35);
                     let startX = cxAdj - (dotsWidth / 2) + dotR;
                     let dotY = dotR + 1;
                     for (let i = 0; i < n; i++) {
                         let dx = startX + i * dotSpacing;
-                        let dColor = statusDots[i].on ? "#4caf50" : "#bbb";
+                        let dColor = statusDots[i].on ? "#2e7d32" : "#777";
                         svg += '<circle cx="' + dx.toFixed(1) + '" cy="' + dotY + '" r="' + dotR +
                             '" fill="' + dColor + '" stroke="#fff" stroke-width="' + dotSw + '"/>';
                     }
@@ -604,8 +614,8 @@
                     // bind status tooltip (appears above marker on hover)
                     if (m.statusChannels && m.statusChannels.length > 0) {
                         lMarker.bindTooltip("", {
-                            direction: "top",
-                            offset: [0, -this._getMarkerSize() * 0.6],
+                            direction: "bottom",
+                            offset: [0, this._getMarkerSize() * 0.6],
                             className: "map-status-tooltip",
                             permanent: false
                         });
@@ -691,7 +701,7 @@
                     let ch = stCh[i];
                     let rec = this.curDataMap[ch.cnlNum];
                     let on = !!(rec && rec.stat > 0);
-                    let dotColor = on ? "#4caf50" : "#bbb";
+                    let dotColor = on ? "#2e7d32" : "#777";
                     let label = this._escapeHtml(ch.alias || (this.t.channel + " " + ch.cnlNum));
                     html += '<div class="map-status-row">' +
                         '<span class="map-status-dot" style="background:' + dotColor + '"></span>' +
