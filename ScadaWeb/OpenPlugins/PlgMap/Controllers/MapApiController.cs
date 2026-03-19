@@ -186,6 +186,11 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
                     {
                         CnlNum = c.CnlNum,
                         Alias = c.Alias
+                    })],
+                    StatusChannels = [.. m.StatusChannels.Select(c => new ChannelDto
+                    {
+                        CnlNum = c.CnlNum,
+                        Alias = c.Alias
                     })]
                 })]
             };

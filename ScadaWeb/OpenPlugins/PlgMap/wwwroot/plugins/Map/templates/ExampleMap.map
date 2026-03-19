@@ -24,6 +24,13 @@
         <DataItem cnlNum="1022">P1</DataItem>
         <DataItem cnlNum="1023">P2</DataItem>
       </Data>
+      <Statuses>
+        <StatusItem cnlNum="1101">Насос</StatusItem>
+        <StatusItem cnlNum="1102">Клапан</StatusItem>
+        <StatusItem cnlNum="1103">Датчик</StatusItem>
+        <StatusItem cnlNum="1104">Питание</StatusItem>
+        <StatusItem cnlNum="1105">Связь</StatusItem>
+      </Statuses>
     </Location>
 
     <Location>
@@ -39,6 +46,13 @@
         <DataItem cnlNum="2015">P1</DataItem>
         <DataItem cnlNum="2016">P2</DataItem>
       </Data>
+      <Statuses>
+        <StatusItem cnlNum="2101">Насос</StatusItem>
+        <StatusItem cnlNum="2102">Клапан</StatusItem>
+        <StatusItem cnlNum="2103">Датчик</StatusItem>
+        <StatusItem cnlNum="2104">Питание</StatusItem>
+        <StatusItem cnlNum="2105">Связь</StatusItem>
+      </Statuses>
     </Location>
 
     <Location>
@@ -54,6 +68,13 @@
         <DataItem cnlNum="3018">P1</DataItem>
         <DataItem cnlNum="3019">P2</DataItem>
       </Data>
+      <Statuses>
+        <StatusItem cnlNum="3101">Насос</StatusItem>
+        <StatusItem cnlNum="3102">Клапан</StatusItem>
+        <StatusItem cnlNum="3103">Датчик</StatusItem>
+        <StatusItem cnlNum="3104">Питание</StatusItem>
+        <StatusItem cnlNum="3105">Связь</StatusItem>
+      </Statuses>
     </Location>
 
     <Location>
@@ -69,6 +90,13 @@
         <DataItem cnlNum="4033">P1</DataItem>
         <DataItem cnlNum="4034">P2</DataItem>
       </Data>
+      <Statuses>
+        <StatusItem cnlNum="4101">Насос</StatusItem>
+        <StatusItem cnlNum="4102">Клапан</StatusItem>
+        <StatusItem cnlNum="4103">Датчик</StatusItem>
+        <StatusItem cnlNum="4104">Питание</StatusItem>
+        <StatusItem cnlNum="4105">Связь</StatusItem>
+      </Statuses>
     </Location>
 
     <Location>
@@ -84,6 +112,13 @@
         <DataItem cnlNum="5034">P1</DataItem>
         <DataItem cnlNum="5035">P2</DataItem>
       </Data>
+      <Statuses>
+        <StatusItem cnlNum="5101">Насос</StatusItem>
+        <StatusItem cnlNum="5102">Клапан</StatusItem>
+        <StatusItem cnlNum="5103">Датчик</StatusItem>
+        <StatusItem cnlNum="5104">Питание</StatusItem>
+        <StatusItem cnlNum="5105">Связь</StatusItem>
+      </Statuses>
     </Location>
   </Locations>
 </Map>

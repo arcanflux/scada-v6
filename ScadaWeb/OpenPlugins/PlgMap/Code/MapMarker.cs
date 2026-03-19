@@ -70,6 +70,12 @@ namespace Scada.Web.Plugins.PlgMap.Code
         /// </summary>
         public List<MarkerChannel> Channels { get; } = [];
 
+        /// <summary>
+        /// Gets the list of status indicator channels for this marker.
+        /// These are separate from data channels and shown as dots above the marker.
+        /// </summary>
+        public List<MarkerChannel> StatusChannels { get; } = [];
+
 
         /// <summary>
         /// Loads the marker from an XML node (new compact format).
@@ -113,6 +119,16 @@ namespace Scada.Web.Plugins.PlgMap.Code
                 }
             }
 
+            // load status channels
+            foreach (XmlNode stNode in node.SelectNodes("Status"))
+            {
+                marker.StatusChannels.Add(new MarkerChannel
+                {
+                    CnlNum = int.Parse(stNode.Attributes?["num"]?.Value ?? "0"),
+                    Alias = stNode.Attributes?["alias"]?.Value ?? ""
+                });
+            }
+
             return marker;
         }
 
@@ -151,6 +167,21 @@ namespace Scada.Web.Plugins.PlgMap.Code
                     {
                         CnlNum = int.Parse(cnlNumStr),
                         Alias = itemNode.InnerText?.Trim() ?? ""
+                    });
+                }
+            }
+
+            // parse Statuses > StatusItem elements (object status indicators)
+            XmlNode statusesNode = node.SelectSingleNode("Statuses");
+            if (statusesNode != null)
+            {
+                foreach (XmlNode stNode in statusesNode.SelectNodes("StatusItem"))
+                {
+                    string stCnlStr = stNode.Attributes?["cnlNum"]?.Value ?? "0";
+                    marker.StatusChannels.Add(new MarkerChannel
+                    {
+                        CnlNum = int.Parse(stCnlStr),
+                        Alias = stNode.InnerText?.Trim() ?? ""
                     });
                 }
             }
