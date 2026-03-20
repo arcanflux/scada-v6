@@ -67,6 +67,12 @@
             min-width: 45px;
         }
 
+        .map-popup-table .color-line {
+            padding: 0 2px;
+            vertical-align: middle;
+            width: 20px;
+        }
+
         .map-popup-table .chart-btn {
             cursor: pointer;
             opacity: 0.5;
@@ -96,30 +102,32 @@
             text-align: center;
         }
 
-        .map-popup-statuses {
+        .map-popup-header {
             display: flex;
-            flex-wrap: wrap;
-            gap: 4px 10px;
-            margin: 6px 0 2px 0;
-            padding-top: 5px;
-            border-top: 1px solid #eee;
-            font-size: 12px;
-            color: #555;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 2px;
         }
 
-        .map-popup-status-item {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
+        .map-popup-header-dots {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            flex-shrink: 0;
         }
 
         .map-popup-status-dot {
             display: inline-block;
-            width: 8px;
-            height: 8px;
+            width: 9px;
+            height: 9px;
             border-radius: 50%;
             border: 1px solid rgba(0,0,0,0.15);
-            flex-shrink: 0;
+            cursor: pointer;
+            transition: transform 0.15s;
+        }
+
+        .map-popup-status-dot:hover {
+            transform: scale(1.3);
         }
 
         .map-popup-chart-btn {
@@ -187,8 +195,8 @@
         }
         .map-status-btn button {
             font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
-            padding: 7px 14px;
-            font-size: 13px;
+            padding: 8px 14px;
+            font-size: 14px;
             font-weight: 600;
             border: 2px solid rgba(0,0,0,0.2);
             border-radius: 4px;
@@ -621,12 +629,12 @@
             _getMarkerSize() {
                 if (!this.map) return 16;
                 let z = this.map.getZoom();
-                // smaller range: 6px at zoom 5, 12px at zoom 10, 18px at zoom 14, 22px at zoom 18
-                return Math.round(Math.min(22, Math.max(6, z * 1.4 - 1)));
+                // 6px at zoom 5, 14px at zoom 10, 24px at zoom 15, 32px at zoom 18+
+                return Math.round(Math.min(32, Math.max(6, z * 1.8 - 2)));
             }
 
             _createMarkerIcon(color, hasAlert) {
-                color = color || "#4caf50";
+                color = color || "#3388ff";
                 let size = this._getMarkerSize();
                 let r = Math.round(size * 0.42);
                 let sw = Math.max(1.5, size * 0.08);
@@ -889,7 +897,27 @@
 
             // --- Popups (clean fonts, button for combined chart) ---
             _buildPopupHtml(def) {
-                let html = '<span class="map-popup-name">' + this._escapeHtml(def.name) + '</span>';
+                let statusDots = this._getStatusDots(def);
+                let html = '<div class="map-popup-header">';
+
+                // Status dots on left of name
+                if (statusDots.length > 0) {
+                    html += '<div class="map-popup-header-dots">';
+                    for (let d of statusDots) {
+                        let dotColor = d.on ? "#d32f2f" : "#3388ff";
+                        html += '<span class="map-popup-status-dot" style="background:' + dotColor + '" ' +
+                            'title="' + this._escapeHtml(d.alias) + '" ' +
+                            'onmouseenter="mapViewInstance._showMiniChart(event, ' + d.cnlNum + ', \'' +
+                                this._escapeHtml(d.alias).replace(/'/g, "\\'") + '\', \'' + dotColor + '\')" ' +
+                            'onmouseleave="mapViewInstance._scheduleMiniChartHide()"' +
+                            '></span>';
+                    }
+                    html += '</div>';
+                }
+
+                html += '<span class="map-popup-name" style="flex:1">' + this._escapeHtml(def.name) + '</span>';
+                html += '</div>';
+
                 if (def.descr) {
                     html += '<div class="map-popup-descr">' + this._escapeHtml(def.descr) + '</div>';
                 }
@@ -905,6 +933,7 @@
 
                         html += '<tr>' +
                             '<td class="alias">' + this._escapeHtml(alias) + '</td>' +
+                            '<td class="color-line"><svg width="20" height="2" style="vertical-align:middle"><line x1="0" y1="1" x2="20" y2="1" stroke="' + color + '" stroke-width="2"/></svg></td>' +
                             '<td class="val" data-cnl="' + ch.cnlNum + '">' + valText + '</td>' +
                             '<td class="chart-btn" ' +
                                 'onmouseenter="mapViewInstance._showMiniChart(event, ' + ch.cnlNum + ', \'' +
@@ -917,19 +946,6 @@
                             '</tr>';
                     }
                     html += '</table>';
-
-                    // Status dots in popup
-                    let statusDots = this._getStatusDots(def);
-                    if (statusDots.length > 0) {
-                        html += '<div class="map-popup-statuses">';
-                        for (let d of statusDots) {
-                            let dotColor = d.on ? "#d32f2f" : "#4caf50";
-                            html += '<span class="map-popup-status-item">' +
-                                '<span class="map-popup-status-dot" style="background:' + dotColor + '"></span>' +
-                                this._escapeHtml(d.alias) + '</span>';
-                        }
-                        html += '</div>';
-                    }
 
                     let markerIdx = this.markerEntries.findIndex(e => e.def === def);
                     if (markerIdx < 0) markerIdx = this.markers.indexOf(def);
@@ -1066,9 +1082,11 @@
                 }
 
                 let self = this;
-                let xTimeFormats = this._combinedDays <= 1
-                    ? { hour: 'HH:mm', minute: 'HH:mm' }
-                    : { hour: 'HH:mm', day: 'dd.MM' };
+                let xTimeFormats = { minute: 'HH:mm', hour: 'HH:mm', day: 'dd.MM' };
+
+                let xTickCallback = this._combinedDays <= 1
+                    ? function(value) { return self._fmtTime(new Date(value)); }
+                    : function(value) { return self._fmtDateTime(new Date(value)); };
 
                 this._activeChart = new Chart(canvas, {
                     type: 'line',
@@ -1100,7 +1118,10 @@
                                 type: 'time',
                                 time: { displayFormats: xTimeFormats },
                                 title: { display: false },
-                                ticks: { font: { size: 12 } }
+                                ticks: {
+                                    font: { size: 12 },
+                                    callback: xTickCallback
+                                }
                             },
                             yTemp: {
                                 type: 'linear',
@@ -1394,7 +1415,7 @@
 
             // Returns aggregate marker color based on how many channels are working.
             // Gray (#999) = no channels working, Yellow (#f0ad4e) = some working,
-            // Green (#4caf50) = all working or single channel working.
+            // Blue (#3388ff) = all working or single channel working.
             _getMarkerColor(def) {
                 let channels = def.channels || [];
                 if (channels.length === 0) return "#999";
@@ -1409,7 +1430,7 @@
 
                 if (working === 0) return "#999";      // gray - none working
                 if (working < total) return "#f0ad4e";  // amber - partial
-                return "#4caf50";                        // green - all working
+                return "#3388ff";                        // blue - all working
             }
 
             _escapeHtml(text) {
