@@ -1082,11 +1082,21 @@
                 }
 
                 let self = this;
-                let xTimeFormats = { minute: 'HH:mm', hour: 'HH:mm', day: 'dd.MM' };
+                let xTimeFormats = {
+                    millisecond: 'HH:mm:ss',
+                    second: 'HH:mm:ss',
+                    minute: 'HH:mm',
+                    hour: 'HH:mm',
+                    day: 'dd.MM',
+                    week: 'dd.MM',
+                    month: 'MM.yyyy'
+                };
 
-                let xTickCallback = this._combinedDays <= 1
-                    ? function(value) { return self._fmtTime(new Date(value)); }
-                    : function(value) { return self._fmtDateTime(new Date(value)); };
+                let xTickCallback = function(value, index, ticksArr) {
+                    let ts = new Date(ticksArr[index].value);
+                    if (self._combinedDays <= 1) return self._fmtTime(ts);
+                    return self._fmtDateTime(ts);
+                };
 
                 this._activeChart = new Chart(canvas, {
                     type: 'line',
@@ -1315,14 +1325,14 @@
                                 min: oneHourAgo.getTime(),
                                 max: now.getTime(),
                                 time: {
-                                    displayFormats: { hour: 'HH:mm', minute: 'HH:mm' }
+                                    displayFormats: { millisecond: 'HH:mm:ss', second: 'HH:mm:ss', minute: 'HH:mm', hour: 'HH:mm' }
                                 },
                                 ticks: {
                                     font: { size: 11 },
-                                    callback: function(value, index, ticks) {
+                                    callback: function(value, index, ticksArr) {
                                         if (index === 0) return ago1h;
-                                        if (index === ticks.length - 1) return nowLabel;
-                                        return self._fmtTime(new Date(value));
+                                        if (index === ticksArr.length - 1) return nowLabel;
+                                        return self._fmtTime(new Date(ticksArr[index].value));
                                     }
                                 },
                                 title: { display: false }
