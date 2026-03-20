@@ -37,5 +37,6 @@
     <Phrase key="Channel">Ch</Phrase>
     <Phrase key="Details">Details</Phrase>
     <Phrase key="PressureUnit">kgf/cm²</Phrase>
+    <Phrase key="StatusesLabel">Statuses</Phrase>
   </Dictionary>
 </PlgMapDictionaries>

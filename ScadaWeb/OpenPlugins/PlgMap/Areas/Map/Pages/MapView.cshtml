@@ -28,30 +28,43 @@
             border: none !important;
         }
 
-        /* Popup — compact */
+        /* Blinking red outline for markers with active statuses */
+        .map-marker-alert {
+            animation: markerBlink 1.2s ease-in-out infinite;
+        }
+        @keyframes markerBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.45; }
+        }
+
+        /* Popup — clean fonts */
         .leaflet-popup-content {
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
             font-size: 13px;
-            line-height: 1.35;
-            margin: 8px 10px;
+            line-height: 1.4;
+            margin: 8px 12px;
         }
 
         .map-popup-table {
             border-collapse: collapse;
             font-size: 13px;
-            margin: 3px 0;
+            margin: 4px 0;
             width: 100%;
         }
 
         .map-popup-table td {
-            padding: 1px 6px 1px 0;
+            padding: 2px 8px 2px 0;
         }
 
         .map-popup-table .alias {
-            color: #555;
+            color: #666;
+            font-weight: 500;
+            letter-spacing: 0.02em;
         }
 
         .map-popup-table .val {
             font-weight: 600;
+            color: #222;
         }
 
         .map-popup-table .chart-btn {
@@ -67,10 +80,13 @@
         }
 
         .map-popup-name {
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
             font-size: 14px;
             font-weight: 700;
             display: block;
             text-align: center;
+            color: #1a1a1a;
+            letter-spacing: 0.01em;
         }
 
         .map-popup-descr {
@@ -82,8 +98,9 @@
 
         .map-popup-chart-btn {
             display: block;
-            margin-top: 5px;
-            padding: 4px 10px;
+            margin-top: 6px;
+            padding: 5px 10px;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
             font-size: 12px;
             font-weight: 600;
             cursor: pointer;
@@ -104,8 +121,9 @@
             display: none !important;
         }
 
-        /* Status tooltip above marker */
+        /* Status tooltip below marker */
         .map-status-tooltip {
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
             padding: 6px 10px !important;
             border-radius: 6px !important;
             box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
@@ -134,6 +152,108 @@
             color: #333;
         }
 
+        /* Status panel button + dropdown (right of search bar) */
+        .map-status-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+        }
+        .map-status-btn button {
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            padding: 7px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            border: 2px solid rgba(0,0,0,0.2);
+            border-radius: 4px;
+            background: #fff;
+            cursor: pointer;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .map-status-btn button:hover {
+            background: #f5f5f5;
+        }
+        .map-status-btn button .status-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #d32f2f;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            min-width: 18px;
+            height: 18px;
+            border-radius: 9px;
+            padding: 0 5px;
+        }
+        .map-status-btn button .status-count.hidden {
+            display: none;
+        }
+        .map-status-panel {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 4px;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            min-width: 280px;
+            max-width: 380px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            font-size: 13px;
+        }
+        .map-status-panel.show {
+            display: block;
+        }
+        .map-status-panel-empty {
+            padding: 16px;
+            text-align: center;
+            color: #999;
+        }
+        .map-status-panel-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+        }
+        .map-status-panel-item:hover {
+            background: #f5f9ff;
+        }
+        .map-status-panel-item:last-child {
+            border-bottom: none;
+        }
+        .map-status-panel-name {
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 4px;
+        }
+        .map-status-panel-dots {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .map-status-panel-dot {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            color: #555;
+        }
+        .map-status-panel-dot .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            border: 1.5px solid rgba(0,0,0,0.2);
+            flex-shrink: 0;
+        }
+
         /* Search bar */
         .map-search-container {
             position: absolute;
@@ -149,6 +269,7 @@
             padding: 8px 12px;
             border: 2px solid rgba(0,0,0,0.2);
             border-radius: 4px;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
             font-size: 14px;
             outline: none;
             box-shadow: 0 1px 5px rgba(0,0,0,0.2);
@@ -223,6 +344,7 @@
             justify-content: center;
             padding: 12px 16px;
             border-bottom: 1px solid #eee;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
             font-weight: 600;
             font-size: 1.1em;
             position: relative;
@@ -374,7 +496,8 @@
                 now: "@Html.Raw(Model.JsDict.Now)",
                 channel: "@Html.Raw(Model.JsDict.Channel)",
                 details: "@Html.Raw(Model.JsDict.Details)",
-                pressureUnit: "@Html.Raw(Model.JsDict.PressureUnit)"
+                pressureUnit: "@Html.Raw(Model.JsDict.PressureUnit)",
+                statusesLabel: "@Html.Raw(Model.JsDict.StatusesLabel)"
             };
 
             constructor(options) {
@@ -470,57 +593,42 @@
 
             // --- Marker icons (zoom-dependent size) ---
             _getMarkerSize() {
-                if (!this.map) return 20;
+                if (!this.map) return 16;
                 let z = this.map.getZoom();
-                // scale: 8px at zoom 5, 14px at zoom 10, 24px at zoom 13, 36px at zoom 18
-                return Math.round(Math.min(36, Math.max(8, z * 2.2 - 3)));
+                // smaller range: 6px at zoom 5, 12px at zoom 10, 18px at zoom 14, 22px at zoom 18
+                return Math.round(Math.min(22, Math.max(6, z * 1.4 - 1)));
             }
 
-            _createMarkerIcon(color, statusDots) {
+            _createMarkerIcon(color, hasAlert) {
                 color = color || "#3388ff";
                 let size = this._getMarkerSize();
                 let r = Math.round(size * 0.42);
                 let sw = Math.max(1.5, size * 0.08);
-
-                // extra space above for status indicator dots
-                let dotR = Math.max(2.5, Math.round(size * 0.12));
-                let hasDots = statusDots && statusDots.length > 0 && size >= 14;
-                let pad = hasDots ? dotR * 2 + 3 : 0;
-                let totalH = size + pad;
-                let cx = size / 2;
-                let cy = pad + size / 2;
-
-                // widen SVG if dots need more space
-                let dotSpacing = dotR * 2 + dotR * 0.5;
-                let dotsWidth = hasDots ? statusDots.length * dotR * 2 + (statusDots.length - 1) * dotR * 0.5 : 0;
-                let totalW = Math.max(size, dotsWidth + dotR * 2);
-                let cxAdj = totalW / 2;
-
-                let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + totalW + '" height="' + totalH + '" viewBox="0 0 ' + totalW + ' ' + totalH + '">' +
-                    '<circle cx="' + cxAdj + '" cy="' + cy + '" r="' + r + '" fill="' + color + '" stroke="#fff" stroke-width="' + sw + '"/>';
-
-                // draw status indicator dots above marker
-                if (hasDots) {
-                    let n = statusDots.length;
-                    let dotSw = Math.max(1, dotR * 0.35);
-                    let startX = cxAdj - (dotsWidth / 2) + dotR;
-                    let dotY = dotR + 1;
-                    for (let i = 0; i < n; i++) {
-                        let dx = startX + i * dotSpacing;
-                        let dColor = statusDots[i].on ? "#d32f2f" : "#777";
-                        svg += '<circle cx="' + dx.toFixed(1) + '" cy="' + dotY + '" r="' + dotR +
-                            '" fill="' + dColor + '" stroke="#fff" stroke-width="' + dotSw + '"/>';
-                    }
-                }
-
-                svg += '</svg>';
+                let half = size / 2;
+                let outlineColor = hasAlert ? "#d32f2f" : "#fff";
+                let outlineSw = hasAlert ? Math.max(2.5, size * 0.14) : sw;
+                let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
+                    '<circle cx="' + half + '" cy="' + half + '" r="' + r + '" fill="' + color + '" stroke="' + outlineColor + '" stroke-width="' + outlineSw + '"/>' +
+                    '</svg>';
+                let cls = "map-marker-icon" + (hasAlert ? " map-marker-alert" : "");
                 return L.divIcon({
                     html: svg,
-                    className: "map-marker-icon",
-                    iconSize: [totalW, totalH],
-                    iconAnchor: [cxAdj, cy],
-                    popupAnchor: [0, -cy - 2]
+                    className: cls,
+                    iconSize: [size, size],
+                    iconAnchor: [half, half],
+                    popupAnchor: [0, -half - 2]
                 });
+            }
+
+            // Check if marker has any active status (val >= 1)
+            _hasActiveStatus(def) {
+                let stCh = def.statusChannels;
+                if (!stCh || stCh.length === 0) return false;
+                for (let ch of stCh) {
+                    let rec = this.curDataMap[ch.cnlNum];
+                    if (rec && rec.val >= 1) return true;
+                }
+                return false;
             }
 
             // Returns status dot data from statusChannels
@@ -536,8 +644,8 @@
             _refreshAllMarkerIcons() {
                 for (let entry of this.markerEntries) {
                     let color = this._getMarkerColor(entry.def);
-                    let dots = this._getStatusDots(entry.def);
-                    entry.leafletMarker.setIcon(this._createMarkerIcon(color, dots));
+                    let alert = this._hasActiveStatus(entry.def);
+                    entry.leafletMarker.setIcon(this._createMarkerIcon(color, alert));
                 }
             }
 
@@ -611,20 +719,6 @@
 
                     lMarker.bindPopup(this._buildPopupHtml(m), { maxWidth: 280, minWidth: 140 });
 
-                    // bind status tooltip (appears above marker on hover)
-                    if (m.statusChannels && m.statusChannels.length > 0) {
-                        lMarker.bindTooltip("", {
-                            direction: "bottom",
-                            offset: [0, this._getMarkerSize() * 0.6],
-                            className: "map-status-tooltip",
-                            permanent: false
-                        });
-                        lMarker.on('tooltipopen', () => {
-                            let html = this._buildStatusTooltipHtml(m);
-                            lMarker.setTooltipContent(html);
-                        });
-                    }
-
                     this.markerEntries.push({ id: m.id, def: m, leafletMarker: lMarker });
                 }
 
@@ -634,6 +728,7 @@
                 this._initSearch();
                 this._initChartOverlay();
                 this._initMiniChartTooltip();
+                this._initStatusPanel();
                 this._refreshData();
                 this.updateTimer = setInterval(() => this._refreshData(), this.refreshRate);
             }
@@ -692,27 +787,75 @@
                 });
             }
 
-            // --- Status tooltip (mini popup above marker) ---
-            _buildStatusTooltipHtml(def) {
-                let stCh = def.statusChannels;
-                if (!stCh || stCh.length === 0) return "";
-                let html = '<div class="map-status-list">';
-                for (let i = 0; i < stCh.length; i++) {
-                    let ch = stCh[i];
-                    let rec = this.curDataMap[ch.cnlNum];
-                    let on = !!(rec && rec.val >= 1);
-                    let dotColor = on ? "#d32f2f" : "#777";
-                    let label = this._escapeHtml(ch.alias || (this.t.channel + " " + ch.cnlNum));
-                    html += '<div class="map-status-row">' +
-                        '<span class="map-status-dot" style="background:' + dotColor + '"></span>' +
-                        '<span class="map-status-label">' + label + '</span>' +
-                        '</div>';
-                }
-                html += '</div>';
-                return html;
+            // --- Status Panel (persistent button top-right) ---
+            _initStatusPanel() {
+                let btn = document.getElementById("mapStatusBtn");
+                let panel = document.getElementById("mapStatusPanel");
+                if (!btn || !panel) return;
+
+                btn.addEventListener("click", () => {
+                    panel.classList.toggle("show");
+                });
+
+                document.addEventListener("click", (ev) => {
+                    if (!ev.target.closest(".map-status-btn")) {
+                        panel.classList.remove("show");
+                    }
+                });
+
+                panel.addEventListener("click", (ev) => {
+                    let item = ev.target.closest(".map-status-panel-item");
+                    if (!item || !item.dataset.markerId) return;
+                    let id = parseInt(item.dataset.markerId, 10);
+                    let entry = this.markerEntries.find(e => e.id === id);
+                    if (entry) {
+                        this.map.setView(entry.leafletMarker.getLatLng(), 15);
+                        entry.leafletMarker.openPopup();
+                    }
+                });
             }
 
-            // --- Popups (bigger fonts, button for combined chart) ---
+            _updateStatusPanel() {
+                let panel = document.getElementById("mapStatusPanel");
+                let countEl = document.getElementById("mapStatusCount");
+                if (!panel || !countEl) return;
+
+                let problemEntries = [];
+                for (let entry of this.markerEntries) {
+                    let dots = this._getStatusDots(entry.def);
+                    let active = dots.filter(d => d.on);
+                    if (active.length > 0) {
+                        problemEntries.push({ entry, dots, activeCount: active.length });
+                    }
+                }
+
+                if (problemEntries.length === 0) {
+                    countEl.classList.add("hidden");
+                    panel.innerHTML = '<div class="map-status-panel-empty">' +
+                        this._escapeHtml(this.t.noResults) + '</div>';
+                    return;
+                }
+
+                countEl.textContent = problemEntries.length;
+                countEl.classList.remove("hidden");
+
+                let html = '';
+                for (let pe of problemEntries) {
+                    html += '<div class="map-status-panel-item" data-marker-id="' + pe.entry.id + '">';
+                    html += '<div class="map-status-panel-name">' + this._escapeHtml(pe.entry.def.name) + '</div>';
+                    html += '<div class="map-status-panel-dots">';
+                    for (let d of pe.dots) {
+                        let color = d.on ? "#d32f2f" : "#999";
+                        html += '<span class="map-status-panel-dot">' +
+                            '<span class="dot" style="background:' + color + '"></span>' +
+                            this._escapeHtml(d.alias) + '</span>';
+                    }
+                    html += '</div></div>';
+                }
+                panel.innerHTML = html;
+            }
+
+            // --- Popups (clean fonts, button for combined chart) ---
             _buildPopupHtml(def) {
                 let html = '<span class="map-popup-name">' + this._escapeHtml(def.name) + '</span>';
                 if (def.descr) {
@@ -729,7 +872,7 @@
                         let color = MapViewManager.CHART_COLORS[i % MapViewManager.CHART_COLORS.length];
 
                         html += '<tr>' +
-                            '<td class="alias">' + this._escapeHtml(alias) + ':</td>' +
+                            '<td class="alias">' + this._escapeHtml(alias) + '</td>' +
                             '<td class="val" data-cnl="' + ch.cnlNum + '">' + valText + '</td>' +
                             '<td class="chart-btn" ' +
                                 'onmouseenter="mapViewInstance._showMiniChart(event, ' + ch.cnlNum + ', \'' +
@@ -1179,8 +1322,8 @@
 
                 for (let entry of this.markerEntries) {
                     let color = this._getMarkerColor(entry.def);
-                    let dots = this._getStatusDots(entry.def);
-                    entry.leafletMarker.setIcon(this._createMarkerIcon(color, dots));
+                    let alert = this._hasActiveStatus(entry.def);
+                    entry.leafletMarker.setIcon(this._createMarkerIcon(color, alert));
 
                     // Update values in-place if popup is open, otherwise rebuild
                     let popup = entry.leafletMarker.getPopup();
@@ -1200,6 +1343,8 @@
 
                     entry.leafletMarker.setPopupContent(this._buildPopupHtml(entry.def));
                 }
+
+                this._updateStatusPanel();
             }
 
             // Returns aggregate marker color based on how many channels are working.
@@ -1257,6 +1402,14 @@
     <input type="text" id="mapSearchInput" class="map-search-input"
            placeholder="@Model.JsDict.SearchPlaceholder" autocomplete="off" />
     <div id="mapSearchResults" class="map-search-results"></div>
+</div>
+
+<div class="map-status-btn">
+    <button id="mapStatusBtn">
+        @Model.JsDict.StatusesLabel
+        <span id="mapStatusCount" class="status-count hidden">0</span>
+    </button>
+    <div id="mapStatusPanel" class="map-status-panel"></div>
 </div>
 
 <div id="divMapContainer" class="map-container"

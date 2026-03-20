@@ -37,5 +37,6 @@
     <Phrase key="Channel">Кан</Phrase>
     <Phrase key="Details">Подробнее</Phrase>
     <Phrase key="PressureUnit">кгс/см²</Phrase>
+    <Phrase key="StatusesLabel">Статусы</Phrase>
   </Dictionary>
 </PlgMapDictionaries>
