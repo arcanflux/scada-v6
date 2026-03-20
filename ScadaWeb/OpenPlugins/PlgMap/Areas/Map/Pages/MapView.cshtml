@@ -28,9 +28,9 @@
             border: none !important;
         }
 
-        /* Blinking red outline for markers with active statuses */
-        .map-marker-alert {
-            animation: markerBlink 1.2s ease-in-out infinite;
+        /* Blinking red ring for markers with active statuses — only outer ring blinks */
+        .marker-ring-blink {
+            animation: ringBlink 1.2s ease-in-out infinite;
         }
 
         /* Popup — clean fonts */
@@ -49,18 +49,22 @@
         }
 
         .map-popup-table td {
-            padding: 2px 8px 2px 0;
+            padding: 3px 6px;
+            vertical-align: middle;
         }
 
         .map-popup-table .alias {
             color: #666;
             font-weight: 500;
             letter-spacing: 0.02em;
+            white-space: nowrap;
         }
 
         .map-popup-table .val {
             font-weight: 600;
             color: #222;
+            text-align: right;
+            min-width: 45px;
         }
 
         .map-popup-table .chart-btn {
@@ -90,6 +94,32 @@
             color: #666;
             margin: 2px 0 4px 0;
             text-align: center;
+        }
+
+        .map-popup-statuses {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px 10px;
+            margin: 6px 0 2px 0;
+            padding-top: 5px;
+            border-top: 1px solid #eee;
+            font-size: 12px;
+            color: #555;
+        }
+
+        .map-popup-status-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .map-popup-status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.15);
+            flex-shrink: 0;
         }
 
         .map-popup-chart-btn {
@@ -152,7 +182,7 @@
         .map-status-btn {
             position: absolute;
             top: 10px;
-            right: 10px;
+            left: calc(50% + 180px);
             z-index: 1000;
         }
         .map-status-btn button {
@@ -193,7 +223,7 @@
             display: none;
             position: absolute;
             top: 100%;
-            right: 0;
+            left: 0;
             margin-top: 4px;
             background: #fff;
             border: 1px solid #ccc;
@@ -596,20 +626,21 @@
             }
 
             _createMarkerIcon(color, hasAlert) {
-                color = color || "#3388ff";
+                color = color || "#4caf50";
                 let size = this._getMarkerSize();
                 let r = Math.round(size * 0.42);
                 let sw = Math.max(1.5, size * 0.08);
                 let half = size / 2;
-                let outlineColor = hasAlert ? "#d32f2f" : "#fff";
-                let outlineSw = hasAlert ? Math.max(2.5, size * 0.14) : sw;
+                let ringColor = hasAlert ? "#d32f2f" : "#fff";
+                let ringSw = hasAlert ? Math.max(2.5, size * 0.14) : sw;
+                let ringClass = hasAlert ? ' class="marker-ring-blink"' : '';
                 let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
-                    '<circle cx="' + half + '" cy="' + half + '" r="' + r + '" fill="' + color + '" stroke="' + outlineColor + '" stroke-width="' + outlineSw + '"/>' +
+                    '<circle cx="' + half + '" cy="' + half + '" r="' + r + '" fill="' + color + '" stroke="none"/>' +
+                    '<circle cx="' + half + '" cy="' + half + '" r="' + r + '" fill="none" stroke="' + ringColor + '" stroke-width="' + ringSw + '"' + ringClass + '/>' +
                     '</svg>';
-                let cls = "map-marker-icon" + (hasAlert ? " map-marker-alert" : "");
                 return L.divIcon({
                     html: svg,
-                    className: cls,
+                    className: "map-marker-icon",
                     iconSize: [size, size],
                     iconAnchor: [half, half],
                     popupAnchor: [0, -half - 2]
@@ -787,7 +818,7 @@
             _initStatusPanel() {
                 // Inject keyframes via JS to avoid Razor CSS parser warnings
                 let style = document.createElement("style");
-                style.textContent = "@@keyframes markerBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }";
+                style.textContent = "@@keyframes ringBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.15; } }";
                 document.head.appendChild(style);
 
                 let btn = document.getElementById("mapStatusBtn");
@@ -886,6 +917,19 @@
                             '</tr>';
                     }
                     html += '</table>';
+
+                    // Status dots in popup
+                    let statusDots = this._getStatusDots(def);
+                    if (statusDots.length > 0) {
+                        html += '<div class="map-popup-statuses">';
+                        for (let d of statusDots) {
+                            let dotColor = d.on ? "#d32f2f" : "#4caf50";
+                            html += '<span class="map-popup-status-item">' +
+                                '<span class="map-popup-status-dot" style="background:' + dotColor + '"></span>' +
+                                this._escapeHtml(d.alias) + '</span>';
+                        }
+                        html += '</div>';
+                    }
 
                     let markerIdx = this.markerEntries.findIndex(e => e.def === def);
                     if (markerIdx < 0) markerIdx = this.markers.indexOf(def);
@@ -1350,7 +1394,7 @@
 
             // Returns aggregate marker color based on how many channels are working.
             // Gray (#999) = no channels working, Yellow (#f0ad4e) = some working,
-            // Blue (#3388ff) = all working or single channel working.
+            // Green (#4caf50) = all working or single channel working.
             _getMarkerColor(def) {
                 let channels = def.channels || [];
                 if (channels.length === 0) return "#999";
@@ -1365,7 +1409,7 @@
 
                 if (working === 0) return "#999";      // gray - none working
                 if (working < total) return "#f0ad4e";  // amber - partial
-                return "#3388ff";                        // blue - all working
+                return "#4caf50";                        // green - all working
             }
 
             _escapeHtml(text) {
