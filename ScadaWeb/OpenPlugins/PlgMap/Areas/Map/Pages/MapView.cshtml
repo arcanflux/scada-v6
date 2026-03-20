@@ -32,10 +32,6 @@
         .map-marker-alert {
             animation: markerBlink 1.2s ease-in-out infinite;
         }
-        @@keyframes markerBlink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.45; }
-        }
 
         /* Popup — clean fonts */
         .leaflet-popup-content {
@@ -789,6 +785,11 @@
 
             // --- Status Panel (persistent button top-right) ---
             _initStatusPanel() {
+                // Inject keyframes via JS to avoid Razor CSS parser warnings
+                let style = document.createElement("style");
+                style.textContent = "@keyframes markerBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }";
+                document.head.appendChild(style);
+
                 let btn = document.getElementById("mapStatusBtn");
                 let panel = document.getElementById("mapStatusPanel");
                 if (!btn || !panel) return;
