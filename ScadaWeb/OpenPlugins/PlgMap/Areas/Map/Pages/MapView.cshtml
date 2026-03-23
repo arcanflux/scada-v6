@@ -1181,12 +1181,16 @@
 
                 let rect = event.target.getBoundingClientRect();
                 let tipWidth = 360;
-                let left = rect.right + 8;
-                let top = rect.top - 40;
+                let tipHeight = 210;
+                // Position above the element, centered horizontally
+                let left = rect.left + rect.width / 2 - tipWidth / 2;
+                let top = rect.top - tipHeight - 8;
 
-                if (left + tipWidth > window.innerWidth) left = rect.left - tipWidth - 8;
-                if (top < 8) top = 8;
-                if (top + 210 > window.innerHeight) top = window.innerHeight - 220;
+                // Keep within viewport horizontally
+                if (left < 8) left = 8;
+                if (left + tipWidth > window.innerWidth - 8) left = window.innerWidth - tipWidth - 8;
+                // If not enough space above, show below
+                if (top < 8) top = rect.bottom + 8;
 
                 tip.style.left = left + "px";
                 tip.style.top = top + "px";
