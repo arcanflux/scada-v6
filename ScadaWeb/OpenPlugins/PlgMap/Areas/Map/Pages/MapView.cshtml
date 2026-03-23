@@ -469,7 +469,7 @@
             border-radius: 6px;
             box-shadow: 0 4px 16px rgba(0,0,0,0.2);
             padding: 8px;
-            width: 360px;
+            width: 360px; /* default, overridden dynamically */
         }
 
         .map-minichart-tooltip.show {
@@ -1177,28 +1177,31 @@
                 let titleEl = document.getElementById("mapMiniChartTitle");
                 let bodyEl = document.getElementById("mapMiniChartBody");
 
-                titleEl.textContent = alias + " (" + this.t.channel + " " + cnlNum + ")";
+                let titleText = alias + " (" + this.t.channel + " " + cnlNum + ")";
+                titleEl.textContent = titleText;
                 bodyEl.innerHTML = '<div class="map-minichart-loading">' + this._escapeHtml(this.t.loading) + '</div>';
 
+                // Dynamic width based on title length (13px font ~7.5px per char)
+                let tipWidth = Math.max(320, Math.min(500, titleText.length * 7.5 + 24));
+                tip.style.width = tipWidth + "px";
+
                 let rect = event.target.getBoundingClientRect();
-                let tipWidth = 360;
                 let tipHeight = 210;
                 let left, top;
 
                 if (pos === 'above') {
-                    // Find the popup container to position above entire popup
                     let popup = event.target.closest('.leaflet-popup');
                     let popupRect = popup ? popup.getBoundingClientRect() : rect;
                     left = popupRect.left + popupRect.width / 2 - tipWidth / 2;
-                    top = popupRect.top - tipHeight - 8;
+                    top = popupRect.top - tipHeight - 4;
                     if (left < 8) left = 8;
                     if (left + tipWidth > window.innerWidth - 8) left = window.innerWidth - tipWidth - 8;
-                    if (top < 8) top = popupRect.bottom + 8;
+                    if (top < 8) top = popupRect.bottom + 4;
                 } else {
                     // Right side (default for chart buttons)
-                    left = rect.right + 8;
+                    left = rect.right + 6;
                     top = rect.top - 40;
-                    if (left + tipWidth > window.innerWidth) left = rect.left - tipWidth - 8;
+                    if (left + tipWidth > window.innerWidth) left = rect.left - tipWidth - 6;
                     if (top < 8) top = 8;
                     if (top + tipHeight > window.innerHeight) top = window.innerHeight - tipHeight - 10;
                 }
