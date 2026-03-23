@@ -37,5 +37,7 @@
     <Phrase key="Details">Details</Phrase>
     <Phrase key="PressureUnit">kgf/cm²</Phrase>
     <Phrase key="StatusesLabel">Statuses</Phrase>
+    <Phrase key="GradientLabel">Gradient</Phrase>
+    <Phrase key="GradientOff">Off</Phrase>
   </Dictionary>
 </PlgMapDictionaries>

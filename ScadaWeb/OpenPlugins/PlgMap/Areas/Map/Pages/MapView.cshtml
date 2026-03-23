@@ -290,6 +290,95 @@
             flex-shrink: 0;
         }
 
+        /* Gradient channel toggle panel */
+        .map-gradient-btn {
+            position: absolute;
+            top: 10px;
+            left: calc(50% + 320px);
+            z-index: 1000;
+        }
+        .map-gradient-btn button {
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            padding: 8px 14px;
+            font-size: 14px;
+            font-weight: 600;
+            border: 2px solid rgba(0,0,0,0.2);
+            border-radius: 4px;
+            background: #fff;
+            cursor: pointer;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+            color: #333;
+        }
+        .map-gradient-btn button:hover {
+            background: #f5f5f5;
+        }
+        .map-gradient-btn button.active {
+            border-color: #0073aa;
+            background: #e8f4fc;
+        }
+        .map-gradient-panel {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 4px;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            min-width: 160px;
+            padding: 8px 0;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            font-size: 13px;
+        }
+        .map-gradient-panel.show {
+            display: block;
+        }
+        .map-gradient-item {
+            padding: 6px 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+        .map-gradient-item:hover {
+            background: #f5f9ff;
+        }
+        .map-gradient-item .radio {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid #999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .map-gradient-item.selected .radio {
+            border-color: #0073aa;
+        }
+        .map-gradient-item.selected .radio::after {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #0073aa;
+        }
+        .map-gradient-legend {
+            margin: 8px 14px 4px;
+            height: 10px;
+            border-radius: 5px;
+            background: linear-gradient(to right, #3388ff, #9b59b6, #d32f2f);
+        }
+        .map-gradient-legend-labels {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 14px 0;
+            font-size: 10px;
+            color: #888;
+        }
+
         /* Search bar */
         .map-search-container {
             position: absolute;
@@ -533,7 +622,9 @@
                 channel: "@Html.Raw(Model.JsDict.Channel)",
                 details: "@Html.Raw(Model.JsDict.Details)",
                 pressureUnit: "@Html.Raw(Model.JsDict.PressureUnit)",
-                statusesLabel: "@Html.Raw(Model.JsDict.StatusesLabel)"
+                statusesLabel: "@Html.Raw(Model.JsDict.StatusesLabel)",
+                gradientLabel: "@Html.Raw(Model.JsDict.GradientLabel)",
+                gradientOff: "@Html.Raw(Model.JsDict.GradientOff)"
             };
 
             constructor(options) {
@@ -629,10 +720,10 @@
 
             // --- Marker icons (zoom-dependent size) ---
             _getMarkerSize() {
-                if (!this.map) return 16;
+                if (!this.map) return 20;
                 let z = this.map.getZoom();
-                // 6px at zoom 5, 14px at zoom 10, 24px at zoom 15, 32px at zoom 18+
-                return Math.round(Math.min(32, Math.max(6, z * 1.8 - 2)));
+                // 10px at zoom 5, 20px at zoom 10, 32px at zoom 15, 42px at zoom 18+
+                return Math.round(Math.min(42, Math.max(10, z * 2.4 - 2)));
             }
 
             _createMarkerIcon(color, hasAlert) {
@@ -680,10 +771,21 @@
 
             _refreshAllMarkerIcons() {
                 for (let entry of this.markerEntries) {
-                    let color = this._getMarkerColor(entry.def);
+                    let color = this._getGradientMarkerColor(entry.def);
                     let alert = this._hasActiveStatus(entry.def);
                     entry.leafletMarker.setIcon(this._createMarkerIcon(color, alert));
                 }
+            }
+
+            _getGradientMarkerColor(def) {
+                if (!this._activeGradientAlias) return this._getMarkerColor(def);
+                let ch = (def.channels || []).find(c => c.alias === this._activeGradientAlias);
+                if (!ch) return "#999";
+                let rec = this.curDataMap[ch.cnlNum];
+                if (!rec || rec.stat <= 0) return "#999";
+                let limits = this._getAxisLimits(this._activeGradientAlias);
+                if (!limits) return this._getMarkerColor(def);
+                return this._getGradientColor(rec.val, limits.min, limits.max);
             }
 
             // --- Axis helpers ---
@@ -766,6 +868,7 @@
                 this._initChartOverlay();
                 this._initMiniChartTooltip();
                 this._initStatusPanel();
+                this._initGradientPanel();
                 this._refreshData();
                 this.updateTimer = setInterval(() => this._refreshData(), this.refreshRate);
             }
@@ -855,6 +958,109 @@
                         entry.leafletMarker.openPopup();
                     }
                 });
+            }
+
+            // --- Gradient Panel ---
+            _activeGradientAlias = null;
+
+            _initGradientPanel() {
+                let btn = document.getElementById("mapGradientBtn");
+                let panel = document.getElementById("mapGradientPanel");
+                if (!btn || !panel) return;
+
+                // Collect unique temperature channel aliases (T1, T2, T3) across all markers
+                let tempAliases = new Set();
+                for (let entry of this.markerEntries) {
+                    for (let ch of (entry.def.channels || [])) {
+                        let a = (ch.alias || "").toUpperCase();
+                        if (a === "T1" || a === "T2" || a === "T3") {
+                            tempAliases.add(ch.alias);
+                        }
+                    }
+                }
+                this._gradientAliases = [...tempAliases].sort();
+
+                if (this._gradientAliases.length === 0) {
+                    btn.style.display = "none";
+                    return;
+                }
+
+                btn.addEventListener("click", () => {
+                    this._buildGradientPanel();
+                    panel.classList.toggle("show");
+                });
+
+                document.addEventListener("click", (ev) => {
+                    if (!ev.target.closest(".map-gradient-btn")) {
+                        panel.classList.remove("show");
+                    }
+                });
+            }
+
+            _buildGradientPanel() {
+                let panel = document.getElementById("mapGradientPanel");
+                let html = '';
+
+                // "Off" option
+                html += '<div class="map-gradient-item' + (!this._activeGradientAlias ? ' selected' : '') + '" data-alias="">' +
+                    '<span class="radio"></span>' + this._escapeHtml(this.t.gradientOff) + '</div>';
+
+                for (let alias of this._gradientAliases) {
+                    let sel = this._activeGradientAlias === alias ? ' selected' : '';
+                    let limits = this._getAxisLimits(alias);
+                    let range = limits ? ' (' + limits.min + '–' + limits.max + limits.unit + ')' : '';
+                    html += '<div class="map-gradient-item' + sel + '" data-alias="' + this._escapeHtml(alias) + '">' +
+                        '<span class="radio"></span>' + this._escapeHtml(alias) + range + '</div>';
+                }
+
+                // Gradient legend bar
+                if (this._activeGradientAlias) {
+                    let limits = this._getAxisLimits(this._activeGradientAlias);
+                    if (limits) {
+                        html += '<div class="map-gradient-legend"></div>';
+                        html += '<div class="map-gradient-legend-labels"><span>' + limits.min + limits.unit + '</span><span>' + limits.max + limits.unit + '</span></div>';
+                    }
+                }
+
+                panel.innerHTML = html;
+
+                // Bind clicks
+                panel.querySelectorAll('.map-gradient-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        let alias = item.dataset.alias;
+                        this._activeGradientAlias = alias || null;
+
+                        let btn = document.getElementById("mapGradientBtn");
+                        if (this._activeGradientAlias) {
+                            btn.classList.add("active");
+                        } else {
+                            btn.classList.remove("active");
+                        }
+
+                        this._buildGradientPanel();
+                        this._refreshAllMarkerIcons();
+                    });
+                });
+            }
+
+            _getGradientColor(value, min, max) {
+                // Clamp to [0, 1]
+                let t = (value - min) / (max - min);
+                t = Math.max(0, Math.min(1, t));
+                // Blue (#3388ff) -> Purple (#9b59b6) -> Red (#d32f2f)
+                let r, g, b;
+                if (t <= 0.5) {
+                    let s = t * 2; // 0..1 for first half
+                    r = Math.round(51 + (155 - 51) * s);
+                    g = Math.round(136 + (89 - 136) * s);
+                    b = Math.round(255 + (182 - 255) * s);
+                } else {
+                    let s = (t - 0.5) * 2; // 0..1 for second half
+                    r = Math.round(155 + (211 - 155) * s);
+                    g = Math.round(89 + (47 - 89) * s);
+                    b = Math.round(182 + (47 - 182) * s);
+                }
+                return "rgb(" + r + "," + g + "," + b + ")";
             }
 
             _updateStatusPanel() {
@@ -1415,7 +1621,7 @@
                 }
 
                 for (let entry of this.markerEntries) {
-                    let color = this._getMarkerColor(entry.def);
+                    let color = this._getGradientMarkerColor(entry.def);
                     let alert = this._hasActiveStatus(entry.def);
                     entry.leafletMarker.setIcon(this._createMarkerIcon(color, alert));
 
@@ -1504,6 +1710,11 @@
         <span id="mapStatusCount" class="status-count hidden">0</span>
     </button>
     <div id="mapStatusPanel" class="map-status-panel"></div>
+</div>
+
+<div class="map-gradient-btn">
+    <button id="mapGradientBtn">@Model.JsDict.GradientLabel</button>
+    <div id="mapGradientPanel" class="map-gradient-panel"></div>
 </div>
 
 <div id="divMapContainer" class="map-container"

@@ -37,5 +37,7 @@
     <Phrase key="Details">Подробнее</Phrase>
     <Phrase key="PressureUnit">кгс/см²</Phrase>
     <Phrase key="StatusesLabel">Статусы</Phrase>
+    <Phrase key="GradientLabel">Градиент</Phrase>
+    <Phrase key="GradientOff">Выкл</Phrase>
   </Dictionary>
 </PlgMapDictionaries>
