@@ -674,8 +674,7 @@
                 if (!stCh || stCh.length === 0) return [];
                 return stCh.map(ch => {
                     let rec = this.curDataMap[ch.cnlNum];
-                    let noData = !rec || rec.text === "" || rec.text === "--";
-                    return { alias: ch.alias, on: !!(rec && rec.val >= 1), noData: noData, cnlNum: ch.cnlNum };
+                    return { alias: ch.alias, on: !!(rec && rec.val >= 1), cnlNum: ch.cnlNum };
                 });
             }
 
@@ -888,7 +887,7 @@
                     html += '<div class="map-status-panel-name">' + this._escapeHtml(pe.entry.def.name) + '</div>';
                     html += '<div class="map-status-panel-dots">';
                     for (let d of pe.dots) {
-                        let color = d.noData ? "#aaa" : (d.on ? "#d32f2f" : "#3388ff");
+                        let color = d.on ? "#d32f2f" : "#3388ff";
                         html += '<span class="map-status-panel-dot">' +
                             '<span class="dot" style="background:' + color + '"></span>' +
                             this._escapeHtml(d.alias) + '</span>';
@@ -910,7 +909,7 @@
                 if (statusDots.length > 0) {
                     html += '<div class="map-popup-header-dots">';
                     for (let d of statusDots) {
-                        let dotColor = d.noData ? "#aaa" : (d.on ? "#d32f2f" : "#3388ff");
+                        let dotColor = d.on ? "#d32f2f" : "#3388ff";
                         html += '<span class="map-popup-status-dot" style="background:' + dotColor + '" ' +
                             'onmouseenter="mapViewInstance._showMiniChart(event, ' + d.cnlNum + ', \'' +
                                 this._escapeHtml(d.alias).replace(/'/g, "\\'") + '\', \'' + dotColor + '\', \'above\')" ' +
