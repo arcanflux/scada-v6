@@ -783,9 +783,8 @@
                 if (!ch) return "#999";
                 let rec = this.curDataMap[ch.cnlNum];
                 if (!rec || rec.stat <= 0) return "#999";
-                let limits = this._getAxisLimits(this._activeGradientAlias);
-                if (!limits) return this._getMarkerColor(def);
-                return this._getGradientColor(rec.val, limits.min, limits.max);
+                let gl = this._getGradientLimits();
+                return this._getGradientColor(rec.val, gl.min, gl.max);
             }
 
             // --- Axis helpers ---
@@ -1007,19 +1006,15 @@
 
                 for (let alias of this._gradientAliases) {
                     let sel = this._activeGradientAlias === alias ? ' selected' : '';
-                    let limits = this._getAxisLimits(alias);
-                    let range = limits ? ' (' + limits.min + '–' + limits.max + limits.unit + ')' : '';
                     html += '<div class="map-gradient-item' + sel + '" data-alias="' + this._escapeHtml(alias) + '">' +
-                        '<span class="radio"></span>' + this._escapeHtml(alias) + range + '</div>';
+                        '<span class="radio"></span>' + this._escapeHtml(alias) + '</div>';
                 }
 
                 // Gradient legend bar
                 if (this._activeGradientAlias) {
-                    let limits = this._getAxisLimits(this._activeGradientAlias);
-                    if (limits) {
-                        html += '<div class="map-gradient-legend"></div>';
-                        html += '<div class="map-gradient-legend-labels"><span>' + limits.min + limits.unit + '</span><span>' + limits.max + limits.unit + '</span></div>';
-                    }
+                    let gl = this._getGradientLimits();
+                    html += '<div class="map-gradient-legend"></div>';
+                    html += '<div class="map-gradient-legend-labels"><span>' + gl.min + '°C</span><span>' + gl.max + '°C</span></div>';
                 }
 
                 panel.innerHTML = html;
@@ -1033,14 +1028,20 @@
                         let btn = document.getElementById("mapGradientBtn");
                         if (this._activeGradientAlias) {
                             btn.classList.add("active");
+                            btn.textContent = this.t.gradientLabel + ': ' + this._activeGradientAlias;
                         } else {
                             btn.classList.remove("active");
+                            btn.textContent = this.t.gradientLabel;
                         }
 
                         this._buildGradientPanel();
                         this._refreshAllMarkerIcons();
                     });
                 });
+            }
+
+            _getGradientLimits() {
+                return { min: 40, max: 120 };
             }
 
             _getGradientColor(value, min, max) {
