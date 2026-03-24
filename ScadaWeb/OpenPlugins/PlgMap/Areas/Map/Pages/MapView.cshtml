@@ -1714,6 +1714,15 @@
                     bodyEl.innerHTML = '<div class="' + wrapCls + '"><canvas id="mapMiniCanvas"></canvas></div>';
                     let canvas = document.getElementById("mapMiniCanvas");
                     this._renderMiniChart(canvas, cnlNum, alias, color, histData, isStatus);
+
+                    // Reposition status chart after content renders so it sits above popup
+                    if (isStatus) {
+                        let finalHeight = tip.offsetHeight;
+                        tip.style.top = (popupRect.top - finalHeight - 6) + "px";
+                        if (parseFloat(tip.style.top) < 8) {
+                            tip.style.top = (popupRect.bottom + 6) + "px";
+                        }
+                    }
                 } catch (err) {
                     console.error("Mini chart error:", err);
                     bodyEl.innerHTML = '<div class="map-minichart-loading">' + this._escapeHtml(this.t.error) + '</div>';
