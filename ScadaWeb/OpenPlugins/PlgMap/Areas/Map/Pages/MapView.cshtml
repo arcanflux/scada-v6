@@ -1527,10 +1527,10 @@
                 if (isStatus) {
                     // Status charts: above popup, fallback below
                     left = popupRect.left + popupRect.width / 2 - tipWidth / 2;
-                    top = popupRect.top - tipHeight - 4;
+                    top = popupRect.top - tipHeight - 6;
                     if (left < 8) left = 8;
                     if (left + tipWidth > window.innerWidth - 8) left = window.innerWidth - tipWidth - 8;
-                    if (top < 8) top = popupRect.bottom + 4;
+                    if (top < 8) top = popupRect.bottom + 6;
                 } else {
                     // Parameter charts: right of popup, fallback left
                     left = popupRect.right + 6;
