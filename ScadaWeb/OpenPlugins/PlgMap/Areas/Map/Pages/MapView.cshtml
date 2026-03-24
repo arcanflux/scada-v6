@@ -1239,6 +1239,13 @@
                 // Reset zoom button
                 toolbar.innerHTML += '<button class="map-chart-period-btn" id="mapChartResetZoom" style="margin-left:12px;">⟲ Сброс</button>';
 
+                // Status toggle button (only if marker has status channels)
+                if (def.statusChannels && def.statusChannels.length > 0) {
+                    let stCls = this._showStatusTimelines ? "map-chart-period-btn active" : "map-chart-period-btn";
+                    toolbar.innerHTML += '<button class="' + stCls + '" id="mapChartStatusToggle" style="margin-left:12px;">' +
+                        this._escapeHtml(this.t.statusesLabel) + '</button>';
+                }
+
                 // wire period buttons
                 toolbar.querySelectorAll('.map-chart-period-btn[data-days]').forEach(btn => {
                     btn.addEventListener('click', () => {
@@ -1252,12 +1259,24 @@
                     this._openCombinedChart(this._combinedMarkerIdx, this._combinedDays);
                 });
 
+                // wire status toggle
+                let statusToggleBtn = document.getElementById("mapChartStatusToggle");
+                if (statusToggleBtn) {
+                    statusToggleBtn.addEventListener('click', () => {
+                        this._showStatusTimelines = !this._showStatusTimelines;
+                        this._openCombinedChart(this._combinedMarkerIdx, this._combinedDays);
+                    });
+                }
+
                 body.innerHTML = '<div class="map-chart-loading">' + this._escapeHtml(this.t.loadingChart) + '</div>';
                 overlay.classList.add("show");
 
                 try {
                     await this._loadChartJs();
                     let cnlNums = def.channels.map(c => c.cnlNum);
+                    if (this._showStatusTimelines && def.statusChannels && def.statusChannels.length > 0) {
+                        cnlNums = cnlNums.concat(def.statusChannels.map(c => c.cnlNum));
+                    }
                     let histData = await this._fetchHistData(cnlNums, this._combinedDays);
 
                     if (!histData) {
@@ -1286,7 +1305,11 @@
                 // Track loaded data boundaries for pan-to-load
                 this._chartDataStart = timestamps.length > 0 ? timestamps[0].getTime() : Date.now();
                 this._chartDataEnd = timestamps.length > 0 ? timestamps[timestamps.length - 1].getTime() : Date.now();
-                this._chartCnlNums = def.channels.map(c => c.cnlNum);
+                let allCnlNums = def.channels.map(c => c.cnlNum);
+                if (this._showStatusTimelines && def.statusChannels && def.statusChannels.length > 0) {
+                    allCnlNums = allCnlNums.concat(def.statusChannels.map(c => c.cnlNum));
+                }
+                this._chartCnlNums = allCnlNums;
                 this._chartMarkerDef = def;
 
                 let cnlToTrendIdx = {};
@@ -1323,6 +1346,47 @@
                         yAxisID: axisGroup === "pressure" ? "yPressure" : "yTemp",
                         _cnlNum: ch.cnlNum
                     });
+                }
+
+                // Status timeline bands (when toggle is ON)
+                let statusCount = 0;
+                let STATUS_COLORS = ["#d32f2f", "#f57c00", "#7b1fa2", "#00796b", "#c62828"];
+                if (this._showStatusTimelines && def.statusChannels && def.statusChannels.length > 0) {
+                    statusCount = def.statusChannels.length;
+                    for (let i = 0; i < def.statusChannels.length; i++) {
+                        let sch = def.statusChannels[i];
+                        let alias = sch.alias || (this.t.channel + sch.cnlNum);
+                        let color = STATUS_COLORS[i % STATUS_COLORS.length];
+                        let trendIdx = cnlToTrendIdx[sch.cnlNum];
+                        if (trendIdx === undefined) continue;
+
+                        let trend = histData.trends[trendIdx];
+                        // Each status occupies a band: bottom = i, top = i + 0.8
+                        let bandBase = i;
+                        let bandTop = i + 0.8;
+                        let data = trend.map((rec, idx) => ({
+                            x: timestamps[idx],
+                            y: (rec && rec.d && rec.d.stat > 0 && rec.d.val >= 1) ? bandTop : bandBase
+                        }));
+
+                        datasets.push({
+                            label: alias,
+                            data: data,
+                            borderColor: color,
+                            backgroundColor: color + "40",
+                            borderWidth: 0,
+                            pointRadius: 0,
+                            pointHoverRadius: 0,
+                            tension: 0,
+                            stepped: 'before',
+                            fill: { target: { value: bandBase } },
+                            spanGaps: true,
+                            yAxisID: 'yStatus',
+                            _cnlNum: sch.cnlNum,
+                            _isStatus: true,
+                            _bandBase: bandBase
+                        });
+                    }
                 }
 
                 let self = this;
@@ -1363,6 +1427,14 @@
                                             return self._fmtDateTime(new Date(items[0].parsed.x));
                                         }
                                         return '';
+                                    },
+                                    label: function(context) {
+                                        let ds = context.dataset;
+                                        if (ds._isStatus) {
+                                            let active = context.parsed.y > ds._bandBase;
+                                            return ds.label + ': ' + (active ? '●' : '○');
+                                        }
+                                        return ds.label + ': ' + context.formattedValue;
                                     }
                                 }
                             },
@@ -1412,6 +1484,19 @@
                                 title: { display: true, text: MapViewManager.LANG.pressureUnit, font: { size: 15 } },
                                 ticks: { font: { size: 14 } },
                                 grid: { drawOnChartArea: false }
+                            },
+                            yStatus: {
+                                type: 'linear',
+                                display: statusCount > 0,
+                                position: 'left',
+                                min: 0,
+                                max: Math.max(statusCount, 1),
+                                ticks: {
+                                    display: false
+                                },
+                                grid: { drawOnChartArea: false },
+                                // allocate ~15% of chart height for status bands
+                                weight: statusCount > 0 ? 0.5 : 0
                             }
                         }
                     }
@@ -1476,10 +1561,20 @@
                     if (trendIdx === undefined) continue;
 
                     let trend = histData.trends[trendIdx];
-                    let newPoints = trend.map((rec, idx) => ({
-                        x: newTimestamps[idx],
-                        y: (rec && rec.d && rec.d.stat > 0) ? rec.d.val : null
-                    }));
+                    let newPoints;
+                    if (ds._isStatus) {
+                        let bandBase = ds._bandBase;
+                        let bandTop = bandBase + 0.8;
+                        newPoints = trend.map((rec, idx) => ({
+                            x: newTimestamps[idx],
+                            y: (rec && rec.d && rec.d.stat > 0 && rec.d.val >= 1) ? bandTop : bandBase
+                        }));
+                    } else {
+                        newPoints = trend.map((rec, idx) => ({
+                            x: newTimestamps[idx],
+                            y: (rec && rec.d && rec.d.stat > 0) ? rec.d.val : null
+                        }));
+                    }
 
                     // Prepend new data (older) before existing data, skip duplicates
                     let existingFirstX = ds.data.length > 0 ? ds.data[0].x.getTime() : Infinity;
