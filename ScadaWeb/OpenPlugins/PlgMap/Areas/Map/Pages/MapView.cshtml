@@ -536,6 +536,31 @@
             font-size: 0.95em;
         }
 
+        .map-chart-status-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+            padding: 6px 16px 4px;
+            border-top: 1px solid #ddd;
+            margin-top: 4px;
+        }
+
+        .map-chart-status-legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 13px;
+            color: #444;
+        }
+
+        .map-chart-status-legend-color {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid;
+            border-radius: 2px;
+        }
+
         /* Pan-to-load indicator (inline in toolbar) */
         .map-chart-pan-loading {
             background: rgba(0, 115, 170, 0.9);
@@ -1301,6 +1326,18 @@
                     body.innerHTML = '<div class="map-chart-canvas-wrap"><canvas id="mapCombinedCanvas"></canvas></div>';
                     let canvas = document.getElementById("mapCombinedCanvas");
                     this._renderCombinedChart(canvas, def, histData);
+
+                    // Add status legend below the chart
+                    if (this._statusLegendItems && this._statusLegendItems.length > 0) {
+                        let legendHtml = '<div class="map-chart-status-legend">';
+                        for (let item of this._statusLegendItems) {
+                            legendHtml += '<span class="map-chart-status-legend-item">' +
+                                '<span class="map-chart-status-legend-color" style="background:' + item.color + '40;border-color:' + item.color + '"></span>' +
+                                this._escapeHtml(item.alias) + '</span>';
+                        }
+                        legendHtml += '</div>';
+                        body.insertAdjacentHTML('beforeend', legendHtml);
+                    }
                 } catch (err) {
                     console.error("Chart loading error:", err);
                     body.innerHTML = '<div class="map-chart-loading">' + this._escapeHtml(this.t.errorChart) + '</div>';
@@ -1363,10 +1400,13 @@
                 }
 
                 // Status timeline bands (when toggle is ON)
+                // Bands divide the full yTemp range (0-120) equally
                 let statusCount = 0;
                 let STATUS_COLORS = ["#d32f2f", "#f57c00", "#7b1fa2", "#00796b", "#c62828"];
+                this._statusLegendItems = [];
                 if (this._showStatusTimelines && def.statusChannels && def.statusChannels.length > 0) {
                     statusCount = def.statusChannels.length;
+                    let bandHeight = 120 / statusCount;
                     for (let i = 0; i < def.statusChannels.length; i++) {
                         let sch = def.statusChannels[i];
                         let alias = sch.alias || (this.t.channel + sch.cnlNum);
@@ -1374,10 +1414,10 @@
                         let trendIdx = cnlToTrendIdx[sch.cnlNum];
                         if (trendIdx === undefined) continue;
 
+                        // Band top-to-bottom: first status at top, last at bottom
+                        let bandTop = 120 - i * bandHeight;
+                        let bandBase = bandTop - bandHeight;
                         let trend = histData.trends[trendIdx];
-                        // Each status occupies a band: bottom = i, top = i + 0.8
-                        let bandBase = i;
-                        let bandTop = i + 0.8;
                         let data = trend.map((rec, idx) => ({
                             x: timestamps[idx],
                             y: (rec && rec.d && rec.d.stat > 0 && rec.d.val >= 1) ? bandTop : bandBase
@@ -1395,11 +1435,14 @@
                             stepped: 'before',
                             fill: { target: { value: bandBase } },
                             spanGaps: true,
-                            yAxisID: 'yStatus',
+                            yAxisID: 'yTemp',
                             _cnlNum: sch.cnlNum,
                             _isStatus: true,
-                            _bandBase: bandBase
+                            _bandBase: bandBase,
+                            _bandTop: bandTop
                         });
+
+                        this._statusLegendItems.push({ alias: alias, color: color });
                     }
                 }
 
@@ -1505,19 +1548,7 @@
                                 ticks: { font: { size: 14 } },
                                 grid: { drawOnChartArea: false }
                             },
-                            yStatus: {
-                                type: 'linear',
-                                display: statusCount > 0,
-                                position: 'left',
-                                min: 0,
-                                max: 5,
-                                ticks: {
-                                    display: false
-                                },
-                                grid: { drawOnChartArea: false },
-                                // allocate ~15% of chart height for status bands
-                                weight: statusCount > 0 ? 0.5 : 0
-                            }
+                            // yStatus removed — status bands now use yTemp axis (0-120)
                         }
                     }
                 });
@@ -1584,7 +1615,7 @@
                     let newPoints;
                     if (ds._isStatus) {
                         let bandBase = ds._bandBase;
-                        let bandTop = bandBase + 0.8;
+                        let bandTop = ds._bandTop;
                         newPoints = trend.map((rec, idx) => ({
                             x: newTimestamps[idx],
                             y: (rec && rec.d && rec.d.stat > 0 && rec.d.val >= 1) ? bandTop : bandBase
@@ -1640,12 +1671,21 @@
                 let tipHeight = 210;
                 let left, top;
 
-                // All mini charts: right of popup, fallback left
-                left = popupRect.right + 6;
-                top = popupRect.top + (popupRect.height / 2) - tipHeight / 2;
-                if (left + tipWidth > window.innerWidth - 8) left = popupRect.left - tipWidth - 6;
-                if (top < 8) top = 8;
-                if (top + tipHeight > window.innerHeight - 8) top = window.innerHeight - tipHeight - 8;
+                if (isStatus) {
+                    // Status charts: above popup, same 6px gap
+                    left = popupRect.left + popupRect.width / 2 - tipWidth / 2;
+                    top = popupRect.top - tipHeight - 6;
+                    if (left < 8) left = 8;
+                    if (left + tipWidth > window.innerWidth - 8) left = window.innerWidth - tipWidth - 8;
+                    if (top < 8) top = popupRect.bottom + 6;
+                } else {
+                    // Parameter charts: right of popup, fallback left
+                    left = popupRect.right + 6;
+                    top = popupRect.top + (popupRect.height / 2) - tipHeight / 2;
+                    if (left + tipWidth > window.innerWidth - 8) left = popupRect.left - tipWidth - 6;
+                    if (top < 8) top = 8;
+                    if (top + tipHeight > window.innerHeight - 8) top = window.innerHeight - tipHeight - 8;
+                }
 
                 tip.style.left = left + "px";
                 tip.style.top = top + "px";
