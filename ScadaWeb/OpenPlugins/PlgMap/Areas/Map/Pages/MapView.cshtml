@@ -1777,7 +1777,7 @@
                 let title = '';
                 if (tooltipModel.title && tooltipModel.title.length > 0) {
                     let ts = new Date(tooltipModel.dataPoints[0].parsed.x);
-                    title = isStatus ? this._fmtDate(ts) : this._fmtDateTime(ts);
+                    title = this._fmtDateTime(ts);
                 }
                 let bodyLines = [];
                 if (tooltipModel.body) {
@@ -1954,7 +1954,7 @@
                                         if (index === 0) return agoLabel;
                                         if (index === ticksArr.length - 1) return nowLabel;
                                         let ts = new Date(ticksArr[index].value);
-                                        return isStatus ? self._fmtDateTime(ts) : self._fmtTime(ts);
+                                        return isStatus ? self._fmtDate(ts) : self._fmtTime(ts);
                                     }
                                 },
                                 title: { display: false }
