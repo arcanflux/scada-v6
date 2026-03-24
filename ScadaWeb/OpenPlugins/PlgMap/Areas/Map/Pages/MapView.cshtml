@@ -516,6 +516,7 @@
         }
 
         .map-chart-body {
+            position: relative;
             padding: 12px 16px;
             flex: 1;
             overflow: hidden;
@@ -533,6 +534,26 @@
             color: #999;
             padding: 40px;
             font-size: 0.95em;
+        }
+
+        /* Pan-to-load indicator */
+        .map-chart-pan-loading {
+            position: absolute;
+            top: 50px;
+            left: 12px;
+            background: rgba(0, 115, 170, 0.9);
+            color: #fff;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            z-index: 10;
+            pointer-events: none;
+            animation: panLoadPulse 0.8s ease-in-out infinite;
+        }
+        @@keyframes panLoadPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
         }
 
         /* Hover mini-chart tooltip */
@@ -632,6 +653,11 @@
                 this._miniChartHideTimer = null;
                 this._combinedMarkerIdx = -1;
                 this._combinedDays = 1;
+                this._chartDataStart = null;
+                this._chartDataEnd = null;
+                this._chartCnlNums = null;
+                this._chartMarkerDef = null;
+                this._chartPanLoading = false;
                 this.t = MapViewManager.LANG;
             }
 
@@ -1180,6 +1206,11 @@
                     this._activeChart.destroy();
                     this._activeChart = null;
                 }
+                this._chartPanLoading = false;
+                this._chartDataStart = null;
+                this._chartDataEnd = null;
+                this._chartCnlNums = null;
+                this._chartMarkerDef = null;
             }
 
             async _openCombinedChart(markerIdx, days) {
@@ -1256,6 +1287,12 @@
                 let timestamps = histData.timestamps.map(t => new Date(t.ms));
                 let datasets = [];
 
+                // Track loaded data boundaries for pan-to-load
+                this._chartDataStart = timestamps.length > 0 ? timestamps[0].getTime() : Date.now();
+                this._chartDataEnd = timestamps.length > 0 ? timestamps[timestamps.length - 1].getTime() : Date.now();
+                this._chartCnlNums = def.channels.map(c => c.cnlNum);
+                this._chartMarkerDef = def;
+
                 let cnlToTrendIdx = {};
                 for (let i = 0; i < histData.cnlNums.length; i++) {
                     cnlToTrendIdx[histData.cnlNums[i]] = i;
@@ -1287,7 +1324,8 @@
                         tension: 0.3,
                         fill: false,
                         spanGaps: false,
-                        yAxisID: axisGroup === "pressure" ? "yPressure" : "yTemp"
+                        yAxisID: axisGroup === "pressure" ? "yPressure" : "yTemp",
+                        _cnlNum: ch.cnlNum
                     });
                 }
 
@@ -1336,7 +1374,10 @@
                                 pan: {
                                     enabled: true,
                                     mode: 'x',
-                                    modifierKey: null
+                                    modifierKey: null,
+                                    onPanComplete: function({ chart }) {
+                                        self._onChartPanComplete(chart);
+                                    }
                                 },
                                 zoom: {
                                     wheel: { enabled: true, modifierKey: null },
@@ -1379,6 +1420,76 @@
                         }
                     }
                 });
+            }
+
+            // --- Pan-to-load: fetch older data when user pans to left edge ---
+            async _onChartPanComplete(chart) {
+                if (this._chartPanLoading || !this._chartCnlNums) return;
+
+                let xScale = chart.scales.x;
+                let visibleMin = xScale.min; // left edge of visible area (ms)
+                let loadedRange = this._chartDataEnd - this._chartDataStart;
+                // trigger when visible left edge is within 20% of loaded data start
+                let threshold = this._chartDataStart + loadedRange * 0.2;
+
+                if (visibleMin > threshold) return; // not near left edge
+
+                this._chartPanLoading = true;
+
+                // Show loading indicator
+                let body = document.getElementById("mapChartBody");
+                let loadingEl = document.createElement("div");
+                loadingEl.className = "map-chart-pan-loading";
+                loadingEl.textContent = this._escapeHtml(this.t.loading);
+                body.appendChild(loadingEl);
+
+                try {
+                    // Fetch one more period to the left
+                    let fetchDurationMs = this._combinedDays * 24 * 60 * 60 * 1000;
+                    let newEnd = new Date(this._chartDataStart);
+                    let newStart = new Date(this._chartDataStart - fetchDurationMs);
+
+                    let histData = await this._fetchHistDataRange(this._chartCnlNums, newStart, newEnd);
+
+                    if (histData && histData.timestamps && histData.timestamps.length > 0) {
+                        this._prependChartData(chart, histData);
+                        this._chartDataStart = newStart.getTime();
+                    }
+                } catch (err) {
+                    console.error("Pan-load error:", err);
+                } finally {
+                    this._chartPanLoading = false;
+                    let el = body.querySelector(".map-chart-pan-loading");
+                    if (el) el.remove();
+                }
+            }
+
+            _prependChartData(chart, histData) {
+                let newTimestamps = histData.timestamps.map(t => new Date(t.ms));
+
+                let cnlToTrendIdx = {};
+                for (let i = 0; i < histData.cnlNums.length; i++) {
+                    cnlToTrendIdx[histData.cnlNums[i]] = i;
+                }
+
+                for (let ds of chart.data.datasets) {
+                    let cnlNum = ds._cnlNum;
+                    let trendIdx = cnlToTrendIdx[cnlNum];
+                    if (trendIdx === undefined) continue;
+
+                    let trend = histData.trends[trendIdx];
+                    let newPoints = trend.map((rec, idx) => ({
+                        x: newTimestamps[idx],
+                        y: (rec && rec.d && rec.d.stat > 0) ? rec.d.val : null
+                    }));
+
+                    // Prepend new data (older) before existing data, skip duplicates
+                    let existingFirstX = ds.data.length > 0 ? ds.data[0].x.getTime() : Infinity;
+                    let filtered = newPoints.filter(p => p.x.getTime() < existingFirstX);
+                    ds.data = filtered.concat(ds.data);
+                }
+
+                chart.update('none'); // update without animation for smooth experience
             }
 
             // --- Mini Chart Tooltip (hover per parameter, 1h range) ---
@@ -1619,6 +1730,24 @@
                     console.error("Failed to fetch hist data:", err);
                 }
 
+                return null;
+            }
+
+            async _fetchHistDataRange(cnlNums, startTime, endTime) {
+                let url = this._mainApiRoot() + "GetHistData" +
+                    "?archiveBit=1" +
+                    "&startTime=" + encodeURIComponent(startTime.toISOString()) +
+                    "&endTime=" + encodeURIComponent(endTime.toISOString()) +
+                    "&endInclusive=true" +
+                    "&cnlNums=" + encodeURIComponent(cnlNums.join(","));
+
+                try {
+                    let resp = await fetch(url);
+                    let dto = await resp.json();
+                    if (dto.ok && dto.data) return dto.data;
+                } catch (err) {
+                    console.error("Failed to fetch hist data range:", err);
+                }
                 return null;
             }
 
