@@ -1520,7 +1520,8 @@
                 tip.style.width = tipWidth + "px";
 
                 let popup = event.target.closest('.leaflet-popup');
-                let popupRect = popup ? popup.getBoundingClientRect() : event.target.getBoundingClientRect();
+                let contentWrap = popup ? popup.querySelector('.leaflet-popup-content-wrapper') : null;
+                let popupRect = (contentWrap || popup || event.target).getBoundingClientRect();
                 let tipHeight = isStatus ? 160 : 210;
                 let left, top;
 
