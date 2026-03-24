@@ -648,6 +648,7 @@
                 day3: "@Html.Raw(Model.JsDict.Day3)",
                 day7: "@Html.Raw(Model.JsDict.Day7)",
                 ago1h: "@Html.Raw(Model.JsDict.Ago1h)",
+                ago1d: "@Html.Raw(Model.JsDict.Ago1d)",
                 now: "@Html.Raw(Model.JsDict.Now)",
                 channel: "@Html.Raw(Model.JsDict.Channel)",
                 details: "@Html.Raw(Model.JsDict.Details)",
@@ -1795,10 +1796,11 @@
                     }
                 }
 
-                // fixed 1-hour range: -1h to now
+                // fixed range: -1h for parameters, -1d for statuses
                 let now = new Date();
-                let oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-                let ago1h = this.t.ago1h;
+                let rangeMs = isStatus ? 24 * 60 * 60 * 1000 : 60 * 60 * 1000;
+                let rangeStart = new Date(now.getTime() - rangeMs);
+                let agoLabel = isStatus ? this.t.ago1d : this.t.ago1h;
                 let nowLabel = this.t.now;
                 let self = this;
 
@@ -1848,7 +1850,7 @@
                         scales: {
                             x: {
                                 type: 'time',
-                                min: oneHourAgo.getTime(),
+                                min: rangeStart.getTime(),
                                 max: now.getTime(),
                                 time: {
                                     displayFormats: { millisecond: 'HH:mm:ss', second: 'HH:mm:ss', minute: 'HH:mm', hour: 'HH:mm' }
@@ -1856,9 +1858,10 @@
                                 ticks: {
                                     font: { size: 13 },
                                     callback: function(value, index, ticksArr) {
-                                        if (index === 0) return ago1h;
+                                        if (index === 0) return agoLabel;
                                         if (index === ticksArr.length - 1) return nowLabel;
-                                        return self._fmtTime(new Date(ticksArr[index].value));
+                                        let ts = new Date(ticksArr[index].value);
+                                        return isStatus ? self._fmtDateTime(ts) : self._fmtTime(ts);
                                     }
                                 },
                                 title: { display: false }
