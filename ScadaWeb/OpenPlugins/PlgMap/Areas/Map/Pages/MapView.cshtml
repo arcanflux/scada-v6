@@ -764,10 +764,22 @@
                 });
             }
 
+            // Check if at least one parameter channel has valid signal
+            _hasAnyWorkingChannel(def) {
+                let channels = def.channels || [];
+                for (let ch of channels) {
+                    let rec = this.curDataMap[ch.cnlNum];
+                    if (rec && rec.stat > 0) return true;
+                }
+                return false;
+            }
+
             // Check if marker has any active status (val >= 1 AND valid signal)
+            // If all parameter channels are dead, status is unreliable — return false
             _hasActiveStatus(def) {
                 let stCh = def.statusChannels;
                 if (!stCh || stCh.length === 0) return false;
+                if (!this._hasAnyWorkingChannel(def)) return false;
                 for (let ch of stCh) {
                     let rec = this.curDataMap[ch.cnlNum];
                     if (rec && rec.stat > 0 && rec.val >= 1) return true;
@@ -776,12 +788,14 @@
             }
 
             // Returns status dot data from statusChannels
+            // If all parameter channels are dead, all dots show as off
             _getStatusDots(def) {
                 let stCh = def.statusChannels;
                 if (!stCh || stCh.length === 0) return [];
+                let anyWorking = this._hasAnyWorkingChannel(def);
                 return stCh.map(ch => {
                     let rec = this.curDataMap[ch.cnlNum];
-                    return { alias: ch.alias, on: !!(rec && rec.stat > 0 && rec.val >= 1), cnlNum: ch.cnlNum };
+                    return { alias: ch.alias, on: !!(anyWorking && rec && rec.stat > 0 && rec.val >= 1), cnlNum: ch.cnlNum };
                 });
             }
 
@@ -1416,7 +1430,13 @@
                         plugins: {
                             legend: {
                                 position: 'top',
-                                labels: { usePointStyle: true, pointStyle: 'line', boxWidth: 30, font: { size: 15 } }
+                                labels: {
+                                    usePointStyle: true, pointStyle: 'line', boxWidth: 30, font: { size: 15 },
+                                    filter: function(item, chartData) {
+                                        let ds = chartData.datasets[item.datasetIndex];
+                                        return !ds._isStatus;
+                                    }
+                                }
                             },
                             tooltip: {
                                 titleFont: { size: 15 },
@@ -1490,7 +1510,7 @@
                                 display: statusCount > 0,
                                 position: 'left',
                                 min: 0,
-                                max: Math.max(statusCount, 1),
+                                max: 5,
                                 ticks: {
                                     display: false
                                 },
@@ -1617,24 +1637,15 @@
                 let popup = event.target.closest('.leaflet-popup');
                 let contentWrap = popup ? popup.querySelector('.leaflet-popup-content-wrapper') : null;
                 let popupRect = (contentWrap || popup || event.target).getBoundingClientRect();
-                let tipHeight = isStatus ? 160 : 210;
+                let tipHeight = 210;
                 let left, top;
 
-                if (isStatus) {
-                    // Status charts: above popup, fallback below
-                    left = popupRect.left + popupRect.width / 2 - tipWidth / 2;
-                    top = popupRect.top - tipHeight - 6;
-                    if (left < 8) left = 8;
-                    if (left + tipWidth > window.innerWidth - 8) left = window.innerWidth - tipWidth - 8;
-                    if (top < 8) top = popupRect.bottom + 6;
-                } else {
-                    // Parameter charts: right of popup, fallback left
-                    left = popupRect.right + 6;
-                    top = popupRect.top + (popupRect.height / 2) - tipHeight / 2;
-                    if (left + tipWidth > window.innerWidth - 8) left = popupRect.left - tipWidth - 6;
-                    if (top < 8) top = 8;
-                    if (top + tipHeight > window.innerHeight - 8) top = window.innerHeight - tipHeight - 8;
-                }
+                // All mini charts: right of popup, fallback left
+                left = popupRect.right + 6;
+                top = popupRect.top + (popupRect.height / 2) - tipHeight / 2;
+                if (left + tipWidth > window.innerWidth - 8) left = popupRect.left - tipWidth - 6;
+                if (top < 8) top = 8;
+                if (top + tipHeight > window.innerHeight - 8) top = window.innerHeight - tipHeight - 8;
 
                 tip.style.left = left + "px";
                 tip.style.top = top + "px";
