@@ -764,13 +764,13 @@
                 });
             }
 
-            // Check if marker has any active status (val >= 1)
+            // Check if marker has any active status (val >= 1 AND valid signal)
             _hasActiveStatus(def) {
                 let stCh = def.statusChannels;
                 if (!stCh || stCh.length === 0) return false;
                 for (let ch of stCh) {
                     let rec = this.curDataMap[ch.cnlNum];
-                    if (rec && rec.val >= 1) return true;
+                    if (rec && rec.stat > 0 && rec.val >= 1) return true;
                 }
                 return false;
             }
@@ -781,7 +781,7 @@
                 if (!stCh || stCh.length === 0) return [];
                 return stCh.map(ch => {
                     let rec = this.curDataMap[ch.cnlNum];
-                    return { alias: ch.alias, on: !!(rec && rec.val >= 1), cnlNum: ch.cnlNum };
+                    return { alias: ch.alias, on: !!(rec && rec.stat > 0 && rec.val >= 1), cnlNum: ch.cnlNum };
                 });
             }
 
