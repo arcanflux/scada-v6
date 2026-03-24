@@ -1671,10 +1671,17 @@
                 let tipHeight = 210;
                 let left, top;
 
+                // Show tooltip briefly to measure actual height
+                tip.style.visibility = 'hidden';
+                tip.classList.add("show");
+                let actualTipHeight = tip.offsetHeight || tipHeight;
+                tip.classList.remove("show");
+                tip.style.visibility = '';
+
                 if (isStatus) {
                     // Status charts: above popup, same 6px gap
                     left = popupRect.left + popupRect.width / 2 - tipWidth / 2;
-                    top = popupRect.top - tipHeight - 6;
+                    top = popupRect.top - actualTipHeight - 6;
                     if (left < 8) left = 8;
                     if (left + tipWidth > window.innerWidth - 8) left = window.innerWidth - tipWidth - 8;
                     if (top < 8) top = popupRect.bottom + 6;
