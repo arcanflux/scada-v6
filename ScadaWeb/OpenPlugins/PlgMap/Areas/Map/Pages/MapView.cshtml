@@ -1112,9 +1112,9 @@
                     html += '<div class="map-status-panel-name">' + this._escapeHtml(pe.entry.def.name) + '</div>';
                     html += '<div class="map-status-panel-dots">';
                     for (let d of pe.dots) {
-                        let color = d.on ? "#d32f2f" : "#3388ff";
+                        if (!d.on) continue; // only show broken statuses
                         html += '<span class="map-status-panel-dot">' +
-                            '<span class="dot" style="background:' + color + '"></span>' +
+                            '<span class="dot" style="background:#d32f2f"></span>' +
                             this._escapeHtml(d.alias) + '</span>';
                     }
                     html += '</div></div>';
