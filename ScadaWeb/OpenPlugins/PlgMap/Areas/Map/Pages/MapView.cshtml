@@ -1699,8 +1699,8 @@
 
                 try {
                     await this._loadChartJs();
-                    // fetch 1 hour for mini chart
-                    let histData = await this._fetchHistData([cnlNum], 1 / 24);
+                    // fetch 1 hour for parameters, 1 day for statuses
+                    let histData = await this._fetchHistData([cnlNum], isStatus ? 1 : 1 / 24);
 
                     if (!histData || !histData.trends || histData.trends.length === 0) {
                         bodyEl.innerHTML = '<div class="map-minichart-loading">' + this._escapeHtml(this.t.noData) + '</div>';
