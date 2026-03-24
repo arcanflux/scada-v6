@@ -536,19 +536,16 @@
             font-size: 0.95em;
         }
 
-        /* Pan-to-load indicator */
+        /* Pan-to-load indicator (inline in toolbar) */
         .map-chart-pan-loading {
-            position: absolute;
-            top: 50px;
-            left: 12px;
             background: rgba(0, 115, 170, 0.9);
             color: #fff;
             padding: 4px 12px;
             border-radius: 4px;
             font-size: 12px;
             font-weight: 600;
-            z-index: 10;
             pointer-events: none;
+            margin-left: 12px;
         }
 
         /* Hover mini-chart tooltip */
@@ -1246,9 +1243,9 @@
                     });
                 });
 
-                // wire reset zoom
+                // wire reset — re-open chart with the currently selected period
                 document.getElementById("mapChartResetZoom").addEventListener('click', () => {
-                    if (this._activeChart) this._activeChart.resetZoom();
+                    this._openCombinedChart(this._combinedMarkerIdx, this._combinedDays);
                 });
 
                 body.innerHTML = '<div class="map-chart-loading">' + this._escapeHtml(this.t.loadingChart) + '</div>';
@@ -1431,14 +1428,14 @@
 
                 this._chartPanLoading = true;
 
-                // Show loading indicator
-                let body = document.getElementById("mapChartBody");
+                // Show loading indicator in toolbar
+                let toolbar = document.getElementById("mapChartToolbar");
                 let loadingEl = document.createElement("div");
                 loadingEl.className = "map-chart-pan-loading";
                 loadingEl.textContent = this._escapeHtml(this.t.loading);
                 loadingEl.animate([{ opacity: 1 }, { opacity: 0.6 }, { opacity: 1 }],
                     { duration: 800, iterations: Infinity });
-                body.appendChild(loadingEl);
+                toolbar.appendChild(loadingEl);
 
                 try {
                     // Fetch one more period to the left
@@ -1456,7 +1453,7 @@
                     console.error("Pan-load error:", err);
                 } finally {
                     this._chartPanLoading = false;
-                    let el = body.querySelector(".map-chart-pan-loading");
+                    let el = document.getElementById("mapChartToolbar").querySelector(".map-chart-pan-loading");
                     if (el) el.remove();
                 }
             }
