@@ -813,6 +813,75 @@
             background: #005f8a;
         }
 
+        /* Combined chart tooltip */
+        .map-chart-tooltip {
+            position: absolute;
+            pointer-events: none;
+            background: rgba(255, 255, 255, 0.97);
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+            padding: 14px 18px;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            z-index: 10;
+            min-width: 220px;
+            transition: opacity 0.15s ease;
+        }
+
+        .map-chart-tooltip-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #222;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .map-chart-tooltip-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 4px 0;
+            font-size: 15px;
+        }
+
+        .map-chart-tooltip-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .map-chart-tooltip-label {
+            color: #555;
+            flex: 1;
+        }
+
+        .map-chart-tooltip-value {
+            font-weight: 700;
+            color: #111;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .map-chart-tooltip-unit {
+            font-weight: 400;
+            color: #888;
+            margin-left: 3px;
+        }
+
+        .map-chart-tooltip-status {
+            font-weight: 600;
+        }
+
+        .map-chart-tooltip-status.on {
+            color: #2e7d32;
+        }
+
+        .map-chart-tooltip-status.off {
+            color: #999;
+        }
+
         /* Pan-to-load indicator (inline in toolbar) */
         .map-chart-pan-loading {
             background: rgba(0, 115, 170, 0.9);
@@ -2064,6 +2133,86 @@
                 this._openCombinedChart(this._combinedMarkerIdx, this._combinedDays);
             }
 
+            _renderCombinedTooltip(ctx) {
+                let tooltipModel = ctx.tooltip;
+                let chartArea = ctx.chart.chartArea;
+                let canvasEl = ctx.chart.canvas;
+                let wrap = canvasEl.parentElement;
+
+                // Get or create tooltip element
+                let el = wrap.querySelector('.map-chart-tooltip');
+                if (!el) {
+                    el = document.createElement('div');
+                    el.className = 'map-chart-tooltip';
+                    wrap.appendChild(el);
+                }
+
+                // Hide if no tooltip
+                if (tooltipModel.opacity === 0) {
+                    el.style.opacity = '0';
+                    return;
+                }
+
+                // Build title (full date + time)
+                let titleHtml = '';
+                if (tooltipModel.dataPoints && tooltipModel.dataPoints.length > 0) {
+                    let ts = new Date(tooltipModel.dataPoints[0].parsed.x);
+                    let dd = String(ts.getDate()).padStart(2, '0');
+                    let mm = String(ts.getMonth() + 1).padStart(2, '0');
+                    let yy = ts.getFullYear();
+                    let hh = String(ts.getHours()).padStart(2, '0');
+                    let mi = String(ts.getMinutes()).padStart(2, '0');
+                    titleHtml = '<div class="map-chart-tooltip-title">' +
+                        dd + '.' + mm + '.' + yy + '&nbsp;&nbsp;' + hh + ':' + mi + '</div>';
+                }
+
+                // Build rows
+                let rowsHtml = '';
+                for (let dp of tooltipModel.dataPoints) {
+                    let ds = ctx.chart.data.datasets[dp.datasetIndex];
+                    let color = ds.borderColor || '#333';
+
+                    if (ds._isStatus) {
+                        let active = dp.parsed.y > ds._bandBase;
+                        rowsHtml += '<div class="map-chart-tooltip-row">' +
+                            '<span class="map-chart-tooltip-dot" style="background:' + color + '"></span>' +
+                            '<span class="map-chart-tooltip-label">' + this._escapeHtml(ds.label) + '</span>' +
+                            '<span class="map-chart-tooltip-status ' + (active ? 'on' : 'off') + '">' +
+                            (active ? 'ON' : 'OFF') + '</span></div>';
+                    } else {
+                        let val = dp.parsed.y;
+                        if (val === null || val === undefined) continue;
+                        let valStr = typeof val === 'number' ? val.toFixed(2) : String(val);
+                        let unit = ds._unit || '';
+                        rowsHtml += '<div class="map-chart-tooltip-row">' +
+                            '<span class="map-chart-tooltip-dot" style="background:' + color + '"></span>' +
+                            '<span class="map-chart-tooltip-label">' + this._escapeHtml(ds.label) + '</span>' +
+                            '<span class="map-chart-tooltip-value">' + valStr +
+                            '<span class="map-chart-tooltip-unit">' + this._escapeHtml(unit) + '</span></span></div>';
+                    }
+                }
+
+                el.innerHTML = titleHtml + rowsHtml;
+                el.style.opacity = '1';
+
+                // Position: prefer right side of cursor, flip to left if not enough space
+                let caretX = tooltipModel.caretX;
+                let caretY = tooltipModel.caretY;
+                let tooltipWidth = el.offsetWidth;
+                let tooltipHeight = el.offsetHeight;
+                let wrapWidth = wrap.offsetWidth;
+
+                let left = caretX + 16;
+                if (left + tooltipWidth > wrapWidth - 10) {
+                    left = caretX - tooltipWidth - 16;
+                }
+                let top = caretY - tooltipHeight / 2;
+                top = Math.max(0, Math.min(top, wrap.offsetHeight - tooltipHeight));
+
+                el.style.left = left + 'px';
+                el.style.top = top + 'px';
+            }
+
             _renderCombinedChart(canvas, def, histData) {
                 if (this._activeChart) {
                     this._activeChart.destroy();
@@ -2103,6 +2252,8 @@
 
                     let axisGroup = this._getAxisGroup(alias);
 
+                    let unit = axisGroup === "pressure" ? this.t.pressureUnit : "°C";
+
                     datasets.push({
                         label: alias,
                         data: data,
@@ -2115,7 +2266,8 @@
                         fill: false,
                         spanGaps: false,
                         yAxisID: axisGroup === "pressure" ? "yPressure" : "yTemp",
-                        _cnlNum: ch.cnlNum
+                        _cnlNum: ch.cnlNum,
+                        _unit: unit
                     });
                 }
 
@@ -2202,24 +2354,9 @@
                                 }
                             },
                             tooltip: {
-                                caretPadding: 20,
-                                titleFont: { size: 15 },
-                                bodyFont: { size: 15 },
-                                callbacks: {
-                                    title: function(items) {
-                                        if (items.length > 0) {
-                                            return self._fmtDateTime(new Date(items[0].parsed.x));
-                                        }
-                                        return '';
-                                    },
-                                    label: function(context) {
-                                        let ds = context.dataset;
-                                        if (ds._isStatus) {
-                                            let active = context.parsed.y > ds._bandBase;
-                                            return ds.label + ': ' + (active ? '●' : '○');
-                                        }
-                                        return ds.label + ': ' + context.formattedValue;
-                                    }
+                                enabled: false,
+                                external: function(ctx) {
+                                    self._renderCombinedTooltip(ctx);
                                 }
                             },
                             zoom: {
