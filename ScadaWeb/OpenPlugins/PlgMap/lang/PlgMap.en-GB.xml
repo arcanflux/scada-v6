@@ -36,5 +36,6 @@
     <Phrase key="StatusesLabel">Statuses</Phrase>
     <Phrase key="GradientLabel">Gradient</Phrase>
     <Phrase key="GradientOff">Off</Phrase>
+    <Phrase key="MoreChannels">More</Phrase>
   </Dictionary>
 </PlgMapDictionaries>

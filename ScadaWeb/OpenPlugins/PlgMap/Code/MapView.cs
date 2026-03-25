@@ -80,6 +80,11 @@ namespace Scada.Web.Plugins.PlgMap.Code
                 {
                     AddCnlNum(ch.CnlNum);
                 }
+
+                foreach (MarkerChannel ch in marker.ExtraChannels)
+                {
+                    AddCnlNum(ch.CnlNum);
+                }
             }
             catch
             {

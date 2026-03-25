@@ -76,6 +76,11 @@ namespace Scada.Web.Plugins.PlgMap.Code
         /// </summary>
         public List<MarkerChannel> StatusChannels { get; } = [];
 
+        /// <summary>
+        /// Gets the list of extra channels shown in the secondary "more" popup.
+        /// </summary>
+        public List<MarkerChannel> ExtraChannels { get; } = [];
+
 
         /// <summary>
         /// Loads the marker from an XML node (new compact format).
@@ -126,6 +131,16 @@ namespace Scada.Web.Plugins.PlgMap.Code
                 {
                     CnlNum = int.Parse(stNode.Attributes?["num"]?.Value ?? "0"),
                     Alias = stNode.Attributes?["alias"]?.Value ?? ""
+                });
+            }
+
+            // load extra channels (shown in secondary "more" popup)
+            foreach (XmlNode exNode in node.SelectNodes("ExtraChannel"))
+            {
+                marker.ExtraChannels.Add(new MarkerChannel
+                {
+                    CnlNum = int.Parse(exNode.Attributes?["num"]?.Value ?? "0"),
+                    Alias = exNode.Attributes?["alias"]?.Value ?? ""
                 });
             }
 
@@ -182,6 +197,21 @@ namespace Scada.Web.Plugins.PlgMap.Code
                     {
                         CnlNum = int.Parse(stCnlStr),
                         Alias = stNode.InnerText?.Trim() ?? ""
+                    });
+                }
+            }
+
+            // parse ExtraChannels > ExtraItem elements (secondary popup channels)
+            XmlNode extrasNode = node.SelectSingleNode("ExtraChannels");
+            if (extrasNode != null)
+            {
+                foreach (XmlNode exNode in extrasNode.SelectNodes("ExtraItem"))
+                {
+                    string exCnlStr = exNode.Attributes?["cnlNum"]?.Value ?? "0";
+                    marker.ExtraChannels.Add(new MarkerChannel
+                    {
+                        CnlNum = int.Parse(exCnlStr),
+                        Alias = exNode.InnerText?.Trim() ?? ""
                     });
                 }
             }

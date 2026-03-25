@@ -152,6 +152,102 @@
             background: #005f8a;
         }
 
+        /* Wrapper for table + more button side by side */
+        .map-popup-channels-row {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+        }
+
+        .map-popup-channels-row .map-popup-table {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* "More" button on the right side of the parameters table */
+        .map-popup-more-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            min-width: 28px;
+            cursor: pointer;
+            background: #f0f4f8;
+            border: 1px solid #ccd5de;
+            border-left: none;
+            border-radius: 0 6px 6px 0;
+            color: #0073aa;
+            font-size: 18px;
+            font-weight: 700;
+            transition: background 0.15s, color 0.15s;
+            user-select: none;
+            margin: 5px 0;
+        }
+
+        .map-popup-more-btn:hover {
+            background: #0073aa;
+            color: #fff;
+        }
+
+        .map-popup-more-btn svg {
+            display: block;
+        }
+
+        /* Extra channels popup (secondary popup) */
+        .map-extra-popup {
+            display: none;
+            position: fixed;
+            z-index: 3000;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            padding: 10px 14px;
+            min-width: 180px;
+            max-width: 320px;
+        }
+
+        .map-extra-popup.show {
+            display: block;
+        }
+
+        .map-extra-popup-title {
+            font-weight: 600;
+            font-size: 15px;
+            color: #333;
+            margin-bottom: 6px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 4px;
+        }
+
+        .map-extra-popup-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .map-extra-popup-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 3px 0;
+            font-size: 16px;
+            gap: 12px;
+        }
+
+        .map-extra-popup-list .extra-alias {
+            color: #555;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .map-extra-popup-list .extra-val {
+            font-weight: 600;
+            color: #222;
+            text-align: right;
+            white-space: nowrap;
+        }
+
         .leaflet-control-attribution {
             display: none !important;
         }
@@ -994,7 +1090,8 @@
                 pressureUnit: "@Html.Raw(Model.JsDict.PressureUnit)",
                 statusesLabel: "@Html.Raw(Model.JsDict.StatusesLabel)",
                 gradientLabel: "@Html.Raw(Model.JsDict.GradientLabel)",
-                gradientOff: "@Html.Raw(Model.JsDict.GradientOff)"
+                gradientOff: "@Html.Raw(Model.JsDict.GradientOff)",
+                moreChannels: "@Html.Raw(Model.JsDict.MoreChannels)"
             };
 
             constructor(options) {
@@ -1256,6 +1353,7 @@
                     }).addTo(this.map);
 
                     lMarker.bindPopup(this._buildPopupHtml(m), { maxWidth: 320, minWidth: 160, closeButton: false });
+                    lMarker.on('popupclose', () => this._hideExtraPopup());
 
                     this.markerEntries.push({ id: m.id, def: m, leafletMarker: lMarker });
                 }
@@ -1533,6 +1631,12 @@
                 }
 
                 if (def.channels && def.channels.length > 0) {
+                    let hasExtra = def.extraChannels && def.extraChannels.length > 0;
+                    let markerIdx = this.markerEntries.findIndex(e => e.def === def);
+                    if (markerIdx < 0) markerIdx = this.markers.indexOf(def);
+
+                    if (hasExtra) html += '<div class="map-popup-channels-row">';
+
                     html += '<table class="map-popup-table">';
                     for (let i = 0; i < def.channels.length; i++) {
                         let ch = def.channels[i];
@@ -1557,8 +1661,18 @@
                     }
                     html += '</table>';
 
-                    let markerIdx = this.markerEntries.findIndex(e => e.def === def);
-                    if (markerIdx < 0) markerIdx = this.markers.indexOf(def);
+                    // "More" button — narrow, spans full table height, opens extra channels popup
+                    if (hasExtra) {
+                        html += '<div class="map-popup-more-btn" ' +
+                            'onclick="mapViewInstance._toggleExtraPopup(event, ' + (markerIdx >= 0 ? markerIdx : 0) + ')" ' +
+                            'title="' + this._escapeHtml(this.t.moreChannels || 'More') + '">' +
+                            '<svg width="14" height="22" viewBox="0 0 14 22">' +
+                            '<polyline points="4,4 10,11 4,18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' +
+                            '</svg>' +
+                            '</div>';
+                        html += '</div>'; // close .map-popup-channels-row
+                    }
+
                     html += '<button class="map-popup-chart-btn" ' +
                         'onclick="mapViewInstance._openCombinedChart(' + (markerIdx >= 0 ? markerIdx : 0) + ')">' +
                         this._escapeHtml(this.t.combinedChart) + '</button>';
@@ -2646,6 +2760,82 @@
                 }
             }
 
+            // --- Extra Channels Popup (secondary "more" popup) ---
+            _toggleExtraPopup(event, markerIdx) {
+                event.stopPropagation();
+                let popup = document.getElementById("mapExtraPopup");
+                let def = this.markers[markerIdx];
+
+                // If already showing for same marker, hide it
+                if (popup.classList.contains("show") && this._extraPopupMarkerIdx === markerIdx) {
+                    this._hideExtraPopup();
+                    return;
+                }
+
+                this._extraPopupMarkerIdx = markerIdx;
+                let titleEl = document.getElementById("mapExtraPopupTitle");
+                let listEl = document.getElementById("mapExtraPopupList");
+
+                titleEl.textContent = this.t.moreChannels;
+
+                // Build the simple list of alias + value
+                let html = '';
+                if (def.extraChannels) {
+                    for (let ch of def.extraChannels) {
+                        let rec = this.curDataMap[ch.cnlNum];
+                        let valText = rec ? this._escapeHtml(rec.text) : "--";
+                        let alias = ch.alias || (this.t.channel + ch.cnlNum);
+                        html += '<li>' +
+                            '<span class="extra-alias">' + this._escapeHtml(alias) + '</span>' +
+                            '<span class="extra-val" data-cnl="' + ch.cnlNum + '">' + valText + '</span>' +
+                            '</li>';
+                    }
+                }
+                listEl.innerHTML = html;
+
+                // Position to the right of the clicked button
+                let btn = event.currentTarget;
+                let btnRect = btn.getBoundingClientRect();
+                popup.classList.add("show");
+
+                let popupRect = popup.getBoundingClientRect();
+                let left = btnRect.right + 6;
+                let top = btnRect.top + (btnRect.height / 2) - (popupRect.height / 2);
+
+                // Fallback: if no space on right, show on left
+                if (left + popupRect.width > window.innerWidth - 8) {
+                    left = btnRect.left - popupRect.width - 6;
+                }
+                // Keep within vertical bounds
+                if (top < 8) top = 8;
+                if (top + popupRect.height > window.innerHeight - 8) {
+                    top = window.innerHeight - popupRect.height - 8;
+                }
+
+                popup.style.left = left + 'px';
+                popup.style.top = top + 'px';
+
+                // Close when clicking outside
+                if (!this._extraPopupOutsideHandler) {
+                    this._extraPopupOutsideHandler = (e) => {
+                        if (!popup.contains(e.target) && !btn.contains(e.target)) {
+                            this._hideExtraPopup();
+                        }
+                    };
+                    setTimeout(() => document.addEventListener('click', this._extraPopupOutsideHandler), 0);
+                }
+            }
+
+            _hideExtraPopup() {
+                let popup = document.getElementById("mapExtraPopup");
+                popup.classList.remove("show");
+                this._extraPopupMarkerIdx = null;
+                if (this._extraPopupOutsideHandler) {
+                    document.removeEventListener('click', this._extraPopupOutsideHandler);
+                    this._extraPopupOutsideHandler = null;
+                }
+            }
+
             // Vertical crosshair line plugin for Chart.js
             static _crosshairPlugin = {
                 id: 'crosshairLine',
@@ -2885,6 +3075,17 @@
                     entry.leafletMarker.setPopupContent(this._buildPopupHtml(entry.def));
                 }
 
+                // Update extra channels popup if open
+                let extraPopup = document.getElementById("mapExtraPopup");
+                if (extraPopup && extraPopup.classList.contains("show")) {
+                    let extraVals = extraPopup.querySelectorAll('[data-cnl]');
+                    for (let el of extraVals) {
+                        let cnl = parseInt(el.getAttribute('data-cnl'));
+                        let rec = this.curDataMap[cnl];
+                        if (rec) el.textContent = rec.text || "--";
+                    }
+                }
+
                 this._updateStatusPanel();
             }
 
@@ -2979,4 +3180,10 @@
 <div id="mapMiniChartTooltip" class="map-minichart-tooltip">
     <div id="mapMiniChartTitle" class="map-minichart-title"></div>
     <div id="mapMiniChartBody"></div>
+</div>
+
+<!-- Extra Channels Popup (secondary popup from "more" button) -->
+<div id="mapExtraPopup" class="map-extra-popup">
+    <div id="mapExtraPopupTitle" class="map-extra-popup-title"></div>
+    <ul id="mapExtraPopupList" class="map-extra-popup-list"></ul>
 </div>

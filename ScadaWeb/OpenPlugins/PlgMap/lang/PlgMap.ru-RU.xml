@@ -36,5 +36,6 @@
     <Phrase key="StatusesLabel">Статусы</Phrase>
     <Phrase key="GradientLabel">Градиент</Phrase>
     <Phrase key="GradientOff">Выкл</Phrase>
+    <Phrase key="MoreChannels">Ещё</Phrase>
   </Dictionary>
 </PlgMapDictionaries>
