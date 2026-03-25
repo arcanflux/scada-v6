@@ -203,45 +203,72 @@
             border-radius: 6px;
             box-shadow: 0 4px 16px rgba(0,0,0,0.2);
             padding: 10px 14px;
-            min-width: 180px;
-            max-width: 320px;
         }
 
         .map-extra-popup.show {
             display: block;
         }
 
-        .map-extra-popup-title {
-            font-weight: 600;
-            font-size: 15px;
-            color: #333;
-            margin-bottom: 6px;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 4px;
+        .map-extra-popup-body {
+            display: flex;
+            gap: 0;
         }
 
-        .map-extra-popup-list {
+        .map-extra-popup-left {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            border-right: 1px solid #e0e0e0;
+            padding-right: 12px;
+        }
+
+        .map-extra-popup-right {
+            padding-left: 12px;
+        }
+
+        .map-extra-group {
+            margin-bottom: 2px;
+        }
+
+        .map-extra-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .map-extra-group-left + .map-extra-group-left {
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px solid #eee;
+        }
+
+        .map-extra-group-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .map-extra-group-list {
             list-style: none;
             margin: 0;
             padding: 0;
         }
 
-        .map-extra-popup-list li {
+        .map-extra-group-list li {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 3px 0;
+            padding: 2px 0;
             font-size: 16px;
             gap: 12px;
         }
 
-        .map-extra-popup-list .extra-alias {
+        .map-extra-group-list .extra-alias {
             color: #555;
             font-weight: 500;
             white-space: nowrap;
         }
 
-        .map-extra-popup-list .extra-val {
+        .map-extra-group-list .extra-val {
             font-weight: 600;
             color: #222;
             text-align: right;
@@ -1631,7 +1658,7 @@
                 }
 
                 if (def.channels && def.channels.length > 0) {
-                    let hasExtra = def.extraChannels && def.extraChannels.length > 0;
+                    let hasExtra = def.extraChannelGroups && def.extraChannelGroups.length > 0;
                     let markerIdx = this.markerEntries.findIndex(e => e.def === def);
                     if (markerIdx < 0) markerIdx = this.markers.indexOf(def);
 
@@ -2773,25 +2800,58 @@
                 }
 
                 this._extraPopupMarkerIdx = markerIdx;
-                let titleEl = document.getElementById("mapExtraPopupTitle");
-                let listEl = document.getElementById("mapExtraPopupList");
+                let bodyEl = document.getElementById("mapExtraPopupBody");
 
-                titleEl.textContent = this.t.moreChannels;
+                let groups = def.extraChannelGroups || [];
+                // Groups 1,2 go left (stacked), group 3 goes right
+                let leftGroups = groups.slice(0, 2);
+                let rightGroups = groups.slice(2);
 
-                // Build the simple list of alias + value
                 let html = '';
-                if (def.extraChannels) {
-                    for (let ch of def.extraChannels) {
-                        let rec = this.curDataMap[ch.cnlNum];
-                        let valText = rec ? this._escapeHtml(rec.text) : "--";
-                        let alias = ch.alias || (this.t.channel + ch.cnlNum);
-                        html += '<li>' +
-                            '<span class="extra-alias">' + this._escapeHtml(alias) + '</span>' +
-                            '<span class="extra-val" data-cnl="' + ch.cnlNum + '">' + valText + '</span>' +
-                            '</li>';
+
+                // Left column: groups 1 and 2 stacked
+                if (leftGroups.length > 0) {
+                    html += '<div class="map-extra-popup-left">';
+                    for (let g of leftGroups) {
+                        html += '<div class="map-extra-group map-extra-group-left">';
+                        html += '<div class="map-extra-group-name">' + this._escapeHtml(g.name) + '</div>';
+                        html += '<ul class="map-extra-group-list">';
+                        for (let ch of g.channels) {
+                            let rec = this.curDataMap[ch.cnlNum];
+                            let valText = rec ? this._escapeHtml(rec.text) : "--";
+                            let alias = ch.alias || (this.t.channel + ch.cnlNum);
+                            html += '<li>' +
+                                '<span class="extra-alias">' + this._escapeHtml(alias) + '</span>' +
+                                '<span class="extra-val" data-cnl="' + ch.cnlNum + '">' + valText + '</span>' +
+                                '</li>';
+                        }
+                        html += '</ul></div>';
                     }
+                    html += '</div>';
                 }
-                listEl.innerHTML = html;
+
+                // Right column: group 3
+                if (rightGroups.length > 0) {
+                    html += '<div class="map-extra-popup-right">';
+                    for (let g of rightGroups) {
+                        html += '<div class="map-extra-group">';
+                        html += '<div class="map-extra-group-name">' + this._escapeHtml(g.name) + '</div>';
+                        html += '<ul class="map-extra-group-list">';
+                        for (let ch of g.channels) {
+                            let rec = this.curDataMap[ch.cnlNum];
+                            let valText = rec ? this._escapeHtml(rec.text) : "--";
+                            let alias = ch.alias || (this.t.channel + ch.cnlNum);
+                            html += '<li>' +
+                                '<span class="extra-alias">' + this._escapeHtml(alias) + '</span>' +
+                                '<span class="extra-val" data-cnl="' + ch.cnlNum + '">' + valText + '</span>' +
+                                '</li>';
+                        }
+                        html += '</ul></div>';
+                    }
+                    html += '</div>';
+                }
+
+                bodyEl.innerHTML = html;
 
                 // Position to the right of the clicked button
                 let btn = event.currentTarget;
@@ -3184,6 +3244,5 @@
 
 <!-- Extra Channels Popup (secondary popup from "more" button) -->
 <div id="mapExtraPopup" class="map-extra-popup">
-    <div id="mapExtraPopupTitle" class="map-extra-popup-title"></div>
-    <ul id="mapExtraPopupList" class="map-extra-popup-list"></ul>
+    <div id="mapExtraPopupBody" class="map-extra-popup-body"></div>
 </div>

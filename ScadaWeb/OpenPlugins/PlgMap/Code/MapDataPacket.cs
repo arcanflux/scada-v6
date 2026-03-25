@@ -61,7 +61,16 @@ namespace Scada.Web.Plugins.PlgMap.Code
         public int LinkViewID { get; set; }
         public List<ChannelDto> Channels { get; set; }
         public List<ChannelDto> StatusChannels { get; set; }
-        public List<ChannelDto> ExtraChannels { get; set; }
+        public List<ChannelGroupDto> ExtraChannelGroups { get; set; }
+    }
+
+    /// <summary>
+    /// Represents a named group of channels for the client.
+    /// </summary>
+    public class ChannelGroupDto
+    {
+        public string Name { get; set; }
+        public List<ChannelDto> Channels { get; set; }
     }
 
     /// <summary>

@@ -24,6 +24,15 @@ namespace Scada.Web.Plugins.PlgMap.Code
     }
 
     /// <summary>
+    /// Represents a named group of extra channels for the secondary popup.
+    /// </summary>
+    public class MarkerChannelGroup
+    {
+        public string Name { get; set; } = "";
+        public List<MarkerChannel> Channels { get; } = [];
+    }
+
+    /// <summary>
     /// Represents a marker on the map bound to one or more SCADA channels.
     /// <para>Представляет маркер на карте, связанный с каналами SCADA.</para>
     /// </summary>
@@ -77,9 +86,9 @@ namespace Scada.Web.Plugins.PlgMap.Code
         public List<MarkerChannel> StatusChannels { get; } = [];
 
         /// <summary>
-        /// Gets the list of extra channels shown in the secondary "more" popup.
+        /// Gets the list of extra channel groups shown in the secondary "more" popup.
         /// </summary>
-        public List<MarkerChannel> ExtraChannels { get; } = [];
+        public List<MarkerChannelGroup> ExtraChannelGroups { get; } = [];
 
 
         /// <summary>
@@ -134,14 +143,26 @@ namespace Scada.Web.Plugins.PlgMap.Code
                 });
             }
 
-            // load extra channels (shown in secondary "more" popup)
-            foreach (XmlNode exNode in node.SelectNodes("ExtraChannel"))
+            // load extra channel groups (shown in secondary "more" popup)
+            XmlNode extraNode = node.SelectSingleNode("ExtraChannels");
+            if (extraNode != null)
             {
-                marker.ExtraChannels.Add(new MarkerChannel
+                foreach (XmlNode grpNode in extraNode.SelectNodes("Group"))
                 {
-                    CnlNum = int.Parse(exNode.Attributes?["num"]?.Value ?? "0"),
-                    Alias = exNode.Attributes?["alias"]?.Value ?? ""
-                });
+                    MarkerChannelGroup grp = new()
+                    {
+                        Name = grpNode.Attributes?["name"]?.Value ?? ""
+                    };
+                    foreach (XmlNode chNode in grpNode.SelectNodes("Item"))
+                    {
+                        grp.Channels.Add(new MarkerChannel
+                        {
+                            CnlNum = int.Parse(chNode.Attributes?["num"]?.Value ?? "0"),
+                            Alias = chNode.Attributes?["alias"]?.Value ?? ""
+                        });
+                    }
+                    marker.ExtraChannelGroups.Add(grp);
+                }
             }
 
             return marker;
@@ -201,18 +222,25 @@ namespace Scada.Web.Plugins.PlgMap.Code
                 }
             }
 
-            // parse ExtraChannels > ExtraItem elements (secondary popup channels)
+            // parse ExtraChannels > Group > ExtraItem elements (secondary popup channels)
             XmlNode extrasNode = node.SelectSingleNode("ExtraChannels");
             if (extrasNode != null)
             {
-                foreach (XmlNode exNode in extrasNode.SelectNodes("ExtraItem"))
+                foreach (XmlNode grpNode in extrasNode.SelectNodes("Group"))
                 {
-                    string exCnlStr = exNode.Attributes?["cnlNum"]?.Value ?? "0";
-                    marker.ExtraChannels.Add(new MarkerChannel
+                    MarkerChannelGroup grp = new()
                     {
-                        CnlNum = int.Parse(exCnlStr),
-                        Alias = exNode.InnerText?.Trim() ?? ""
-                    });
+                        Name = grpNode.Attributes?["name"]?.Value ?? ""
+                    };
+                    foreach (XmlNode exNode in grpNode.SelectNodes("ExtraItem"))
+                    {
+                        grp.Channels.Add(new MarkerChannel
+                        {
+                            CnlNum = int.Parse(exNode.Attributes?["cnlNum"]?.Value ?? "0"),
+                            Alias = exNode.InnerText?.Trim() ?? ""
+                        });
+                    }
+                    marker.ExtraChannelGroups.Add(grp);
                 }
             }
 

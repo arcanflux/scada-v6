@@ -24,6 +24,20 @@
         <DataItem cnlNum="1022">P1</DataItem>
         <DataItem cnlNum="1023">P2</DataItem>
       </Data>
+      <ExtraChannels>
+        <Group name="1">
+          <ExtraItem cnlNum="1030">T4</ExtraItem>
+          <ExtraItem cnlNum="1031">T5</ExtraItem>
+        </Group>
+        <Group name="2">
+          <ExtraItem cnlNum="1040">P3</ExtraItem>
+          <ExtraItem cnlNum="1041">P4</ExtraItem>
+        </Group>
+        <Group name="3">
+          <ExtraItem cnlNum="1050">G1</ExtraItem>
+          <ExtraItem cnlNum="1051">G2</ExtraItem>
+        </Group>
+      </ExtraChannels>
     </Location>
 
     <Location>

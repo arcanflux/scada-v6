@@ -31,6 +31,20 @@
         <StatusItem cnlNum="1104">Питание</StatusItem>
         <StatusItem cnlNum="1105">Связь</StatusItem>
       </Statuses>
+      <ExtraChannels>
+        <Group name="1">
+          <ExtraItem cnlNum="1030">T4</ExtraItem>
+          <ExtraItem cnlNum="1031">T5</ExtraItem>
+        </Group>
+        <Group name="2">
+          <ExtraItem cnlNum="1040">P3</ExtraItem>
+          <ExtraItem cnlNum="1041">P4</ExtraItem>
+        </Group>
+        <Group name="3">
+          <ExtraItem cnlNum="1050">G1</ExtraItem>
+          <ExtraItem cnlNum="1051">G2</ExtraItem>
+        </Group>
+      </ExtraChannels>
     </Location>
 
     <Location>

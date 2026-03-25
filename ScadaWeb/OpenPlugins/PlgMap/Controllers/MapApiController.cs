@@ -192,10 +192,14 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
                         CnlNum = c.CnlNum,
                         Alias = c.Alias
                     })],
-                    ExtraChannels = [.. m.ExtraChannels.Select(c => new ChannelDto
+                    ExtraChannelGroups = [.. m.ExtraChannelGroups.Select(g => new ChannelGroupDto
                     {
-                        CnlNum = c.CnlNum,
-                        Alias = c.Alias
+                        Name = g.Name,
+                        Channels = [.. g.Channels.Select(c => new ChannelDto
+                        {
+                            CnlNum = c.CnlNum,
+                            Alias = c.Alias
+                        })]
                     })]
                 })]
             };
