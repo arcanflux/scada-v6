@@ -1691,8 +1691,7 @@
                     // "More" button — narrow, spans full table height, opens extra channels popup
                     if (hasExtra) {
                         html += '<div class="map-popup-more-btn" ' +
-                            'onclick="mapViewInstance._toggleExtraPopup(event, ' + (markerIdx >= 0 ? markerIdx : 0) + ')" ' +
-                            'title="' + this._escapeHtml(this.t.moreChannels || 'More') + '">' +
+                            'onclick="mapViewInstance._toggleExtraPopup(event, ' + (markerIdx >= 0 ? markerIdx : 0) + ')">' +
                             '<svg width="14" height="22" viewBox="0 0 14 22">' +
                             '<polyline points="4,4 10,11 4,18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' +
                             '</svg>' +
@@ -1732,10 +1731,84 @@
                 this._chartDataEnd = null;
                 this._chartCnlNums = null;
                 this._chartMarkerDef = null;
+                // Stop real-time chart updates
+                this._stopChartRealtime();
+                // Reset date range so next open starts fresh
+                this._chartStartTime = null;
+                this._chartEndTime = null;
                 // Clean up date range picker outside click handler
                 if (this._drOutsideClickHandler) {
                     document.removeEventListener('click', this._drOutsideClickHandler);
                     this._drOutsideClickHandler = null;
+                }
+            }
+
+            // --- Real-time chart update methods ---
+            _startChartRealtime() {
+                this._stopChartRealtime();
+                this._chartRealtimePaused = false;
+                this._chartRealtimeTimer = setInterval(() => {
+                    if (this._chartRealtimePaused) return;
+                    this._tickChartRealtime();
+                }, this.refreshRate);
+            }
+
+            _stopChartRealtime() {
+                if (this._chartRealtimeTimer) {
+                    clearInterval(this._chartRealtimeTimer);
+                    this._chartRealtimeTimer = null;
+                }
+                this._chartRealtimePaused = false;
+            }
+
+            async _tickChartRealtime() {
+                if (!this._chartStartTime || !this._chartEndTime) return;
+                let overlay = document.getElementById("mapChartOverlay");
+                if (!overlay || !overlay.classList.contains("show")) return;
+
+                // Shift window: keep same duration, move end to now
+                let duration = this._chartEndTime.getTime() - this._chartStartTime.getTime();
+                this._chartEndTime = new Date();
+                this._chartStartTime = new Date(this._chartEndTime.getTime() - duration);
+
+                // Update date/time display in toolbar
+                let startVal = document.getElementById('mapDateRangeStartVal');
+                let endVal = document.getElementById('mapDateRangeEndVal');
+                if (startVal) startVal.textContent = this._fmtDateTimeFull(this._chartStartTime);
+                if (endVal) endVal.textContent = this._fmtDateTimeFull(this._chartEndTime);
+
+                // Sync temp dates for picker
+                this._drTempStart = new Date(this._chartStartTime);
+                this._drTempEnd = new Date(this._chartEndTime);
+
+                // Refetch and update chart
+                try {
+                    let def = this.markers[this._combinedMarkerIdx];
+                    if (!def) return;
+                    let cnlNums = def.channels.map(c => c.cnlNum);
+                    if (this._showStatusTimelines && def.statusChannels && def.statusChannels.length > 0) {
+                        cnlNums = cnlNums.concat(def.statusChannels.map(c => c.cnlNum));
+                    }
+                    let histData = await this._fetchHistDataRange(cnlNums, this._chartStartTime, this._chartEndTime);
+                    if (!histData) return;
+
+                    let body = document.getElementById("mapChartBody");
+                    body.innerHTML = '<div class="map-chart-canvas-wrap"><canvas id="mapCombinedCanvas"></canvas></div>';
+                    let canvas = document.getElementById("mapCombinedCanvas");
+                    this._renderCombinedChart(canvas, def, histData);
+
+                    if (this._statusLegendItems && this._statusLegendItems.length > 0) {
+                        let legendHtml = '<div class="map-chart-status-legend">';
+                        for (let item of this._statusLegendItems) {
+                            legendHtml += '<span class="map-chart-status-legend-item">' +
+                                '<span class="map-chart-status-legend-color" style="background:' + item.color + '40;border-color:' + item.color + '"></span>' +
+                                this._escapeHtml(item.alias) + '</span>';
+                        }
+                        legendHtml += '</div>';
+                        body.insertAdjacentHTML('beforeend', legendHtml);
+                    }
+                } catch (err) {
+                    console.error("Chart realtime update error:", err);
                 }
             }
 
@@ -1781,8 +1854,11 @@
                     toolbar.appendChild(stBtn);
                 }
 
-                // wire reset
+                // wire reset — resume real-time updates
                 document.getElementById("mapChartResetZoom").addEventListener('click', () => {
+                    this._chartRealtimePaused = false;
+                    this._chartStartTime = null;
+                    this._chartEndTime = null;
                     this._openCombinedChart(this._combinedMarkerIdx, this._combinedDays);
                 });
 
@@ -1825,6 +1901,10 @@
                         }
                         legendHtml += '</div>';
                         body.insertAdjacentHTML('beforeend', legendHtml);
+                    }
+                    // Start real-time updates if not paused
+                    if (!this._chartRealtimePaused) {
+                        this._startChartRealtime();
                     }
                 } catch (err) {
                     console.error("Chart loading error:", err);
@@ -1918,6 +1998,8 @@
             }
 
             _openDateRangeDropdown(mode) {
+                // Pause real-time updates when user manually picks date
+                this._chartRealtimePaused = true;
                 this._drPickerMode = mode;
                 let dropdown = document.getElementById('mapDateRangeDropdown');
                 let box = document.getElementById('mapDateRangeBox');
