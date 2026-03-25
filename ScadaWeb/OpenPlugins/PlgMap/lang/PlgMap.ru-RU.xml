@@ -27,10 +27,6 @@
     <Phrase key="ErrorChart">Ошибка загрузки данных</Phrase>
     <Phrase key="Error">Ошибка</Phrase>
     <Phrase key="ErrorPrefix">Ошибка: </Phrase>
-    <Phrase key="Period">Период:</Phrase>
-    <Phrase key="Day1">1 день</Phrase>
-    <Phrase key="Day3">3 дня</Phrase>
-    <Phrase key="Day7">7 дней</Phrase>
     <Phrase key="Ago1h">-1ч</Phrase>
     <Phrase key="Ago1d">-1д</Phrase>
     <Phrase key="Now">сейчас</Phrase>

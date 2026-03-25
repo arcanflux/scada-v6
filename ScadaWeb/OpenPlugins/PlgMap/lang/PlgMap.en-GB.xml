@@ -27,10 +27,6 @@
     <Phrase key="ErrorChart">Data loading error</Phrase>
     <Phrase key="Error">Error</Phrase>
     <Phrase key="ErrorPrefix">Error: </Phrase>
-    <Phrase key="Period">Period:</Phrase>
-    <Phrase key="Day1">1 day</Phrase>
-    <Phrase key="Day3">3 days</Phrase>
-    <Phrase key="Day7">7 days</Phrase>
     <Phrase key="Ago1h">-1h</Phrase>
     <Phrase key="Ago1d">-1d</Phrase>
     <Phrase key="Now">now</Phrase>
