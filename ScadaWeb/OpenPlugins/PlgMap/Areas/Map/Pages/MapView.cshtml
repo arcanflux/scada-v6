@@ -560,6 +560,259 @@
             border-radius: 2px;
         }
 
+        /* Date Range Picker */
+        .map-daterange-wrapper {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .map-daterange-box {
+            display: inline-flex;
+            align-items: stretch;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .map-daterange-zone {
+            padding: 6px 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.15s;
+        }
+
+        .map-daterange-zone:hover {
+            background: #f0f7ff;
+        }
+
+        .map-daterange-zone.active {
+            background: #e8f2fc;
+        }
+
+        .map-daterange-zone-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .map-daterange-zone-value {
+            font-weight: 500;
+            color: #333;
+            white-space: nowrap;
+        }
+
+        .map-daterange-separator {
+            width: 1px;
+            background: #ccc;
+            align-self: stretch;
+        }
+
+        .map-daterange-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 4px;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+            z-index: 100;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+
+        .map-daterange-dropdown.open {
+            display: block;
+        }
+
+        .map-daterange-section-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #0073aa;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        /* Time scrollbar (tuner dial) */
+        .map-time-scrollbar {
+            position: relative;
+            width: 100%;
+            height: 52px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: #fafafa;
+            margin-bottom: 10px;
+            cursor: grab;
+            scrollbar-width: none;
+        }
+
+        .map-time-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .map-time-scrollbar:active {
+            cursor: grabbing;
+        }
+
+        .map-time-scrollbar-track {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .map-time-tick {
+            position: absolute;
+            bottom: 0;
+            width: 1px;
+            background: #ccc;
+        }
+
+        .map-time-tick-hour {
+            background: #666;
+        }
+
+        .map-time-tick-label {
+            position: absolute;
+            top: 4px;
+            font-size: 10px;
+            color: #555;
+            font-weight: 600;
+            transform: translateX(-50%);
+            white-space: nowrap;
+        }
+
+        .map-time-indicator {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #e63946;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .map-time-display {
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        /* Calendar */
+        .map-calendar {
+            user-select: none;
+        }
+
+        .map-calendar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+
+        .map-calendar-nav {
+            background: none;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 2px 8px;
+            color: #555;
+            line-height: 1;
+        }
+
+        .map-calendar-nav:hover {
+            background: #f0f7ff;
+        }
+
+        .map-calendar-month {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .map-calendar-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            text-align: center;
+            font-size: 11px;
+            font-weight: 600;
+            color: #888;
+            margin-bottom: 2px;
+        }
+
+        .map-calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+        }
+
+        .map-calendar-day {
+            text-align: center;
+            padding: 5px 0;
+            font-size: 13px;
+            border-radius: 3px;
+            cursor: pointer;
+            color: #333;
+        }
+
+        .map-calendar-day:hover {
+            background: #f0f7ff;
+        }
+
+        .map-calendar-day.other-month {
+            color: #bbb;
+        }
+
+        .map-calendar-day.today {
+            font-weight: 700;
+            border: 1px solid #0073aa;
+        }
+
+        .map-calendar-day.selected {
+            background: #0073aa;
+            color: #fff;
+        }
+
+        .map-calendar-day.empty {
+            cursor: default;
+        }
+
+        .map-daterange-apply {
+            display: block;
+            width: 100%;
+            padding: 8px 0;
+            margin-top: 12px;
+            background: #0073aa;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .map-daterange-apply:hover {
+            background: #005f8a;
+        }
+
         /* Pan-to-load indicator (inline in toolbar) */
         .map-chart-pan-loading {
             background: rgba(0, 115, 170, 0.9);
@@ -1273,6 +1526,11 @@
                 this._chartDataEnd = null;
                 this._chartCnlNums = null;
                 this._chartMarkerDef = null;
+                // Clean up date range picker outside click handler
+                if (this._drOutsideClickHandler) {
+                    document.removeEventListener('click', this._drOutsideClickHandler);
+                    this._drOutsideClickHandler = null;
+                }
             }
 
             async _openCombinedChart(markerIdx, days) {
@@ -1289,38 +1547,35 @@
 
                 title.textContent = def.name || this.t.combinedChart;
 
-                // build period toolbar
-                toolbar.innerHTML = '<label>' + this._escapeHtml(this.t.period) + '</label>';
-                let periods = [
-                    { days: 1, label: this.t.day1 },
-                    { days: 3, label: this.t.day3 },
-                    { days: 7, label: this.t.day7 }
-                ];
-                for (let p of periods) {
-                    let cls = p.days === this._combinedDays ? "map-chart-period-btn active" : "map-chart-period-btn";
-                    toolbar.innerHTML += '<button class="' + cls + '" data-days="' + p.days + '">' +
-                        this._escapeHtml(p.label) + '</button>';
+                // Initialize date range (default: 1 day back from now)
+                if (!this._chartEndTime || !this._chartStartTime) {
+                    this._chartEndTime = new Date();
+                    this._chartStartTime = new Date(this._chartEndTime.getTime() - 24 * 60 * 60 * 1000);
                 }
 
+                // build toolbar with date range picker + action buttons
+                toolbar.innerHTML = '';
+                this._buildDateRangeBox(toolbar);
+
                 // Reset zoom button
-                toolbar.innerHTML += '<button class="map-chart-period-btn" id="mapChartResetZoom" style="margin-left:12px;">⟲ Сброс</button>';
+                let resetBtn = document.createElement('button');
+                resetBtn.className = 'map-chart-period-btn';
+                resetBtn.id = 'mapChartResetZoom';
+                resetBtn.style.marginLeft = '12px';
+                resetBtn.textContent = '⟲ Сброс';
+                toolbar.appendChild(resetBtn);
 
                 // Status toggle button (only if marker has status channels)
                 if (def.statusChannels && def.statusChannels.length > 0) {
-                    let stCls = this._showStatusTimelines ? "map-chart-period-btn active" : "map-chart-period-btn";
-                    toolbar.innerHTML += '<button class="' + stCls + '" id="mapChartStatusToggle" style="margin-left:12px;">' +
-                        this._escapeHtml(this.t.statusesLabel) + '</button>';
+                    let stBtn = document.createElement('button');
+                    stBtn.className = this._showStatusTimelines ? 'map-chart-period-btn active' : 'map-chart-period-btn';
+                    stBtn.id = 'mapChartStatusToggle';
+                    stBtn.style.marginLeft = '12px';
+                    stBtn.textContent = this.t.statusesLabel;
+                    toolbar.appendChild(stBtn);
                 }
 
-                // wire period buttons
-                toolbar.querySelectorAll('.map-chart-period-btn[data-days]').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        let d = parseInt(btn.dataset.days, 10);
-                        this._openCombinedChart(this._combinedMarkerIdx, d);
-                    });
-                });
-
-                // wire reset — re-open chart with the currently selected period
+                // wire reset
                 document.getElementById("mapChartResetZoom").addEventListener('click', () => {
                     this._openCombinedChart(this._combinedMarkerIdx, this._combinedDays);
                 });
@@ -1343,7 +1598,7 @@
                     if (this._showStatusTimelines && def.statusChannels && def.statusChannels.length > 0) {
                         cnlNums = cnlNums.concat(def.statusChannels.map(c => c.cnlNum));
                     }
-                    let histData = await this._fetchHistData(cnlNums, this._combinedDays);
+                    let histData = await this._fetchHistDataRange(cnlNums, this._chartStartTime, this._chartEndTime);
 
                     if (!histData) {
                         body.innerHTML = '<div class="map-chart-loading">' + this._escapeHtml(this.t.noData) + '</div>';
@@ -1369,6 +1624,444 @@
                     console.error("Chart loading error:", err);
                     body.innerHTML = '<div class="map-chart-loading">' + this._escapeHtml(this.t.errorChart) + '</div>';
                 }
+            }
+
+            // --- Date Range Picker ---
+            _fmtDateTimeFull(d) {
+                let dd = String(d.getDate()).padStart(2, '0');
+                let mm = String(d.getMonth() + 1).padStart(2, '0');
+                let yy = d.getFullYear();
+                let hh = String(d.getHours()).padStart(2, '0');
+                let mi = String(d.getMinutes()).padStart(2, '0');
+                return dd + '.' + mm + '.' + yy + ' ' + hh + ':' + mi;
+            }
+
+            _buildDateRangeBox(toolbar) {
+                let wrapper = document.createElement('div');
+                wrapper.className = 'map-daterange-wrapper';
+
+                let box = document.createElement('div');
+                box.className = 'map-daterange-box';
+                box.id = 'mapDateRangeBox';
+
+                // Start zone
+                let startZone = document.createElement('div');
+                startZone.className = 'map-daterange-zone';
+                startZone.id = 'mapDateRangeStartZone';
+                startZone.innerHTML =
+                    '<span class="map-daterange-zone-label">Start</span>' +
+                    '<span class="map-daterange-zone-value" id="mapDateRangeStartVal">' +
+                    this._escapeHtml(this._fmtDateTimeFull(this._chartStartTime)) + '</span>';
+
+                // Separator
+                let sep = document.createElement('div');
+                sep.className = 'map-daterange-separator';
+
+                // End zone
+                let endZone = document.createElement('div');
+                endZone.className = 'map-daterange-zone';
+                endZone.id = 'mapDateRangeEndZone';
+                endZone.innerHTML =
+                    '<span class="map-daterange-zone-label">End</span>' +
+                    '<span class="map-daterange-zone-value" id="mapDateRangeEndVal">' +
+                    this._escapeHtml(this._fmtDateTimeFull(this._chartEndTime)) + '</span>';
+
+                box.appendChild(startZone);
+                box.appendChild(sep);
+                box.appendChild(endZone);
+                wrapper.appendChild(box);
+
+                // Dropdown
+                let dropdown = document.createElement('div');
+                dropdown.className = 'map-daterange-dropdown';
+                dropdown.id = 'mapDateRangeDropdown';
+                wrapper.appendChild(dropdown);
+
+                toolbar.appendChild(wrapper);
+
+                // State for picker
+                this._drPickerMode = null; // 'start' or 'end'
+                this._drTempStart = new Date(this._chartStartTime);
+                this._drTempEnd = new Date(this._chartEndTime);
+
+                // Click handlers for zones
+                let self = this;
+                startZone.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    self._openDateRangeDropdown('start');
+                });
+                endZone.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    self._openDateRangeDropdown('end');
+                });
+
+                // Close dropdown on outside click
+                this._drOutsideClickHandler = (e) => {
+                    let dd = document.getElementById('mapDateRangeDropdown');
+                    let bx = document.getElementById('mapDateRangeBox');
+                    if (dd && !dd.contains(e.target) && bx && !bx.contains(e.target)) {
+                        dd.classList.remove('open');
+                        this._drPickerMode = null;
+                        let sz = document.getElementById('mapDateRangeStartZone');
+                        let ez = document.getElementById('mapDateRangeEndZone');
+                        if (sz) sz.classList.remove('active');
+                        if (ez) ez.classList.remove('active');
+                    }
+                };
+                document.addEventListener('click', this._drOutsideClickHandler);
+            }
+
+            _openDateRangeDropdown(mode) {
+                this._drPickerMode = mode;
+                let dropdown = document.getElementById('mapDateRangeDropdown');
+                let box = document.getElementById('mapDateRangeBox');
+
+                // Match dropdown width to box width
+                dropdown.style.width = box.offsetWidth + 'px';
+                dropdown.style.minWidth = '300px';
+
+                // Highlight active zone
+                let sz = document.getElementById('mapDateRangeStartZone');
+                let ez = document.getElementById('mapDateRangeEndZone');
+                sz.classList.toggle('active', mode === 'start');
+                ez.classList.toggle('active', mode === 'end');
+
+                let currentDate = mode === 'start' ? this._drTempStart : this._drTempEnd;
+                this._drViewMonth = currentDate.getMonth();
+                this._drViewYear = currentDate.getFullYear();
+
+                this._renderDateRangeDropdown(dropdown, currentDate);
+                dropdown.classList.add('open');
+            }
+
+            _renderDateRangeDropdown(dropdown, currentDate) {
+                dropdown.innerHTML = '';
+                let mode = this._drPickerMode;
+                let self = this;
+
+                // Section label
+                let label = document.createElement('div');
+                label.className = 'map-daterange-section-label';
+                label.textContent = mode === 'start' ? 'Start Date & Time' : 'End Date & Time';
+                dropdown.appendChild(label);
+
+                // Time display
+                let timeDisplay = document.createElement('div');
+                timeDisplay.className = 'map-time-display';
+                timeDisplay.id = 'mapTimeDisplay';
+                let hh = currentDate.getHours();
+                let mm = currentDate.getMinutes();
+                timeDisplay.textContent = String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+                dropdown.appendChild(timeDisplay);
+
+                // Time scrollbar
+                let scrollbar = this._buildTimeScrollbar(currentDate);
+                dropdown.appendChild(scrollbar);
+
+                // Calendar
+                let calendar = this._buildCalendar(currentDate);
+                dropdown.appendChild(calendar);
+
+                // Apply button
+                let applyBtn = document.createElement('button');
+                applyBtn.className = 'map-daterange-apply';
+                applyBtn.textContent = 'Apply';
+                applyBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    self._applyDateRange();
+                });
+                dropdown.appendChild(applyBtn);
+            }
+
+            _buildTimeScrollbar(currentDate) {
+                let container = document.createElement('div');
+                container.className = 'map-time-scrollbar';
+
+                // Track: 24 hours * 60 min = 1440 minutes, 3px per minute = 4320px wide
+                let pxPerMin = 3;
+                let totalWidth = 1440 * pxPerMin;
+
+                let track = document.createElement('div');
+                track.className = 'map-time-scrollbar-track';
+                track.style.width = totalWidth + 'px';
+
+                // Draw tick marks
+                for (let h = 0; h < 24; h++) {
+                    for (let m = 0; m < 60; m++) {
+                        let totalMin = h * 60 + m;
+                        let x = totalMin * pxPerMin;
+
+                        let tick = document.createElement('div');
+                        tick.className = 'map-time-tick';
+                        tick.style.left = x + 'px';
+
+                        if (m === 0) {
+                            // Hour tick — tall
+                            tick.classList.add('map-time-tick-hour');
+                            tick.style.height = '26px';
+
+                            let lbl = document.createElement('div');
+                            lbl.className = 'map-time-tick-label';
+                            lbl.style.left = x + 'px';
+                            lbl.textContent = String(h).padStart(2, '0');
+                            track.appendChild(lbl);
+                        } else if (m % 15 === 0) {
+                            // Quarter-hour tick — medium
+                            tick.style.height = '16px';
+                        } else if (m % 5 === 0) {
+                            // 5-minute tick
+                            tick.style.height = '10px';
+                        } else {
+                            // Minute tick — small
+                            tick.style.height = '5px';
+                        }
+
+                        track.appendChild(tick);
+                    }
+                }
+
+                container.appendChild(track);
+
+                // Center indicator line
+                let indicator = document.createElement('div');
+                indicator.className = 'map-time-indicator';
+                container.appendChild(indicator);
+
+                // Initial scroll position
+                let currentMin = currentDate.getHours() * 60 + currentDate.getMinutes();
+                let self = this;
+
+                requestAnimationFrame(() => {
+                    let centerOffset = container.offsetWidth / 2;
+                    container.scrollLeft = currentMin * pxPerMin - centerOffset;
+                });
+
+                // Drag to scroll
+                let isDragging = false;
+                let startX = 0;
+                let startScroll = 0;
+
+                container.addEventListener('mousedown', (e) => {
+                    isDragging = true;
+                    startX = e.clientX;
+                    startScroll = container.scrollLeft;
+                    e.preventDefault();
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (!isDragging) return;
+                    let dx = e.clientX - startX;
+                    container.scrollLeft = startScroll - dx;
+                    self._updateTimeFromScroll(container, pxPerMin);
+                });
+
+                document.addEventListener('mouseup', () => {
+                    if (isDragging) {
+                        isDragging = false;
+                        self._snapTimeScroll(container, pxPerMin);
+                    }
+                });
+
+                // Scroll wheel
+                container.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    container.scrollLeft += e.deltaY > 0 ? 30 : -30;
+                    self._updateTimeFromScroll(container, pxPerMin);
+                    clearTimeout(self._timeScrollSnapTimeout);
+                    self._timeScrollSnapTimeout = setTimeout(() => {
+                        self._snapTimeScroll(container, pxPerMin);
+                    }, 150);
+                });
+
+                // Touch support
+                let touchStartX = 0;
+                let touchStartScroll = 0;
+                container.addEventListener('touchstart', (e) => {
+                    touchStartX = e.touches[0].clientX;
+                    touchStartScroll = container.scrollLeft;
+                });
+                container.addEventListener('touchmove', (e) => {
+                    let dx = e.touches[0].clientX - touchStartX;
+                    container.scrollLeft = touchStartScroll - dx;
+                    self._updateTimeFromScroll(container, pxPerMin);
+                    e.preventDefault();
+                }, { passive: false });
+                container.addEventListener('touchend', () => {
+                    self._snapTimeScroll(container, pxPerMin);
+                });
+
+                return container;
+            }
+
+            _updateTimeFromScroll(container, pxPerMin) {
+                let centerX = container.scrollLeft + container.offsetWidth / 2;
+                let totalMin = Math.round(centerX / pxPerMin);
+                totalMin = Math.max(0, Math.min(1439, totalMin));
+                let h = Math.floor(totalMin / 60);
+                let m = totalMin % 60;
+
+                let display = document.getElementById('mapTimeDisplay');
+                if (display) {
+                    display.textContent = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+                }
+
+                // Update temp date
+                let target = this._drPickerMode === 'start' ? this._drTempStart : this._drTempEnd;
+                target.setHours(h, m, 0, 0);
+            }
+
+            _snapTimeScroll(container, pxPerMin) {
+                let centerX = container.scrollLeft + container.offsetWidth / 2;
+                let totalMin = Math.round(centerX / pxPerMin);
+                totalMin = Math.max(0, Math.min(1439, totalMin));
+                let snappedX = totalMin * pxPerMin;
+                container.scrollLeft = snappedX - container.offsetWidth / 2;
+
+                this._updateTimeFromScroll(container, pxPerMin);
+            }
+
+            _buildCalendar(currentDate) {
+                let container = document.createElement('div');
+                container.className = 'map-calendar';
+                container.id = 'mapCalendarContainer';
+
+                let self = this;
+                let year = this._drViewYear;
+                let month = this._drViewMonth;
+                let selectedDay = currentDate.getDate();
+                let selectedMonth = currentDate.getMonth();
+                let selectedYear = currentDate.getFullYear();
+
+                // Header with nav
+                let header = document.createElement('div');
+                header.className = 'map-calendar-header';
+
+                let prevBtn = document.createElement('button');
+                prevBtn.className = 'map-calendar-nav';
+                prevBtn.textContent = '<';
+                prevBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    self._drViewMonth--;
+                    if (self._drViewMonth < 0) { self._drViewMonth = 11; self._drViewYear--; }
+                    self._refreshCalendar(currentDate);
+                });
+
+                let nextBtn = document.createElement('button');
+                nextBtn.className = 'map-calendar-nav';
+                nextBtn.textContent = '>';
+                nextBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    self._drViewMonth++;
+                    if (self._drViewMonth > 11) { self._drViewMonth = 0; self._drViewYear++; }
+                    self._refreshCalendar(currentDate);
+                });
+
+                let monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'];
+                let monthLabel = document.createElement('span');
+                monthLabel.className = 'map-calendar-month';
+                monthLabel.textContent = monthNames[month] + ' ' + year;
+
+                header.appendChild(prevBtn);
+                header.appendChild(monthLabel);
+                header.appendChild(nextBtn);
+                container.appendChild(header);
+
+                // Weekday labels
+                let weekdays = document.createElement('div');
+                weekdays.className = 'map-calendar-weekdays';
+                let dayNames = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+                for (let dn of dayNames) {
+                    let d = document.createElement('div');
+                    d.textContent = dn;
+                    weekdays.appendChild(d);
+                }
+                container.appendChild(weekdays);
+
+                // Day grid
+                let grid = document.createElement('div');
+                grid.className = 'map-calendar-grid';
+
+                let firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+                let startOffset = (firstDay + 6) % 7; // shift to Mon=0
+                let daysInMonth = new Date(year, month + 1, 0).getDate();
+                let today = new Date();
+
+                // Empty cells before first day
+                for (let i = 0; i < startOffset; i++) {
+                    let empty = document.createElement('div');
+                    empty.className = 'map-calendar-day empty';
+                    grid.appendChild(empty);
+                }
+
+                for (let d = 1; d <= daysInMonth; d++) {
+                    let cell = document.createElement('div');
+                    cell.className = 'map-calendar-day';
+                    cell.textContent = d;
+
+                    if (d === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+                        cell.classList.add('today');
+                    }
+                    if (d === selectedDay && month === selectedMonth && year === selectedYear) {
+                        cell.classList.add('selected');
+                    }
+
+                    cell.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        let dayNum = parseInt(cell.textContent, 10);
+                        let target = self._drPickerMode === 'start' ? self._drTempStart : self._drTempEnd;
+                        target.setFullYear(self._drViewYear, self._drViewMonth, dayNum);
+                        // Update selected highlight
+                        grid.querySelectorAll('.map-calendar-day.selected').forEach(c => c.classList.remove('selected'));
+                        cell.classList.add('selected');
+                    });
+
+                    grid.appendChild(cell);
+                }
+
+                container.appendChild(grid);
+                return container;
+            }
+
+            _refreshCalendar(currentDate) {
+                let container = document.getElementById('mapCalendarContainer');
+                if (!container) return;
+                let parent = container.parentNode;
+                let newCal = this._buildCalendar(currentDate);
+                parent.replaceChild(newCal, container);
+            }
+
+            _applyDateRange() {
+                // Validate start < end
+                if (this._drTempStart >= this._drTempEnd) {
+                    let tmp = new Date(this._drTempStart);
+                    this._drTempStart = new Date(this._drTempEnd);
+                    this._drTempEnd = tmp;
+                }
+
+                this._chartStartTime = new Date(this._drTempStart);
+                this._chartEndTime = new Date(this._drTempEnd);
+
+                // Compute _combinedDays for pan-to-load compatibility
+                this._combinedDays = (this._chartEndTime - this._chartStartTime) / (24 * 60 * 60 * 1000);
+
+                // Update display
+                let startVal = document.getElementById('mapDateRangeStartVal');
+                let endVal = document.getElementById('mapDateRangeEndVal');
+                if (startVal) startVal.textContent = this._fmtDateTimeFull(this._chartStartTime);
+                if (endVal) endVal.textContent = this._fmtDateTimeFull(this._chartEndTime);
+
+                // Close dropdown
+                let dropdown = document.getElementById('mapDateRangeDropdown');
+                if (dropdown) dropdown.classList.remove('open');
+                this._drPickerMode = null;
+                let sz = document.getElementById('mapDateRangeStartZone');
+                let ez = document.getElementById('mapDateRangeEndZone');
+                if (sz) sz.classList.remove('active');
+                if (ez) ez.classList.remove('active');
+
+                // Reload chart
+                this._openCombinedChart(this._combinedMarkerIdx, this._combinedDays);
             }
 
             _renderCombinedChart(canvas, def, histData) {
@@ -1475,10 +2168,10 @@
 
                 let self = this;
                 let xTimeFormats = {
-                    millisecond: 'HH:mm:ss',
-                    second: 'HH:mm:ss',
-                    minute: 'HH:mm',
-                    hour: 'HH:mm',
+                    millisecond: 'dd.MM',
+                    second: 'dd.MM',
+                    minute: 'dd.MM',
+                    hour: 'dd.MM',
                     day: 'dd.MM',
                     week: 'dd.MM',
                     month: 'MM.yyyy'
@@ -1486,8 +2179,7 @@
 
                 let xTickCallback = function(value, index, ticksArr) {
                     let ts = new Date(ticksArr[index].value);
-                    if (self._combinedDays <= 1) return self._fmtTime(ts);
-                    return self._fmtDateTime(ts);
+                    return self._fmtDate(ts);
                 };
 
                 this._activeChart = new Chart(canvas, {
