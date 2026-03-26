@@ -2358,8 +2358,8 @@
                     self._refreshCalendar(currentDate);
                 });
 
-                let monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-                    'July', 'August', 'September', 'October', 'November', 'December'];
+                let monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+                    'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
                 let monthLabel = document.createElement('span');
                 monthLabel.className = 'map-calendar-month';
                 monthLabel.textContent = monthNames[month] + ' ' + year;
@@ -2372,7 +2372,7 @@
                 // Weekday labels
                 let weekdays = document.createElement('div');
                 weekdays.className = 'map-calendar-weekdays';
-                let dayNames = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+                let dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
                 for (let dn of dayNames) {
                     let d = document.createElement('div');
                     d.textContent = dn;
