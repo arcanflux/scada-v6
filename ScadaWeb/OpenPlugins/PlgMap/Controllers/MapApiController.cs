@@ -200,7 +200,8 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
                             CnlNum = c.CnlNum,
                             Alias = c.Alias
                         })]
-                    })]
+                    })],
+                    _debug = $"grp={m.ExtraChannelGroups.Count},ch={m.Channels.Count},st={m.StatusChannels.Count}"
                 })]
             };
         }

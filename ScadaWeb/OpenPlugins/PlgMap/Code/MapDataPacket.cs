@@ -62,6 +62,8 @@ namespace Scada.Web.Plugins.PlgMap.Code
         public List<ChannelDto> Channels { get; set; }
         public List<ChannelDto> StatusChannels { get; set; }
         public List<ChannelGroupDto> ExtraChannelGroups { get; set; }
+        /// <summary>DEBUG: raw extra group count from MapMarker model (REMOVE AFTER DEBUGGING)</summary>
+        public string _debug { get; set; }
     }
 
     /// <summary>

@@ -1695,7 +1695,8 @@
                     // DEBUG: show extra channels info in popup (REMOVE AFTER DEBUGGING)
                     html += '<div style="font-size:10px;color:#999;padding:2px 4px">' +
                         'extra=' + (def.extraChannelGroups ? def.extraChannelGroups.length : 'undef') +
-                        ' hasExtra=' + hasExtra + ' idx=' + markerIdx + '</div>';
+                        ' hasExtra=' + hasExtra + ' idx=' + markerIdx +
+                        ' srv=' + (def._debug || '?') + '</div>';
 
                     if (hasExtra) html += '<div class="map-popup-channels-row">';
 
