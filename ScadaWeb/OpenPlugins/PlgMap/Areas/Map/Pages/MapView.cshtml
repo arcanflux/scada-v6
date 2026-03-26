@@ -662,25 +662,17 @@
         .map-chart-status-legend {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px 16px;
-            padding: 6px 16px 4px;
-            margin-top: 4px;
+            justify-content: center;
+            gap: 6px 18px;
+            padding: 2px 16px 6px;
         }
 
         .map-chart-status-legend-item {
             display: inline-flex;
             align-items: center;
-            gap: 5px;
-            font-size: 13px;
-            color: #444;
-        }
-
-        .map-chart-status-legend-color {
-            display: inline-block;
-            width: 14px;
-            height: 14px;
-            border: 2px solid;
-            border-radius: 2px;
+            gap: 6px;
+            font-size: 15px;
+            color: #666;
         }
 
         /* Date Range Picker */
@@ -960,7 +952,7 @@
         .map-chart-tooltip {
             position: absolute;
             pointer-events: none;
-            background: rgba(255, 255, 255, 0.97);
+            background: rgba(255, 255, 255, 0.75);
             border: 1px solid #ccc;
             border-radius: 8px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.18);
@@ -1980,16 +1972,17 @@
                     let canvas = document.getElementById("mapCombinedCanvas");
                     this._renderCombinedChart(canvas, def, histData);
 
-                    // Add status legend below the chart
+                    // Add status legend above the canvas (like parameter names in a line below)
                     if (this._statusLegendItems && this._statusLegendItems.length > 0) {
                         let legendHtml = '<div class="map-chart-status-legend">';
                         for (let item of this._statusLegendItems) {
                             legendHtml += '<span class="map-chart-status-legend-item">' +
-                                '<span class="map-chart-status-legend-color" style="background:' + item.color + '40;border-color:' + item.color + '"></span>' +
+                                '<svg width="30" height="3" style="vertical-align:middle"><line x1="0" y1="1.5" x2="30" y2="1.5" stroke="' + item.color + '" stroke-width="3"/></svg> ' +
                                 this._escapeHtml(item.alias) + '</span>';
                         }
                         legendHtml += '</div>';
-                        body.insertAdjacentHTML('beforeend', legendHtml);
+                        let canvasWrap = body.querySelector('.map-chart-canvas-wrap');
+                        canvasWrap.insertAdjacentHTML('beforebegin', legendHtml);
                     }
                     // Start real-time updates if not paused
                     if (!this._chartRealtimePaused) {
@@ -2503,7 +2496,7 @@
                             '<span class="map-chart-tooltip-dot" style="background:' + color + '"></span>' +
                             '<span class="map-chart-tooltip-label">' + this._escapeHtml(ds.label) + '</span>' +
                             '<span class="map-chart-tooltip-status ' + (active ? 'on' : 'off') + '">' +
-                            (active ? 'ON' : 'OFF') + '</span></div>';
+                            (active ? 'Вкл' : 'Выкл') + '</span></div>';
                     } else {
                         let val = dp.parsed.y;
                         if (val === null || val === undefined) continue;
