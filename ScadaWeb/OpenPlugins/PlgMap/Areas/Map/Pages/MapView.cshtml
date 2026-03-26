@@ -1747,6 +1747,7 @@
             _startChartRealtime() {
                 this._stopChartRealtime();
                 this._chartRealtimePaused = false;
+                this._chartAtLiveEdge = true; // start following live data
                 this._chartRealtimeTimer = setInterval(() => {
                     if (this._chartRealtimePaused) return;
                     this._tickChartRealtime();
@@ -1761,27 +1762,39 @@
                 this._chartRealtimePaused = false;
             }
 
+            // Check if the chart viewport is at the rightmost (newest) data edge
+            _checkIfAtLiveEdge(chart) {
+                if (!chart || !chart.scales || !chart.scales.x) return false;
+                let xScale = chart.scales.x;
+                let visibleMax = xScale.max;
+                // Find the maximum timestamp in the data
+                let dataMax = 0;
+                for (let ds of chart.data.datasets) {
+                    if (ds.data.length > 0) {
+                        let lastPoint = ds.data[ds.data.length - 1];
+                        let ts = lastPoint.x instanceof Date ? lastPoint.x.getTime() : lastPoint.x;
+                        if (ts > dataMax) dataMax = ts;
+                    }
+                }
+                if (dataMax === 0) return true;
+                // Consider "at live edge" if visible right edge is within 2% of data range or 30s of data max
+                let tolerance = Math.max((xScale.max - xScale.min) * 0.02, 30000);
+                return visibleMax >= dataMax - tolerance;
+            }
+
             async _tickChartRealtime() {
                 if (!this._chartStartTime || !this._chartEndTime) return;
                 let overlay = document.getElementById("mapChartOverlay");
                 if (!overlay || !overlay.classList.contains("show")) return;
+                if (!this._activeChart) return;
 
-                // Shift window: keep same duration, move end to now
-                let duration = this._chartEndTime.getTime() - this._chartStartTime.getTime();
-                this._chartEndTime = new Date();
-                this._chartStartTime = new Date(this._chartEndTime.getTime() - duration);
+                // Extend the data window end to now, keep the original start
+                let now = new Date();
+                this._chartEndTime = now;
+                this._chartDataEnd = now.getTime();
 
-                // Update date/time display in toolbar
-                let startVal = document.getElementById('mapDateRangeStartVal');
-                let endVal = document.getElementById('mapDateRangeEndVal');
-                if (startVal) startVal.textContent = this._fmtDateTimeFull(this._chartStartTime);
-                if (endVal) endVal.textContent = this._fmtDateTimeFull(this._chartEndTime);
-
-                // Sync temp dates for picker
-                this._drTempStart = new Date(this._chartStartTime);
-                this._drTempEnd = new Date(this._chartEndTime);
-
-                // Refetch and update chart
+                // Fetch only the recent slice (last tick interval + buffer)
+                let fetchStart = new Date(now.getTime() - this.refreshRate * 3);
                 try {
                     let def = this.markers[this._combinedMarkerIdx];
                     if (!def) return;
@@ -1789,27 +1802,74 @@
                     if (this._showStatusTimelines && def.statusChannels && def.statusChannels.length > 0) {
                         cnlNums = cnlNums.concat(def.statusChannels.map(c => c.cnlNum));
                     }
-                    let histData = await this._fetchHistDataRange(cnlNums, this._chartStartTime, this._chartEndTime);
-                    if (!histData) return;
+                    let histData = await this._fetchHistDataRange(cnlNums, fetchStart, now);
+                    if (!histData || !histData.timestamps || histData.timestamps.length === 0) return;
 
-                    let body = document.getElementById("mapChartBody");
-                    body.innerHTML = '<div class="map-chart-canvas-wrap"><canvas id="mapCombinedCanvas"></canvas></div>';
-                    let canvas = document.getElementById("mapCombinedCanvas");
-                    this._renderCombinedChart(canvas, def, histData);
+                    this._appendChartData(this._activeChart, histData);
 
-                    if (this._statusLegendItems && this._statusLegendItems.length > 0) {
-                        let legendHtml = '<div class="map-chart-status-legend">';
-                        for (let item of this._statusLegendItems) {
-                            legendHtml += '<span class="map-chart-status-legend-item">' +
-                                '<span class="map-chart-status-legend-color" style="background:' + item.color + '40;border-color:' + item.color + '"></span>' +
-                                this._escapeHtml(item.alias) + '</span>';
-                        }
-                        legendHtml += '</div>';
-                        body.insertAdjacentHTML('beforeend', legendHtml);
+                    // If user is at the live edge, auto-scroll to follow new data
+                    if (this._chartAtLiveEdge) {
+                        let duration = this._chartStartTime ?
+                            (now.getTime() - this._chartStartTime.getTime()) : 24 * 60 * 60 * 1000;
+                        // Shift the visible window to show the latest data
+                        let xScale = this._activeChart.scales.x;
+                        let visibleDuration = xScale.max - xScale.min;
+                        this._activeChart.options.scales.x.min = now.getTime() - visibleDuration;
+                        this._activeChart.options.scales.x.max = now.getTime();
+                        this._activeChart.update('none');
                     }
+
+                    // Update toolbar date display
+                    let endVal = document.getElementById('mapDateRangeEndVal');
+                    if (endVal) endVal.textContent = this._fmtDateTimeFull(this._chartEndTime);
+                    this._drTempEnd = new Date(this._chartEndTime);
                 } catch (err) {
                     console.error("Chart realtime update error:", err);
                 }
+            }
+
+            // Append new data points to existing chart (no re-render)
+            _appendChartData(chart, histData) {
+                let newTimestamps = histData.timestamps.map(t => new Date(t.ms));
+                let cnlToTrendIdx = {};
+                for (let i = 0; i < histData.cnlNums.length; i++) {
+                    cnlToTrendIdx[histData.cnlNums[i]] = i;
+                }
+
+                for (let ds of chart.data.datasets) {
+                    let cnlNum = ds._cnlNum;
+                    let trendIdx = cnlToTrendIdx[cnlNum];
+                    if (trendIdx === undefined) continue;
+
+                    let trend = histData.trends[trendIdx];
+                    // Find the last existing timestamp to avoid duplicates
+                    let lastExistingTs = ds.data.length > 0 ?
+                        (ds.data[ds.data.length - 1].x instanceof Date ?
+                            ds.data[ds.data.length - 1].x.getTime() :
+                            ds.data[ds.data.length - 1].x) : 0;
+
+                    for (let idx = 0; idx < newTimestamps.length; idx++) {
+                        let ts = newTimestamps[idx];
+                        if (ts.getTime() <= lastExistingTs) continue; // skip duplicates
+
+                        let rec = trend[idx];
+                        let point;
+                        if (ds._isStatus) {
+                            point = {
+                                x: ts,
+                                y: (rec && rec.d && rec.d.stat > 0 && rec.d.val >= 1) ? ds._bandTop : ds._bandBase
+                            };
+                        } else {
+                            point = {
+                                x: ts,
+                                y: (rec && rec.d && rec.d.stat > 0) ? rec.d.val : null
+                            };
+                        }
+                        ds.data.push(point);
+                    }
+                }
+
+                chart.update('none');
             }
 
             async _openCombinedChart(markerIdx, days) {
@@ -1857,6 +1917,7 @@
                 // wire reset — resume real-time updates
                 document.getElementById("mapChartResetZoom").addEventListener('click', () => {
                     this._chartRealtimePaused = false;
+                    this._chartAtLiveEdge = true;
                     this._chartStartTime = null;
                     this._chartEndTime = null;
                     this._openCombinedChart(this._combinedMarkerIdx, this._combinedDays);
@@ -2538,11 +2599,23 @@
                 }
 
                 let self = this;
-                let xTimeFormats = {
-                    millisecond: 'dd.MM',
-                    second: 'dd.MM',
-                    minute: 'dd.MM',
-                    hour: 'dd.MM',
+                // Determine visible time range to pick appropriate axis format
+                let rangeDurationMs = this._chartEndTime.getTime() - this._chartStartTime.getTime();
+                let isShortRange = rangeDurationMs <= 24 * 60 * 60 * 1000; // <= 1 day
+
+                let xTimeFormats = isShortRange ? {
+                    millisecond: 'HH:mm',
+                    second: 'HH:mm',
+                    minute: 'HH:mm',
+                    hour: 'HH:mm',
+                    day: 'dd.MM',
+                    week: 'dd.MM',
+                    month: 'MM.yyyy'
+                } : {
+                    millisecond: 'dd.MM HH:mm',
+                    second: 'dd.MM HH:mm',
+                    minute: 'dd.MM HH:mm',
+                    hour: 'dd.MM HH:mm',
                     day: 'dd.MM',
                     week: 'dd.MM',
                     month: 'MM.yyyy'
@@ -2550,7 +2623,18 @@
 
                 let xTickCallback = function(value, index, ticksArr) {
                     let ts = new Date(ticksArr[index].value);
-                    return self._fmtDate(ts);
+                    // For short ranges (<=1 day): show date on first tick, then just time
+                    if (isShortRange) {
+                        if (index === 0) return self._fmtDate(ts) + ' ' + self._fmtTime(ts);
+                        // Show date again if the day changed from the previous tick
+                        let prevTs = new Date(ticksArr[index - 1].value);
+                        if (ts.getDate() !== prevTs.getDate()) {
+                            return self._fmtDate(ts) + ' ' + self._fmtTime(ts);
+                        }
+                        return self._fmtTime(ts);
+                    }
+                    // For longer ranges: show dd.MM HH:mm
+                    return self._fmtDate(ts) + ' ' + self._fmtTime(ts);
                 };
 
                 this._activeChart = new Chart(canvas, {
@@ -2584,6 +2668,7 @@
                                     mode: 'x',
                                     modifierKey: null,
                                     onPanComplete: function({ chart }) {
+                                        self._chartAtLiveEdge = self._checkIfAtLiveEdge(chart);
                                         self._onChartPanComplete(chart);
                                     }
                                 },
@@ -2591,7 +2676,10 @@
                                     wheel: { enabled: true, modifierKey: null },
                                     pinch: { enabled: true },
                                     drag: { enabled: false },
-                                    mode: 'x'
+                                    mode: 'x',
+                                    onZoomComplete: function({ chart }) {
+                                        self._chartAtLiveEdge = self._checkIfAtLiveEdge(chart);
+                                    }
                                 },
                                 limits: {
                                     x: { minRange: 60000 }  // minimum 1 minute range
