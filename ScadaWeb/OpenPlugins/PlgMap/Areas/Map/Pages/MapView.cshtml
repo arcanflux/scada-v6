@@ -1390,13 +1390,15 @@
                         }
                     }
                     if (!m.statusChannels) m.statusChannels = [];
+                    if (!m.extraChannelGroups) m.extraChannelGroups = [];
 
                     let lMarker = L.marker([m.lat, m.lng], {
                         icon: this._createMarkerIcon(null),
                         title: m.name
                     }).addTo(this.map);
 
-                    lMarker.bindPopup(this._buildPopupHtml(m), { maxWidth: 320, minWidth: 160, closeButton: false });
+                    let popupOpts = { maxWidth: 350, minWidth: 160, closeButton: false };
+                    lMarker.bindPopup(this._buildPopupHtml(m), popupOpts);
                     lMarker.on('popupclose', () => this._hideExtraPopup());
 
                     this.markerEntries.push({ id: m.id, def: m, leafletMarker: lMarker });

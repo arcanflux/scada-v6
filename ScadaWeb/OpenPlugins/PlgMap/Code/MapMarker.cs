@@ -163,6 +163,27 @@ namespace Scada.Web.Plugins.PlgMap.Code
                     }
                     marker.ExtraChannelGroups.Add(grp);
                 }
+
+                // Also handle Item/Channel elements directly under ExtraChannels (no Group wrapper)
+                MarkerChannelGroup defaultGrp = new() { Name = "" };
+                foreach (XmlNode chNode in extraNode.ChildNodes)
+                {
+                    if (chNode.NodeType != XmlNodeType.Element) continue;
+                    string tag = chNode.Name;
+                    if (tag == "Group") continue; // already processed above
+
+                    // Accept Item, Channel, or any other direct child element
+                    int cnlNum = int.TryParse(
+                        chNode.Attributes?["num"]?.Value ?? chNode.Attributes?["cnlNum"]?.Value ?? "0",
+                        out int n) ? n : 0;
+                    string alias = chNode.Attributes?["alias"]?.Value
+                        ?? chNode.InnerText?.Trim() ?? "";
+
+                    if (cnlNum > 0)
+                        defaultGrp.Channels.Add(new MarkerChannel { CnlNum = cnlNum, Alias = alias });
+                }
+                if (defaultGrp.Channels.Count > 0)
+                    marker.ExtraChannelGroups.Add(defaultGrp);
             }
 
             return marker;
@@ -242,6 +263,25 @@ namespace Scada.Web.Plugins.PlgMap.Code
                     }
                     marker.ExtraChannelGroups.Add(grp);
                 }
+
+                // Also handle ExtraItem/DataItem elements directly under ExtraChannels (no Group wrapper)
+                MarkerChannelGroup defaultGrp = new() { Name = "" };
+                foreach (XmlNode exNode in extrasNode.ChildNodes)
+                {
+                    if (exNode.NodeType != XmlNodeType.Element) continue;
+                    if (exNode.Name == "Group") continue; // already processed above
+
+                    int cnlNum = int.TryParse(
+                        exNode.Attributes?["cnlNum"]?.Value ?? exNode.Attributes?["num"]?.Value ?? "0",
+                        out int n) ? n : 0;
+                    string alias = exNode.Attributes?["alias"]?.Value
+                        ?? exNode.InnerText?.Trim() ?? "";
+
+                    if (cnlNum > 0)
+                        defaultGrp.Channels.Add(new MarkerChannel { CnlNum = cnlNum, Alias = alias });
+                }
+                if (defaultGrp.Channels.Count > 0)
+                    marker.ExtraChannelGroups.Add(defaultGrp);
             }
 
             // also register the StatusCnlNum as a channel if specified
