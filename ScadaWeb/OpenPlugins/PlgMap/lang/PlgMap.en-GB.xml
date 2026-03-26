@@ -37,5 +37,11 @@
     <Phrase key="GradientLabel">Gradient</Phrase>
     <Phrase key="GradientOff">Off</Phrase>
     <Phrase key="MoreChannels">More</Phrase>
+    <Phrase key="Start">Start</Phrase>
+    <Phrase key="End">End</Phrase>
+    <Phrase key="StartDateTime">Start Date &amp; Time</Phrase>
+    <Phrase key="EndDateTime">End Date &amp; Time</Phrase>
+    <Phrase key="Apply">Apply</Phrase>
+    <Phrase key="Reset">Reset</Phrase>
   </Dictionary>
 </PlgMapDictionaries>

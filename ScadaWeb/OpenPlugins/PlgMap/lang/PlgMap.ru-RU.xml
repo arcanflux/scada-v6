@@ -37,5 +37,11 @@
     <Phrase key="GradientLabel">Градиент</Phrase>
     <Phrase key="GradientOff">Выкл</Phrase>
     <Phrase key="MoreChannels">Ещё</Phrase>
+    <Phrase key="Start">Начало</Phrase>
+    <Phrase key="End">Конец</Phrase>
+    <Phrase key="StartDateTime">Дата и время начала</Phrase>
+    <Phrase key="EndDateTime">Дата и время конца</Phrase>
+    <Phrase key="Apply">Применить</Phrase>
+    <Phrase key="Reset">Сброс</Phrase>
   </Dictionary>
 </PlgMapDictionaries>

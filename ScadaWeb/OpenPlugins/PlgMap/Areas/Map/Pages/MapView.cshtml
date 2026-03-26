@@ -1118,7 +1118,13 @@
                 statusesLabel: "@Html.Raw(Model.JsDict.StatusesLabel)",
                 gradientLabel: "@Html.Raw(Model.JsDict.GradientLabel)",
                 gradientOff: "@Html.Raw(Model.JsDict.GradientOff)",
-                moreChannels: "@Html.Raw(Model.JsDict.MoreChannels)"
+                moreChannels: "@Html.Raw(Model.JsDict.MoreChannels)",
+                start: "@Html.Raw(Model.JsDict.Start)",
+                end: "@Html.Raw(Model.JsDict.End)",
+                startDateTime: "@Html.Raw(Model.JsDict.StartDateTime)",
+                endDateTime: "@Html.Raw(Model.JsDict.EndDateTime)",
+                apply: "@Html.Raw(Model.JsDict.Apply)",
+                reset: "@Html.Raw(Model.JsDict.Reset)"
             };
 
             constructor(options) {
@@ -1904,7 +1910,7 @@
                 resetBtn.className = 'map-chart-period-btn';
                 resetBtn.id = 'mapChartResetZoom';
                 resetBtn.style.marginLeft = '12px';
-                resetBtn.textContent = '⟲ Сброс';
+                resetBtn.textContent = '⟲ ' + this.t.reset;
                 toolbar.appendChild(resetBtn);
 
                 // Status toggle button (only if marker has status channels)
@@ -1999,7 +2005,7 @@
                 startZone.className = 'map-daterange-zone';
                 startZone.id = 'mapDateRangeStartZone';
                 startZone.innerHTML =
-                    '<span class="map-daterange-zone-label">Start</span>' +
+                    '<span class="map-daterange-zone-label">' + this._escapeHtml(this.t.start) + '</span>' +
                     '<span class="map-daterange-zone-value" id="mapDateRangeStartVal">' +
                     this._escapeHtml(this._fmtDateTimeFull(this._chartStartTime)) + '</span>';
 
@@ -2012,7 +2018,7 @@
                 endZone.className = 'map-daterange-zone';
                 endZone.id = 'mapDateRangeEndZone';
                 endZone.innerHTML =
-                    '<span class="map-daterange-zone-label">End</span>' +
+                    '<span class="map-daterange-zone-label">' + this._escapeHtml(this.t.end) + '</span>' +
                     '<span class="map-daterange-zone-value" id="mapDateRangeEndVal">' +
                     this._escapeHtml(this._fmtDateTimeFull(this._chartEndTime)) + '</span>';
 
@@ -2094,7 +2100,7 @@
                 // Section label
                 let label = document.createElement('div');
                 label.className = 'map-daterange-section-label';
-                label.textContent = mode === 'start' ? 'Start Date & Time' : 'End Date & Time';
+                label.textContent = mode === 'start' ? this.t.startDateTime : this.t.endDateTime;
                 dropdown.appendChild(label);
 
                 // Time display
@@ -2117,7 +2123,7 @@
                 // Apply button
                 let applyBtn = document.createElement('button');
                 applyBtn.className = 'map-daterange-apply';
-                applyBtn.textContent = 'Apply';
+                applyBtn.textContent = this.t.apply;
                 applyBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     self._applyDateRange();
