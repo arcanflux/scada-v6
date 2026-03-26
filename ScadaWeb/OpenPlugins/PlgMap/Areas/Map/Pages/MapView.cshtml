@@ -841,9 +841,10 @@
             top: 0;
             bottom: 0;
             width: 2px;
-            background: #e63946;
+            background: rgba(230, 57, 70, 0.45);
             z-index: 2;
             pointer-events: none;
+            transform: translateX(-50%);
         }
 
         .map-time-display {
@@ -1849,6 +1850,14 @@
                     let endVal = document.getElementById('mapDateRangeEndVal');
                     if (endVal) endVal.textContent = this._fmtDateTimeFull(this._chartEndTime);
                     this._drTempEnd = new Date(this._chartEndTime);
+
+                    // If end date/time picker dropdown is open, refresh it live
+                    if (this._drPickerMode === 'end') {
+                        let dropdown = document.getElementById('mapDateRangeDropdown');
+                        if (dropdown && dropdown.classList.contains('open')) {
+                            this._renderDateRangeDropdown(dropdown, this._drTempEnd);
+                        }
+                    }
                 } catch (err) {
                     console.error("Chart realtime update error:", err);
                 }
