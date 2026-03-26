@@ -1388,6 +1388,9 @@
                 // resize markers on zoom
                 this.map.on('zoomend', () => this._refreshAllMarkerIcons());
 
+                // Hide extra popup on map move/zoom (it uses position:fixed and can't track the Leaflet popup)
+                this.map.on('move zoom zoomstart', () => this._hideExtraPopup());
+
                 this._initSearch();
                 this._initChartOverlay();
                 this._initMiniChartTooltip();
@@ -1690,7 +1693,7 @@
 
                     // "More" button — narrow, spans full table height, opens extra channels popup
                     if (hasExtra) {
-                        html += '<div class="map-popup-more-btn" ' +
+                        html += '<div class="map-popup-more-btn" title="" ' +
                             'onclick="mapViewInstance._toggleExtraPopup(event, ' + (markerIdx >= 0 ? markerIdx : 0) + ')">' +
                             '<svg width="14" height="22" viewBox="0 0 14 22">' +
                             '<polyline points="4,4 10,11 4,18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' +
@@ -3045,6 +3048,10 @@
                 popup.style.left = left + 'px';
                 popup.style.top = top + 'px';
 
+                // Flip chevron arrow to '<' (open state)
+                let svg = btn.querySelector('svg');
+                if (svg) svg.style.transform = 'rotate(180deg)';
+
                 // Close when clicking outside
                 if (!this._extraPopupOutsideHandler) {
                     this._extraPopupOutsideHandler = (e) => {
@@ -3059,6 +3066,9 @@
             _hideExtraPopup() {
                 let popup = document.getElementById("mapExtraPopup");
                 popup.classList.remove("show");
+                // Reset chevron arrow back to '>' (closed state)
+                let openBtn = document.querySelector('.map-popup-more-btn svg');
+                if (openBtn) openBtn.style.transform = '';
                 this._extraPopupMarkerIdx = null;
                 if (this._extraPopupOutsideHandler) {
                     document.removeEventListener('click', this._extraPopupOutsideHandler);
