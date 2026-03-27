@@ -2676,7 +2676,7 @@
                     if (ds._isStatus) {
                         let active = dp.parsed.y > ds._bandBase;
                         rowsHtml += '<div class="map-chart-tooltip-row">' +
-                            '<span class="map-chart-tooltip-dot" style="background:' + color + '"></span>' +
+                            '<span class="map-chart-tooltip-dot" style="background:' + color + ';border-radius:2px"></span>' +
                             '<span class="map-chart-tooltip-label">' + this._escapeHtml(ds.label) + '</span>' +
                             '<span class="map-chart-tooltip-status ' + (active ? 'on' : 'off') + '">' +
                             (active ? 'Вкл' : 'Выкл') + '</span></div>';
