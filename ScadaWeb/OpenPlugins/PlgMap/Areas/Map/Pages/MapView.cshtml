@@ -855,7 +855,7 @@
         .map-time-indicator::before {
             content: '';
             position: absolute;
-            top: -1px;
+            top: 1px;
             left: 50%;
             transform: translateX(-50%);
             width: 0;
@@ -868,7 +868,7 @@
         .map-time-indicator::after {
             content: '';
             position: absolute;
-            bottom: -1px;
+            bottom: 1px;
             left: 50%;
             transform: translateX(-50%);
             width: 0;
@@ -891,7 +891,7 @@
         .map-time-indicator-selection::before {
             content: '';
             position: absolute;
-            top: -1px;
+            top: 1px;
             left: 50%;
             transform: translateX(-50%);
             width: 0;
@@ -904,7 +904,7 @@
         .map-time-indicator-selection::after {
             content: '';
             position: absolute;
-            bottom: -1px;
+            bottom: 1px;
             left: 50%;
             transform: translateX(-50%);
             width: 0;
@@ -2367,12 +2367,13 @@
 
                 // Update selection indicator to snap to nearest tick
                 function updateSelectionLine() {
-                    let centerX = container.scrollLeft + container.offsetWidth / 2;
+                    let centerX = container.scrollLeft + container.clientWidth / 2;
                     let snappedMin = Math.round(centerX / pxPerMin);
                     snappedMin = Math.max(0, Math.min(1439, snappedMin));
                     let snappedPx = snappedMin * pxPerMin;
-                    // Convert track position to wrapper-relative position
-                    let wrapperLeft = snappedPx - container.scrollLeft;
+                    // Convert track position to wrapper-relative position (account for border)
+                    let borderLeft = container.offsetLeft + (container.offsetWidth - container.clientWidth) / 2;
+                    let wrapperLeft = snappedPx - container.scrollLeft + borderLeft;
                     selIndicator.style.left = wrapperLeft + 'px';
                 }
 
