@@ -1692,15 +1692,6 @@
                     let markerIdx = this.markerEntries.findIndex(e => e.def === def);
                     if (markerIdx < 0) markerIdx = this.markers.indexOf(def);
 
-                    // DEBUG: show raw marker keys and extra channels info (REMOVE AFTER DEBUGGING)
-                    let _dbgKeys = Object.keys(def).join(',');
-                    let _dbgEcg = JSON.stringify(def.extraChannelGroups || def.ExtraChannelGroups || def.extraChannels || def.ExtraChannels || null);
-                    if (_dbgEcg && _dbgEcg.length > 80) _dbgEcg = _dbgEcg.substring(0, 80) + '...';
-                    html += '<div style="font-size:9px;color:#999;padding:2px 4px;word-break:break-all">' +
-                        'keys=[' + _dbgKeys + ']<br>' +
-                        'ecg=' + _dbgEcg + '<br>' +
-                        'srv=' + (def.debugInfo || '?') + '</div>';
-
                     if (hasExtra) html += '<div class="map-popup-channels-row">';
 
                     html += '<table class="map-popup-table">';
@@ -1729,7 +1720,6 @@
 
                     // "More" button — narrow, spans full table height, opens extra channels popup
                     if (hasExtra) {
-                        console.log('[MapView] More button rendered for marker:', def.name, 'groups:', def.extraChannelGroups.length);
                         html += '<div class="map-popup-more-btn" ' +
                             'onclick="mapViewInstance._toggleExtraPopup(event, ' + (markerIdx >= 0 ? markerIdx : 0) + ')">' +
                             '<svg width="14" height="22" viewBox="0 0 14 22">' +
