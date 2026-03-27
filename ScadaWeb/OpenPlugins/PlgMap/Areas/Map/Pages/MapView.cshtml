@@ -875,6 +875,64 @@
             border-bottom: 6px solid rgba(230, 57, 70, 0.85);
         }
 
+        .map-time-indicator-selection {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 2px;
+            background: rgba(230, 57, 70, 0.3);
+            z-index: 3;
+            pointer-events: none;
+            transform: translateX(-50%);
+        }
+
+        .map-time-indicator-selection::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 5px solid rgba(230, 57, 70, 0.35);
+        }
+
+        .map-time-indicator-selection::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-bottom: 5px solid rgba(230, 57, 70, 0.35);
+        }
+
+        .map-time-edge-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 4;
+            pointer-events: none;
+            font-size: 14px;
+            color: rgba(230, 57, 70, 0.85);
+            font-weight: bold;
+            line-height: 1;
+        }
+
+        .map-time-edge-arrow-left {
+            left: 2px;
+        }
+
+        .map-time-edge-arrow-right {
+            right: 2px;
+        }
+
         .map-time-display {
             text-align: center;
             font-size: 13px;
@@ -1874,16 +1932,23 @@
                         this._activeChart.update('none');
                     }
 
-                    // Update toolbar date display
-                    let endVal = document.getElementById('mapDateRangeEndVal');
-                    if (endVal) endVal.textContent = this._fmtDateTimeFull(this._chartEndTime);
+                    // Update both Start and End toolbar date display
+                    this._chartStartTime = new Date(now.getTime() - this._combinedDays * 24 * 60 * 60 * 1000);
+                    this._drTempStart = new Date(this._chartStartTime);
                     this._drTempEnd = new Date(this._chartEndTime);
 
-                    // If end date/time picker dropdown is open, refresh it live
-                    if (this._drPickerMode === 'end') {
-                        let dropdown = document.getElementById('mapDateRangeDropdown');
-                        if (dropdown && dropdown.classList.contains('open')) {
+                    let startVal = document.getElementById('mapDateRangeStartVal');
+                    if (startVal) startVal.textContent = this._fmtDateTimeFull(this._chartStartTime);
+                    let endVal = document.getElementById('mapDateRangeEndVal');
+                    if (endVal) endVal.textContent = this._fmtDateTimeFull(this._chartEndTime);
+
+                    // If date/time picker dropdown is open, refresh it live
+                    let dropdown = document.getElementById('mapDateRangeDropdown');
+                    if (dropdown && dropdown.classList.contains('open')) {
+                        if (this._drPickerMode === 'end') {
                             this._renderDateRangeDropdown(dropdown, this._drTempEnd);
+                        } else if (this._drPickerMode === 'start') {
+                            this._renderDateRangeDropdown(dropdown, this._drTempStart);
                         }
                     }
                 } catch (err) {
@@ -2113,6 +2178,10 @@
                     if (dd && !dd.contains(e.target) && bx && !bx.contains(e.target)) {
                         dd.classList.remove('open');
                         this._drPickerMode = null;
+                        if (this._timeIndicatorInterval) {
+                            clearInterval(this._timeIndicatorInterval);
+                            this._timeIndicatorInterval = null;
+                        }
                         let sz = document.getElementById('mapDateRangeStartZone');
                         let ez = document.getElementById('mapDateRangeEndZone');
                         if (sz) sz.classList.remove('active');
@@ -2148,6 +2217,11 @@
             }
 
             _renderDateRangeDropdown(dropdown, currentDate) {
+                // Clean up previous time indicator interval
+                if (this._timeIndicatorInterval) {
+                    clearInterval(this._timeIndicatorInterval);
+                    this._timeIndicatorInterval = null;
+                }
                 dropdown.innerHTML = '';
                 let mode = this._drPickerMode;
                 let self = this;
@@ -2250,7 +2324,7 @@
                     }
                 }
 
-                // Current time indicator on the track
+                // Current time indicator on the track (solid red)
                 let now = new Date();
                 let nowMin = now.getHours() * 60 + now.getMinutes();
                 let indicator = document.createElement('div');
@@ -2260,15 +2334,59 @@
 
                 container.appendChild(track);
 
+                // Selection indicator (transparent red, fixed at center of viewport)
+                let selIndicator = document.createElement('div');
+                selIndicator.className = 'map-time-indicator-selection';
+                container.appendChild(selIndicator);
+
+                // Edge arrows — show when current time is off-screen
+                let arrowLeft = document.createElement('div');
+                arrowLeft.className = 'map-time-edge-arrow map-time-edge-arrow-left';
+                arrowLeft.textContent = '◀';
+                arrowLeft.style.display = 'none';
+                container.appendChild(arrowLeft);
+
+                let arrowRight = document.createElement('div');
+                arrowRight.className = 'map-time-edge-arrow map-time-edge-arrow-right';
+                arrowRight.textContent = '▶';
+                arrowRight.style.display = 'none';
+                container.appendChild(arrowRight);
+
                 // Initial scroll position — center on the selected time
                 let currentMin = currentDate.getHours() * 60 + currentDate.getMinutes();
                 let self = this;
+
+                // Update edge arrows visibility based on scroll position
+                function updateEdgeArrows() {
+                    let indicatorLeft = indicator.offsetLeft;
+                    let scrollL = container.scrollLeft;
+                    let scrollR = scrollL + container.offsetWidth;
+                    if (indicatorLeft < scrollL) {
+                        arrowLeft.style.display = '';
+                        arrowRight.style.display = 'none';
+                    } else if (indicatorLeft > scrollR) {
+                        arrowLeft.style.display = 'none';
+                        arrowRight.style.display = '';
+                    } else {
+                        arrowLeft.style.display = 'none';
+                        arrowRight.style.display = 'none';
+                    }
+                }
 
                 // Use setTimeout to ensure container is laid out and has correct offsetWidth
                 setTimeout(() => {
                     let centerOffset = container.offsetWidth / 2;
                     container.scrollLeft = currentMin * pxPerMin - centerOffset;
+                    updateEdgeArrows();
                 }, 50);
+
+                // Update current time indicator every 10 seconds
+                this._timeIndicatorInterval = setInterval(() => {
+                    let n = new Date();
+                    let nMin = n.getHours() * 60 + n.getMinutes();
+                    indicator.style.left = (nMin * pxPerMin) + 'px';
+                    updateEdgeArrows();
+                }, 10000);
 
                 // Drag to scroll
                 let isDragging = false;
@@ -2287,12 +2405,14 @@
                     let dx = e.clientX - startX;
                     container.scrollLeft = startScroll - dx;
                     self._updateTimeFromScroll(container, pxPerMin);
+                    updateEdgeArrows();
                 });
 
                 document.addEventListener('mouseup', () => {
                     if (isDragging) {
                         isDragging = false;
                         self._snapTimeScroll(container, pxPerMin);
+                        updateEdgeArrows();
                     }
                 });
 
@@ -2301,6 +2421,7 @@
                     e.preventDefault();
                     container.scrollLeft += e.deltaY > 0 ? 30 : -30;
                     self._updateTimeFromScroll(container, pxPerMin);
+                    updateEdgeArrows();
                     clearTimeout(self._timeScrollSnapTimeout);
                     self._timeScrollSnapTimeout = setTimeout(() => {
                         self._snapTimeScroll(container, pxPerMin);
@@ -2318,10 +2439,12 @@
                     let dx = e.touches[0].clientX - touchStartX;
                     container.scrollLeft = touchStartScroll - dx;
                     self._updateTimeFromScroll(container, pxPerMin);
+                    updateEdgeArrows();
                     e.preventDefault();
                 }, { passive: false });
                 container.addEventListener('touchend', () => {
                     self._snapTimeScroll(container, pxPerMin);
+                    updateEdgeArrows();
                 });
 
                 return container;
