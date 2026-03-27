@@ -201,7 +201,7 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
                             Alias = c.Alias
                         })]
                     })],
-                    _debug = $"grp={m.ExtraChannelGroups.Count},ch={m.Channels.Count},st={m.StatusChannels.Count}"
+                    DebugInfo = $"grp={m.ExtraChannelGroups.Count},ch={m.Channels.Count},st={m.StatusChannels.Count}"
                 })]
             };
         }
