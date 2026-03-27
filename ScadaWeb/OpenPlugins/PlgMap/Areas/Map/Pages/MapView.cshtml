@@ -882,37 +882,10 @@
             position: absolute;
             top: 0;
             height: 52px;
-            left: 50%;
             width: 1px;
             background: rgba(230, 57, 70, 0.3);
             z-index: 3;
             pointer-events: none;
-        }
-
-        .map-time-indicator-selection::before {
-            content: '';
-            position: absolute;
-            top: -1px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 0;
-            height: 0;
-            border-left: 4px solid transparent;
-            border-right: 4px solid transparent;
-            border-top: 5px solid rgba(230, 57, 70, 0.35);
-        }
-
-        .map-time-indicator-selection::after {
-            content: '';
-            position: absolute;
-            bottom: -1px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 0;
-            height: 0;
-            border-left: 4px solid transparent;
-            border-right: 4px solid transparent;
-            border-bottom: 5px solid rgba(230, 57, 70, 0.35);
         }
 
         .map-time-edge-arrow {
@@ -2366,8 +2339,20 @@
                 let currentMin = currentDate.getHours() * 60 + currentDate.getMinutes();
                 let self = this;
 
-                // Update edge arrows visibility based on scroll position
+                // Update selection indicator to snap to nearest tick
+                function updateSelectionLine() {
+                    let centerX = container.scrollLeft + container.offsetWidth / 2;
+                    let snappedMin = Math.round(centerX / pxPerMin);
+                    snappedMin = Math.max(0, Math.min(1439, snappedMin));
+                    let snappedPx = snappedMin * pxPerMin;
+                    // Convert track position to wrapper-relative position
+                    let wrapperLeft = snappedPx - container.scrollLeft;
+                    selIndicator.style.left = wrapperLeft + 'px';
+                }
+
+                // Update edge arrows visibility and selection line position
                 function updateEdgeArrows() {
+                    updateSelectionLine();
                     let indicatorLeft = indicator.offsetLeft;
                     let scrollL = container.scrollLeft;
                     let scrollR = scrollL + container.offsetWidth;
