@@ -840,7 +840,6 @@
 
         .map-time-indicator {
             position: absolute;
-            left: 50%;
             top: 0;
             bottom: 0;
             width: 2px;
@@ -858,9 +857,9 @@
             transform: translateX(-50%);
             width: 0;
             height: 0;
-            border-left: 6px solid transparent;
-            border-right: 6px solid transparent;
-            border-top: 7px solid rgba(230, 57, 70, 0.85);
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 6px solid rgba(230, 57, 70, 0.85);
         }
 
         .map-time-indicator::after {
@@ -871,9 +870,9 @@
             transform: translateX(-50%);
             width: 0;
             height: 0;
-            border-left: 6px solid transparent;
-            border-right: 6px solid transparent;
-            border-bottom: 7px solid rgba(230, 57, 70, 0.85);
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-bottom: 6px solid rgba(230, 57, 70, 0.85);
         }
 
         .map-time-display {
@@ -2251,21 +2250,25 @@
                     }
                 }
 
-                container.appendChild(track);
-
-                // Center indicator line
+                // Current time indicator on the track
+                let now = new Date();
+                let nowMin = now.getHours() * 60 + now.getMinutes();
                 let indicator = document.createElement('div');
                 indicator.className = 'map-time-indicator';
-                container.appendChild(indicator);
+                indicator.style.left = (nowMin * pxPerMin) + 'px';
+                track.appendChild(indicator);
 
-                // Initial scroll position
+                container.appendChild(track);
+
+                // Initial scroll position — center on the selected time
                 let currentMin = currentDate.getHours() * 60 + currentDate.getMinutes();
                 let self = this;
 
-                requestAnimationFrame(() => {
+                // Use setTimeout to ensure container is laid out and has correct offsetWidth
+                setTimeout(() => {
                     let centerOffset = container.offsetWidth / 2;
                     container.scrollLeft = currentMin * pxPerMin - centerOffset;
-                });
+                }, 50);
 
                 // Drag to scroll
                 let isDragging = false;
