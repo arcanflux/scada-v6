@@ -2398,13 +2398,15 @@
                     updateEdgeArrows();
                 }, 10000);
 
-                // Drag to scroll
+                // Drag to scroll + click to nudge ±1 min
                 let isDragging = false;
+                let didDrag = false;
                 let startX = 0;
                 let startScroll = 0;
 
                 container.addEventListener('mousedown', (e) => {
                     isDragging = true;
+                    didDrag = false;
                     startX = e.clientX;
                     startScroll = container.scrollLeft;
                     e.preventDefault();
@@ -2413,17 +2415,28 @@
                 document.addEventListener('mousemove', (e) => {
                     if (!isDragging) return;
                     let dx = e.clientX - startX;
+                    if (Math.abs(dx) > 3) didDrag = true;
                     container.scrollLeft = startScroll - dx;
                     self._updateTimeFromScroll(container, pxPerMin);
                     updateEdgeArrows();
                 });
 
-                document.addEventListener('mouseup', () => {
-                    if (isDragging) {
-                        isDragging = false;
+                document.addEventListener('mouseup', (e) => {
+                    if (!isDragging) return;
+                    isDragging = false;
+                    if (didDrag) {
                         self._snapTimeScroll(container, pxPerMin);
-                        updateEdgeArrows();
+                    } else {
+                        // Click without drag — nudge ±1 minute
+                        let rect = container.getBoundingClientRect();
+                        let clickX = e.clientX - rect.left;
+                        let center = rect.width / 2;
+                        let nudge = clickX >= center ? pxPerMin : -pxPerMin;
+                        container.scrollLeft += nudge;
+                        self._updateTimeFromScroll(container, pxPerMin);
+                        self._snapTimeScroll(container, pxPerMin);
                     }
+                    updateEdgeArrows();
                 });
 
                 // Scroll wheel
