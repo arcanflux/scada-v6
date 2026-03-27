@@ -2447,6 +2447,10 @@
                 this._chartStartTime = new Date(this._drTempStart);
                 this._chartEndTime = new Date(this._drTempEnd);
 
+                // Pause real-time updates — user selected a fixed range
+                this._chartRealtimePaused = true;
+                this._chartAtLiveEdge = false;
+
                 // Compute _combinedDays for pan-to-load compatibility
                 this._combinedDays = (this._chartEndTime - this._chartStartTime) / (24 * 60 * 60 * 1000);
 
@@ -2679,18 +2683,14 @@
 
                 let xTickCallback = function(value, index, ticksArr) {
                     let ts = new Date(ticksArr[index].value);
-                    // For short ranges (<=1 day): show date on first tick, then just time
-                    if (isShortRange) {
-                        if (index === 0) return self._fmtDate(ts) + ' ' + self._fmtTime(ts);
-                        // Show date again if the day changed from the previous tick
-                        let prevTs = new Date(ticksArr[index - 1].value);
-                        if (ts.getDate() !== prevTs.getDate()) {
-                            return self._fmtDate(ts) + ' ' + self._fmtTime(ts);
-                        }
-                        return self._fmtTime(ts);
+                    // First tick always shows date + time
+                    if (index === 0) return self._fmtDate(ts) + ' ' + self._fmtTime(ts);
+                    // Show date again only when the day changes from previous tick
+                    let prevTs = new Date(ticksArr[index - 1].value);
+                    if (ts.getDate() !== prevTs.getDate() || ts.getMonth() !== prevTs.getMonth()) {
+                        return self._fmtDate(ts) + ' ' + self._fmtTime(ts);
                     }
-                    // For longer ranges: show dd.MM HH:mm
-                    return self._fmtDate(ts) + ' ' + self._fmtTime(ts);
+                    return self._fmtTime(ts);
                 };
 
                 this._activeChart = new Chart(canvas, {
@@ -2745,13 +2745,17 @@
                         scales: {
                             x: {
                                 type: 'time',
-                                time: { displayFormats: xTimeFormats },
+                                time: {
+                                    displayFormats: xTimeFormats,
+                                    major: { enabled: true }
+                                },
                                 title: { display: false },
                                 ticks: {
                                     font: { size: 14 },
                                     callback: xTickCallback,
                                     maxRotation: 0,
-                                    autoSkipPadding: 20
+                                    autoSkipPadding: 20,
+                                    major: { enabled: true }
                                 }
                             },
                             yTemp: {
