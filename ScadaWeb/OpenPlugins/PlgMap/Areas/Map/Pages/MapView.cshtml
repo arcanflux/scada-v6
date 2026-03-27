@@ -919,21 +919,26 @@
 
         .map-time-edge-arrow {
             position: absolute;
-            top: 22px;
+            top: 50%;
+            transform: translateY(-50%);
             z-index: 4;
             pointer-events: none;
-            font-size: 14px;
-            color: rgba(230, 57, 70, 0.85);
-            font-weight: bold;
-            line-height: 1;
+            width: 0;
+            height: 0;
         }
 
         .map-time-edge-arrow-left {
             left: 3px;
+            border-top: 6px solid transparent;
+            border-bottom: 6px solid transparent;
+            border-right: 8px solid rgba(230, 57, 70, 0.85);
         }
 
         .map-time-edge-arrow-right {
             right: 3px;
+            border-top: 6px solid transparent;
+            border-bottom: 6px solid transparent;
+            border-left: 8px solid rgba(230, 57, 70, 0.85);
         }
 
         .map-time-display {
@@ -2351,13 +2356,11 @@
                 // Edge arrows on wrapper — show when current time is off-screen
                 let arrowLeft = document.createElement('div');
                 arrowLeft.className = 'map-time-edge-arrow map-time-edge-arrow-left';
-                arrowLeft.textContent = '◀';
                 arrowLeft.style.display = 'none';
                 wrapper.appendChild(arrowLeft);
 
                 let arrowRight = document.createElement('div');
                 arrowRight.className = 'map-time-edge-arrow map-time-edge-arrow-right';
-                arrowRight.textContent = '▶';
                 arrowRight.style.display = 'none';
                 wrapper.appendChild(arrowRight);
 
