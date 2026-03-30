@@ -2370,7 +2370,7 @@
                 function updateEdgeArrows() {
                     let indicatorLeft = indicator.offsetLeft;
                     let scrollL = container.scrollLeft;
-                    let scrollR = scrollL + container.offsetWidth;
+                    let scrollR = scrollL + container.clientWidth;
                     if (indicatorLeft < scrollL) {
                         arrowLeft.style.display = '';
                         arrowRight.style.display = 'none';
@@ -2385,7 +2385,7 @@
 
                 // Use setTimeout to ensure container is laid out and has correct offsetWidth
                 setTimeout(() => {
-                    let centerOffset = container.offsetWidth / 2;
+                    let centerOffset = container.clientWidth / 2;
                     container.scrollLeft = currentMin * pxPerMin - centerOffset;
                     updateEdgeArrows();
                 }, 50);
@@ -2474,7 +2474,7 @@
             }
 
             _updateTimeFromScroll(container, pxPerMin) {
-                let centerX = container.scrollLeft + container.offsetWidth / 2;
+                let centerX = container.scrollLeft + container.clientWidth / 2;
                 let totalMin = Math.round(centerX / pxPerMin);
                 totalMin = Math.max(0, Math.min(1439, totalMin));
                 let h = Math.floor(totalMin / 60);
@@ -2491,11 +2491,11 @@
             }
 
             _snapTimeScroll(container, pxPerMin) {
-                let centerX = container.scrollLeft + container.offsetWidth / 2;
+                let centerX = container.scrollLeft + container.clientWidth / 2;
                 let totalMin = Math.round(centerX / pxPerMin);
                 totalMin = Math.max(0, Math.min(1439, totalMin));
                 let snappedX = totalMin * pxPerMin;
-                container.scrollLeft = snappedX - container.offsetWidth / 2;
+                container.scrollLeft = snappedX - container.clientWidth / 2;
 
                 this._updateTimeFromScroll(container, pxPerMin);
             }
