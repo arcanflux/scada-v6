@@ -880,8 +880,9 @@
 
         .map-time-indicator-selection {
             position: absolute;
-            top: 0;
-            height: 52px;
+            top: 1px;
+            bottom: 1px;
+            left: 50%;
             width: 1px;
             background: rgba(230, 57, 70, 0.3);
             z-index: 3;
@@ -2365,21 +2366,8 @@
                 let currentMin = currentDate.getHours() * 60 + currentDate.getMinutes();
                 let self = this;
 
-                // Update selection indicator to snap to nearest tick
-                function updateSelectionLine() {
-                    let centerX = container.scrollLeft + container.clientWidth / 2;
-                    let snappedMin = Math.round(centerX / pxPerMin);
-                    snappedMin = Math.max(0, Math.min(1439, snappedMin));
-                    let snappedPx = snappedMin * pxPerMin;
-                    // Convert track position to wrapper-relative position (account for border)
-                    let borderLeft = container.offsetLeft + (container.offsetWidth - container.clientWidth) / 2;
-                    let wrapperLeft = snappedPx - container.scrollLeft + borderLeft;
-                    selIndicator.style.left = wrapperLeft + 'px';
-                }
-
-                // Update edge arrows visibility and selection line position
+                // Update edge arrows visibility
                 function updateEdgeArrows() {
-                    updateSelectionLine();
                     let indicatorLeft = indicator.offsetLeft;
                     let scrollL = container.scrollLeft;
                     let scrollR = scrollL + container.offsetWidth;
