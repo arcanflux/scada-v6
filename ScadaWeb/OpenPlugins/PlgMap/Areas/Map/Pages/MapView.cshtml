@@ -5,6 +5,11 @@
 }
 
 @section Styles {
+    <!-- Preload critical CDN resources -->
+    <link rel="preload" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" as="style" crossorigin>
+    <link rel="preload" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" as="script" crossorigin>
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" as="script" crossorigin>
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js" as="script" crossorigin>
     <style>
         html, body {
             height: 100%;
@@ -1441,10 +1446,12 @@
 
             // --- Init ---
             async init() {
-                await this._loadLeafletCss();
-                await this._loadLeafletJs();
-
-                let response = await fetch(this._apiRoot() + "GetMapData?viewID=" + this.viewID);
+                // Load Leaflet CSS + JS and fetch map data in parallel
+                let [, , response] = await Promise.all([
+                    this._loadLeafletCss(),
+                    this._loadLeafletJs(),
+                    fetch(this._apiRoot() + "GetMapData?viewID=" + this.viewID)
+                ]);
                 let dto = await response.json();
 
                 if (!dto.ok) {
@@ -1497,7 +1504,16 @@
                     lMarker.bindPopup(this._buildPopupHtml(m), popupOpts);
                     lMarker.on('popupclose', () => this._hideExtraPopup());
 
-                    this.markerEntries.push({ id: m.id, def: m, leafletMarker: lMarker });
+                    let entryRef = { id: m.id, def: m, leafletMarker: lMarker, _popupDirty: false, _prevColor: null, _prevAlert: null };
+                    // Rebuild popup content on open if data changed while it was closed
+                    lMarker.on('popupopen', () => {
+                        if (entryRef._popupDirty) {
+                            lMarker.setPopupContent(this._buildPopupHtml(entryRef.def));
+                            entryRef._popupDirty = false;
+                        }
+                    });
+
+                    this.markerEntries.push(entryRef);
                 }
 
                 // resize markers on zoom
@@ -1715,13 +1731,19 @@
                 if (!panel || !countEl) return;
 
                 let problemEntries = [];
+                let fingerprint = '';
                 for (let entry of this.markerEntries) {
                     let dots = this._getStatusDots(entry.def);
                     let active = dots.filter(d => d.on);
                     if (active.length > 0) {
                         problemEntries.push({ entry, dots, activeCount: active.length });
+                        fingerprint += entry.id + ':' + active.map(d => d.cnlNum).join(',') + ';';
                     }
                 }
+
+                // Skip DOM rebuild if status panel content unchanged
+                if (fingerprint === this._statusPanelFingerprint) return;
+                this._statusPanelFingerprint = fingerprint;
 
                 if (problemEntries.length === 0) {
                     countEl.classList.add("hidden");
@@ -1739,7 +1761,7 @@
                     html += '<div class="map-status-panel-name">' + this._escapeHtml(pe.entry.def.name) + '</div>';
                     html += '<div class="map-status-panel-dots">';
                     for (let d of pe.dots) {
-                        if (!d.on) continue; // only show broken statuses
+                        if (!d.on) continue;
                         html += '<span class="map-status-panel-dot">' +
                             '<span class="dot" style="background:#d32f2f"></span>' +
                             this._escapeHtml(d.alias) + '</span>';
@@ -3522,6 +3544,9 @@
 
             // --- Data refresh ---
             _refreshData() {
+                // Prevent overlapping requests
+                if (this._refreshInFlight) return;
+                this._refreshInFlight = true;
                 fetch(this._apiRoot() + "GetCurData?viewID=" + this.viewID)
                     .then(r => r.json())
                     .then(dto => {
@@ -3529,50 +3554,70 @@
                             this._updateMarkers(dto.data.records);
                         }
                     })
-                    .catch(err => console.error("Map data refresh error:", err));
+                    .catch(err => console.error("Map data refresh error:", err))
+                    .finally(() => { this._refreshInFlight = false; });
             }
 
             _updateMarkers(records) {
+                // Check if any data actually changed
+                let hasChanges = false;
                 for (let rec of records) {
+                    let prev = this.curDataMap[rec.cnlNum];
+                    if (!prev || prev.val !== rec.val || prev.stat !== rec.stat || prev.text !== rec.text) {
+                        hasChanges = true;
+                    }
                     this.curDataMap[rec.cnlNum] = rec;
                 }
 
-                for (let entry of this.markerEntries) {
-                    let color = this._getGradientMarkerColor(entry.def);
-                    let alert = this._hasActiveStatus(entry.def);
-                    entry.leafletMarker.setIcon(this._createMarkerIcon(color, alert));
+                if (!hasChanges) return; // Skip all DOM work if nothing changed
 
-                    // Update values in-place if popup is open, otherwise rebuild
-                    let popup = entry.leafletMarker.getPopup();
-                    if (popup && popup.isOpen()) {
-                        let popupEl = popup.getElement();
-                        if (popupEl) {
-                            for (let ch of entry.def.channels) {
-                                let valEl = popupEl.querySelector('td[data-cnl="' + ch.cnlNum + '"]');
-                                let rec = this.curDataMap[ch.cnlNum];
-                                if (valEl && rec) {
-                                    valEl.textContent = rec.text || "--";
+                // Batch DOM updates in a single animation frame
+                if (this._updateRAF) cancelAnimationFrame(this._updateRAF);
+                this._updateRAF = requestAnimationFrame(() => {
+                    for (let entry of this.markerEntries) {
+                        let color = this._getGradientMarkerColor(entry.def);
+                        let alert = this._hasActiveStatus(entry.def);
+
+                        // Only recreate icon if color or alert state changed
+                        if (entry._prevColor !== color || entry._prevAlert !== alert) {
+                            entry.leafletMarker.setIcon(this._createMarkerIcon(color, alert));
+                            entry._prevColor = color;
+                            entry._prevAlert = alert;
+                        }
+
+                        // Update values in-place if popup is open, otherwise skip rebuild for closed popups
+                        let popup = entry.leafletMarker.getPopup();
+                        if (popup && popup.isOpen()) {
+                            let popupEl = popup.getElement();
+                            if (popupEl) {
+                                for (let ch of entry.def.channels) {
+                                    let valEl = popupEl.querySelector('td[data-cnl="' + ch.cnlNum + '"]');
+                                    let rec = this.curDataMap[ch.cnlNum];
+                                    if (valEl && rec) {
+                                        valEl.textContent = rec.text || "--";
+                                    }
                                 }
+                                continue;
                             }
-                            continue;
+                        }
+
+                        // Only rebuild popup HTML if it will be shown (mark dirty for next open)
+                        entry._popupDirty = true;
+                    }
+
+                    // Update extra channels popup if open
+                    let extraPopup = document.getElementById("mapExtraPopup");
+                    if (extraPopup && extraPopup.classList.contains("show")) {
+                        let extraVals = extraPopup.querySelectorAll('[data-cnl]');
+                        for (let el of extraVals) {
+                            let cnl = parseInt(el.getAttribute('data-cnl'));
+                            let rec = this.curDataMap[cnl];
+                            if (rec) el.textContent = rec.text || "--";
                         }
                     }
 
-                    entry.leafletMarker.setPopupContent(this._buildPopupHtml(entry.def));
-                }
-
-                // Update extra channels popup if open
-                let extraPopup = document.getElementById("mapExtraPopup");
-                if (extraPopup && extraPopup.classList.contains("show")) {
-                    let extraVals = extraPopup.querySelectorAll('[data-cnl]');
-                    for (let el of extraVals) {
-                        let cnl = parseInt(el.getAttribute('data-cnl'));
-                        let rec = this.curDataMap[cnl];
-                        if (rec) el.textContent = rec.text || "--";
-                    }
-                }
-
-                this._updateStatusPanel();
+                    this._updateStatusPanel();
+                });
             }
 
             // Returns aggregate marker color based on how many channels are working.
@@ -3597,9 +3642,7 @@
 
             _escapeHtml(text) {
                 if (!text) return "";
-                let div = document.createElement("div");
-                div.appendChild(document.createTextNode(text));
-                return div.innerHTML;
+                return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
             }
 
             destroy() {
