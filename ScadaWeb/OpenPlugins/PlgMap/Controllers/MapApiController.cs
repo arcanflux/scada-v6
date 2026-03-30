@@ -208,7 +208,6 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
         /// <summary>
         /// Gets the map configuration and marker definitions.
         /// </summary>
-        [ResponseCache(Duration = 60, VaryByQueryKeys = ["viewID"])]
         public Dto<MapDataPacket> GetMapData(int viewID)
         {
             try
