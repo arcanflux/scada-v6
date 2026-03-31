@@ -591,6 +591,62 @@
             color: #888;
         }
 
+        /* Marker type filter */
+        .map-marker-filter-btn {
+            position: absolute;
+            top: 10px;
+            left: calc(50% - 310px);
+            z-index: 1000;
+        }
+        .map-marker-filter-btn button {
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            padding: 8px 14px;
+            font-size: 14px;
+            font-weight: 600;
+            border: 2px solid rgba(0,0,0,0.2);
+            border-radius: 4px;
+            background: #fff;
+            cursor: pointer;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+            color: #333;
+        }
+        .map-marker-filter-btn button:hover {
+            background: #f5f5f5;
+        }
+        .map-marker-filter-panel {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 4px;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            min-width: 180px;
+            padding: 8px 0;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            font-size: 13px;
+        }
+        .map-marker-filter-panel.show {
+            display: block;
+        }
+        .map-marker-filter-item {
+            padding: 6px 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+        .map-marker-filter-item:hover {
+            background: #f5f9ff;
+        }
+        .map-marker-filter-item.selected {
+            font-weight: 700;
+            color: #0073aa;
+        }
+
         /* Search bar */
         .map-search-container {
             position: absolute;
@@ -1278,7 +1334,11 @@
                 startDateTime: "@Html.Raw(Model.JsDict.StartDateTime)",
                 endDateTime: "@Html.Raw(Model.JsDict.EndDateTime)",
                 apply: "@Html.Raw(Model.JsDict.Apply)",
-                reset: "@Html.Raw(Model.JsDict.Reset)"
+                reset: "@Html.Raw(Model.JsDict.Reset)",
+                markerFilterLabel: "@Html.Raw(Model.JsDict.MarkerFilterLabel)",
+                markerFilterAll: "@Html.Raw(Model.JsDict.MarkerFilterAll)",
+                markerFilterCircles: "@Html.Raw(Model.JsDict.MarkerFilterCircles)",
+                markerFilterTriangles: "@Html.Raw(Model.JsDict.MarkerFilterTriangles)"
             };
 
             constructor(options) {
@@ -1610,6 +1670,7 @@
                 this._initMiniChartTooltip();
                 this._initStatusPanel();
                 this._initGradientPanel();
+                this._initMarkerFilter();
                 this._refreshData();
                 this.updateTimer = setInterval(() => this._refreshData(), this.refreshRate);
             }
@@ -1806,6 +1867,78 @@
                     b = Math.round(182 + (47 - 182) * s);
                 }
                 return "rgb(" + r + "," + g + "," + b + ")";
+            }
+
+            // --- Marker Type Filter ---
+            _markerFilter = 'all'; // 'all', 'circle', 'triangle'
+
+            _initMarkerFilter() {
+                let btn = document.getElementById("mapMarkerFilterBtn");
+                let panel = document.getElementById("mapMarkerFilterPanel");
+                if (!btn || !panel) return;
+
+                // Check if we have both types; hide button if only one type exists
+                let hasCircle = this.markerEntries.some(e => e.def.type !== 'triangle');
+                let hasTriangle = this.markerEntries.some(e => e.def.type === 'triangle');
+                if (!hasCircle || !hasTriangle) {
+                    btn.parentElement.style.display = 'none';
+                    return;
+                }
+
+                btn.addEventListener("click", () => {
+                    this._buildMarkerFilterPanel();
+                    panel.classList.toggle("show");
+                });
+
+                document.addEventListener("click", (ev) => {
+                    if (!ev.target.closest(".map-marker-filter-btn")) {
+                        panel.classList.remove("show");
+                    }
+                });
+            }
+
+            _buildMarkerFilterPanel() {
+                let panel = document.getElementById("mapMarkerFilterPanel");
+                let options = [
+                    { key: 'all', label: this.t.markerFilterAll },
+                    { key: 'circle', label: this.t.markerFilterCircles },
+                    { key: 'triangle', label: this.t.markerFilterTriangles }
+                ];
+                let html = '';
+                for (let opt of options) {
+                    let sel = this._markerFilter === opt.key ? ' selected' : '';
+                    html += '<div class="map-marker-filter-item' + sel + '" data-filter="' + opt.key + '">' +
+                        this._escapeHtml(opt.label) + '</div>';
+                }
+                panel.innerHTML = html;
+
+                panel.querySelectorAll('.map-marker-filter-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        this._markerFilter = item.dataset.filter;
+                        this._applyMarkerFilter();
+                        this._buildMarkerFilterPanel();
+                        panel.classList.remove("show");
+                    });
+                });
+            }
+
+            _applyMarkerFilter() {
+                for (let entry of this.markerEntries) {
+                    let isTriangle = entry.def.type === 'triangle';
+                    let visible = this._markerFilter === 'all' ||
+                        (this._markerFilter === 'triangle' && isTriangle) ||
+                        (this._markerFilter === 'circle' && !isTriangle);
+
+                    if (visible) {
+                        if (!this.map.hasLayer(entry.leafletMarker)) {
+                            entry.leafletMarker.addTo(this.map);
+                        }
+                    } else {
+                        if (this.map.hasLayer(entry.leafletMarker)) {
+                            this.map.removeLayer(entry.leafletMarker);
+                        }
+                    }
+                }
             }
 
             _updateStatusPanel() {
@@ -3874,6 +4007,11 @@
         });
     </script>
 }
+
+<div class="map-marker-filter-btn">
+    <button id="mapMarkerFilterBtn">@Model.JsDict.MarkerFilterLabel</button>
+    <div id="mapMarkerFilterPanel" class="map-marker-filter-panel"></div>
+</div>
 
 <div class="map-search-container">
     <input type="text" id="mapSearchInput" class="map-search-input"

@@ -42,5 +42,9 @@
     <Phrase key="EndDateTime">Дата и время конца</Phrase>
     <Phrase key="Apply">Применить</Phrase>
     <Phrase key="Reset">Сброс</Phrase>
+    <Phrase key="MarkerFilterLabel">Маркеры</Phrase>
+    <Phrase key="MarkerFilterAll">Все маркеры</Phrase>
+    <Phrase key="MarkerFilterCircles">Круги</Phrase>
+    <Phrase key="MarkerFilterTriangles">Треугольники</Phrase>
   </Dictionary>
 </PlgMapDictionaries>

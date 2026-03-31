@@ -42,5 +42,9 @@
     <Phrase key="EndDateTime">End Date &amp; Time</Phrase>
     <Phrase key="Apply">Apply</Phrase>
     <Phrase key="Reset">Reset</Phrase>
+    <Phrase key="MarkerFilterLabel">Markers</Phrase>
+    <Phrase key="MarkerFilterAll">All markers</Phrase>
+    <Phrase key="MarkerFilterCircles">Circles</Phrase>
+    <Phrase key="MarkerFilterTriangles">Triangles</Phrase>
   </Dictionary>
 </PlgMapDictionaries>
