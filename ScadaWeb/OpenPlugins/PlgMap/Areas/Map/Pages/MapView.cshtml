@@ -156,6 +156,91 @@
             background: #005f8a;
         }
 
+        /* Triangle marker popup */
+        .map-tri-zones {
+            display: flex;
+            gap: 8px;
+            margin: 6px 0;
+        }
+
+        .map-tri-zone {
+            flex: 1;
+            text-align: center;
+            padding: 6px 4px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            background: #fafafa;
+        }
+
+        .map-tri-zone-label {
+            font-weight: 700;
+            font-size: 13px;
+            color: #333;
+            margin-bottom: 2px;
+        }
+
+        .map-tri-zone-temp {
+            font-size: 18px;
+            font-weight: 600;
+            color: #222;
+            margin: 4px 0;
+        }
+
+        .map-tri-flood-indicator {
+            display: inline-block;
+            width: 36px;
+            height: 14px;
+            border-radius: 3px;
+            margin-top: 4px;
+            border: 1px solid #ccc;
+        }
+
+        .map-tri-flood-indicator.flood-200 {
+            background: #ccc;
+        }
+
+        .map-tri-flood-indicator.flood-200.active {
+            background: #f0ad4e;
+            border-color: #d4950a;
+        }
+
+        .map-tri-flood-indicator.flood-700 {
+            background: #ccc;
+        }
+
+        .map-tri-flood-indicator.flood-700.active {
+            background: #d32f2f;
+            border-color: #b71c1c;
+        }
+
+        .map-tri-battery {
+            margin: 6px 0 4px 0;
+            text-align: center;
+        }
+
+        .map-tri-battery-bar {
+            display: inline-block;
+            width: 80%;
+            height: 14px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            overflow: hidden;
+            vertical-align: middle;
+        }
+
+        .map-tri-battery-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+
+        .map-tri-battery-text {
+            font-size: 12px;
+            font-weight: 600;
+            color: #555;
+            margin-left: 4px;
+        }
+
         /* Wrapper for table + more button side by side */
         .map-popup-channels-row {
             display: flex;
@@ -1333,6 +1418,44 @@
                 });
             }
 
+            _createTriangleMarkerIcon(color, hasAlert) {
+                color = color || "#1b5e20";
+                let size = this._getMarkerSize();
+                let half = size / 2;
+                let sw = Math.max(1.5, size * 0.08);
+                let ringColor = hasAlert ? "#d32f2f" : "#fff";
+                let ringSw = hasAlert ? Math.max(2.5, size * 0.14) : sw;
+                let ringClass = hasAlert ? ' class="marker-ring-blink"' : '';
+                // Triangle points: top-center, bottom-left, bottom-right
+                let pts = half + ',1 ' + (size - 1) + ',' + (size - 1) + ' 1,' + (size - 1);
+                let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
+                    '<polygon points="' + pts + '" fill="' + color + '" stroke="none"/>' +
+                    '<polygon points="' + pts + '" fill="none" stroke="' + ringColor + '" stroke-width="' + ringSw + '"' + ringClass + '/>' +
+                    '</svg>';
+                return L.divIcon({
+                    html: svg,
+                    className: "map-marker-icon",
+                    iconSize: [size, size],
+                    iconAnchor: [half, size],
+                    popupAnchor: [0, -size]
+                });
+            }
+
+            // Triangle marker color: gray (#999), yellow (#f0ad4e), deep green (#1b5e20)
+            _getTriangleMarkerColor(def) {
+                let channels = def.channels || [];
+                if (channels.length === 0) return "#999";
+                let total = channels.length;
+                let working = 0;
+                for (let ch of channels) {
+                    let rec = this.curDataMap[ch.cnlNum];
+                    if (rec && rec.stat > 0) working++;
+                }
+                if (working === 0) return "#999";
+                if (working < total) return "#f0ad4e";
+                return "#1b5e20";
+            }
+
             // Check if at least one parameter channel has valid signal
             _hasAnyWorkingChannel(def) {
                 let channels = def.channels || [];
@@ -1370,9 +1493,15 @@
 
             _refreshAllMarkerIcons() {
                 for (let entry of this.markerEntries) {
-                    let color = this._getGradientMarkerColor(entry.def);
+                    let isTriangle = entry.def.type === 'triangle';
+                    let color = isTriangle
+                        ? this._getTriangleMarkerColor(entry.def)
+                        : this._getGradientMarkerColor(entry.def);
                     let alert = this._hasActiveStatus(entry.def);
-                    entry.leafletMarker.setIcon(this._createMarkerIcon(color, alert));
+                    let icon = isTriangle
+                        ? this._createTriangleMarkerIcon(color, alert)
+                        : this._createMarkerIcon(color, alert);
+                    entry.leafletMarker.setIcon(icon);
                 }
             }
 
@@ -1450,13 +1579,21 @@
                     if (!m.statusChannels) m.statusChannels = [];
                     if (!m.extraChannelGroups) m.extraChannelGroups = [];
 
+                    let isTriangle = m.type === 'triangle';
+                    let icon = isTriangle
+                        ? this._createTriangleMarkerIcon(null)
+                        : this._createMarkerIcon(null);
+
                     let lMarker = L.marker([m.lat, m.lng], {
-                        icon: this._createMarkerIcon(null),
+                        icon: icon,
                         title: m.name
                     }).addTo(this.map);
 
                     let popupOpts = { maxWidth: 350, minWidth: 160, closeButton: false };
-                    lMarker.bindPopup(this._buildPopupHtml(m), popupOpts);
+                    let popupHtml = isTriangle
+                        ? this._buildTrianglePopupHtml(m)
+                        : this._buildPopupHtml(m);
+                    lMarker.bindPopup(popupHtml, popupOpts);
                     lMarker.on('popupclose', () => this._hideExtraPopup());
 
                     this.markerEntries.push({ id: m.id, def: m, leafletMarker: lMarker });
@@ -1785,6 +1922,100 @@
                 }
 
                 return html;
+            }
+
+            // Build popup for triangle markers (flood/water level sensors)
+            // Channels order: [0]=T200, [1]=T700, [2]=Flood200, [3]=Flood700, [4]=Battery%, [5]=Online
+            _buildTrianglePopupHtml(def) {
+                let markerIdx = this.markerEntries.findIndex(e => e.def === def);
+                if (markerIdx < 0) markerIdx = this.markers.indexOf(def);
+                let ch = def.channels || [];
+                let html = '<span class="map-popup-name">' + this._escapeHtml(def.name) + '</span>';
+
+                if (def.descr) {
+                    html += '<div class="map-popup-descr">' + this._escapeHtml(def.descr) + '</div>';
+                }
+
+                // Two zones side by side: 200mm and 700mm
+                let t200 = ch[0] ? this.curDataMap[ch[0].cnlNum] : null;
+                let t700 = ch[1] ? this.curDataMap[ch[1].cnlNum] : null;
+                let f200 = ch[2] ? this.curDataMap[ch[2].cnlNum] : null;
+                let f700 = ch[3] ? this.curDataMap[ch[3].cnlNum] : null;
+                let batt = ch[4] ? this.curDataMap[ch[4].cnlNum] : null;
+
+                let t200Text = t200 ? t200.text : '--';
+                let t700Text = t700 ? t700.text : '--';
+                // Flood active when val == 0 (0 = flood)
+                let f200Active = f200 && f200.stat > 0 && f200.val === 0;
+                let f700Active = f700 && f700.stat > 0 && f700.val === 0;
+                let battVal = batt && batt.stat > 0 ? Math.round(batt.val) : null;
+
+                html += '<div class="map-tri-zones">';
+                // Left zone: 200mm
+                html += '<div class="map-tri-zone">';
+                html += '<div class="map-tri-zone-label">200 мм</div>';
+                html += '<div class="map-tri-zone-temp" data-cnl="' + (ch[0] ? ch[0].cnlNum : 0) + '">' + this._escapeHtml(t200Text) + '</div>';
+                html += '<div class="map-tri-flood-indicator flood-200' + (f200Active ? ' active' : '') + '" data-flood-cnl="' + (ch[2] ? ch[2].cnlNum : 0) + '"></div>';
+                html += '</div>';
+                // Right zone: 700mm
+                html += '<div class="map-tri-zone">';
+                html += '<div class="map-tri-zone-label">700 мм</div>';
+                html += '<div class="map-tri-zone-temp" data-cnl="' + (ch[1] ? ch[1].cnlNum : 0) + '">' + this._escapeHtml(t700Text) + '</div>';
+                html += '<div class="map-tri-flood-indicator flood-700' + (f700Active ? ' active' : '') + '" data-flood-cnl="' + (ch[3] ? ch[3].cnlNum : 0) + '"></div>';
+                html += '</div>';
+                html += '</div>';
+
+                // Battery bar
+                html += '<div class="map-tri-battery">';
+                let battPct = battVal !== null ? Math.max(0, Math.min(100, battVal)) : 0;
+                let battColor = battPct > 50 ? '#4caf50' : (battPct > 20 ? '#f0ad4e' : '#d32f2f');
+                html += '<div class="map-tri-battery-bar"><div class="map-tri-battery-fill" style="width:' + battPct + '%;background:' + battColor + '"></div></div>';
+                html += '<span class="map-tri-battery-text" data-cnl="' + (ch[4] ? ch[4].cnlNum : 0) + '">' + (battVal !== null ? battVal + '%' : '--') + '</span>';
+                html += '</div>';
+
+                // Combined chart button
+                html += '<button class="map-popup-chart-btn" ' +
+                    'onclick="mapViewInstance._openCombinedChart(' + (markerIdx >= 0 ? markerIdx : 0) + ')">' +
+                    this._escapeHtml(this.t.combinedChart) + '</button>';
+
+                return html;
+            }
+
+            // Update triangle popup values in-place (no full rebuild)
+            _updateTrianglePopupInPlace(popupEl, def) {
+                let ch = def.channels || [];
+                // Temperature values
+                for (let i = 0; i < 2; i++) {
+                    if (!ch[i]) continue;
+                    let el = popupEl.querySelector('.map-tri-zone-temp[data-cnl="' + ch[i].cnlNum + '"]');
+                    let rec = this.curDataMap[ch[i].cnlNum];
+                    if (el && rec) el.textContent = rec.text || '--';
+                }
+                // Flood indicators
+                for (let i = 2; i < 4; i++) {
+                    if (!ch[i]) continue;
+                    let el = popupEl.querySelector('.map-tri-flood-indicator[data-flood-cnl="' + ch[i].cnlNum + '"]');
+                    let rec = this.curDataMap[ch[i].cnlNum];
+                    if (el && rec) {
+                        let active = rec.stat > 0 && rec.val === 0;
+                        el.classList.toggle('active', active);
+                    }
+                }
+                // Battery
+                if (ch[4]) {
+                    let rec = this.curDataMap[ch[4].cnlNum];
+                    let textEl = popupEl.querySelector('.map-tri-battery-text[data-cnl="' + ch[4].cnlNum + '"]');
+                    let fillEl = popupEl.querySelector('.map-tri-battery-fill');
+                    if (rec && rec.stat > 0) {
+                        let pct = Math.max(0, Math.min(100, Math.round(rec.val)));
+                        let color = pct > 50 ? '#4caf50' : (pct > 20 ? '#f0ad4e' : '#d32f2f');
+                        if (textEl) textEl.textContent = pct + '%';
+                        if (fillEl) { fillEl.style.width = pct + '%'; fillEl.style.background = color; }
+                    } else {
+                        if (textEl) textEl.textContent = '--';
+                        if (fillEl) fillEl.style.width = '0%';
+                    }
+                }
             }
 
             // --- Chart Overlay (Combined) ---
@@ -2695,26 +2926,37 @@
                     this._activeChart = null;
                 }
 
+                let isTriangle = def.type === 'triangle';
                 let timestamps = histData.timestamps.map(t => new Date(t.ms));
                 let datasets = [];
 
                 // Track loaded data boundaries for pan-to-load
                 this._chartDataStart = timestamps.length > 0 ? timestamps[0].getTime() : Date.now();
                 this._chartDataEnd = timestamps.length > 0 ? timestamps[timestamps.length - 1].getTime() : Date.now();
-                let allCnlNums = def.channels.map(c => c.cnlNum);
-                if (this._showStatusTimelines && def.statusChannels && def.statusChannels.length > 0) {
-                    allCnlNums = allCnlNums.concat(def.statusChannels.map(c => c.cnlNum));
-                }
-                this._chartCnlNums = allCnlNums;
-                this._chartMarkerDef = def;
 
                 let cnlToTrendIdx = {};
                 for (let i = 0; i < histData.cnlNums.length; i++) {
                     cnlToTrendIdx[histData.cnlNums[i]] = i;
                 }
 
-                for (let i = 0; i < def.channels.length; i++) {
-                    let ch = def.channels[i];
+                // For triangle markers: channels 0-1 = temp lines, 2-3 = flood status bands, 4-5 = battery/online (not charted)
+                // For circle markers: all channels are lines, status channels are separate bands
+                let chartChannels = isTriangle ? def.channels.slice(0, 2) : def.channels;
+                let allCnlNums = chartChannels.map(c => c.cnlNum);
+
+                if (isTriangle) {
+                    // Add flood channels (2-3) for status bands
+                    if (def.channels[2]) allCnlNums.push(def.channels[2].cnlNum);
+                    if (def.channels[3]) allCnlNums.push(def.channels[3].cnlNum);
+                } else if (this._showStatusTimelines && def.statusChannels && def.statusChannels.length > 0) {
+                    allCnlNums = allCnlNums.concat(def.statusChannels.map(c => c.cnlNum));
+                }
+                this._chartCnlNums = allCnlNums;
+                this._chartMarkerDef = def;
+
+                // Temperature line datasets
+                for (let i = 0; i < chartChannels.length; i++) {
+                    let ch = chartChannels[i];
                     let alias = ch.alias || (this.t.channel + ch.cnlNum);
                     let color = MapViewManager.CHART_COLORS[i % MapViewManager.CHART_COLORS.length];
                     let trendIdx = cnlToTrendIdx[ch.cnlNum];
@@ -2726,8 +2968,7 @@
                         y: (rec && rec.d && rec.d.stat > 0) ? rec.d.val : null
                     }));
 
-                    let axisGroup = this._getAxisGroup(alias);
-
+                    let axisGroup = isTriangle ? "temp" : this._getAxisGroup(alias);
                     let unit = axisGroup === "pressure" ? this.t.pressureUnit : "°C";
 
                     datasets.push({
@@ -2747,13 +2988,56 @@
                     });
                 }
 
-                // Status timeline bands (when toggle is ON)
-                // Bands divide the full yTemp range (0-120) equally
-                let statusCount = 0;
+                // Status timeline bands
                 let STATUS_COLORS = ["#d32f2f", "#f57c00", "#7b1fa2", "#00796b", "#c62828"];
                 this._statusLegendItems = [];
-                if (this._showStatusTimelines && def.statusChannels && def.statusChannels.length > 0) {
-                    statusCount = def.statusChannels.length;
+
+                if (isTriangle) {
+                    // Triangle: flood channels 2-3 as status bands
+                    let floodChannels = [];
+                    if (def.channels[2]) floodChannels.push(def.channels[2]);
+                    if (def.channels[3]) floodChannels.push(def.channels[3]);
+                    let yMin = -10, yMax = 120, yRange = yMax - yMin;
+                    let bandHeight = yRange / Math.max(1, floodChannels.length);
+                    for (let i = 0; i < floodChannels.length; i++) {
+                        let sch = floodChannels[i];
+                        let alias = sch.alias || (this.t.channel + sch.cnlNum);
+                        let color = STATUS_COLORS[i % STATUS_COLORS.length];
+                        let trendIdx = cnlToTrendIdx[sch.cnlNum];
+                        if (trendIdx === undefined) continue;
+
+                        let bandTop = yMax - i * bandHeight;
+                        let bandBase = bandTop - bandHeight;
+                        let trend = histData.trends[trendIdx];
+                        // For flood: val===0 means flood active (show band)
+                        let data = trend.map((rec, idx) => ({
+                            x: timestamps[idx],
+                            y: (rec && rec.d && rec.d.stat > 0 && rec.d.val === 0) ? bandTop : bandBase
+                        }));
+
+                        datasets.push({
+                            label: alias,
+                            data: data,
+                            borderColor: color,
+                            backgroundColor: color + "40",
+                            borderWidth: 0,
+                            pointRadius: 0,
+                            pointHoverRadius: 0,
+                            tension: 0,
+                            stepped: 'before',
+                            fill: { target: { value: bandBase } },
+                            spanGaps: true,
+                            yAxisID: 'yTemp',
+                            _cnlNum: sch.cnlNum,
+                            _isStatus: true,
+                            _bandBase: bandBase,
+                            _bandTop: bandTop
+                        });
+                        this._statusLegendItems.push({ alias: alias, color: color });
+                    }
+                } else if (this._showStatusTimelines && def.statusChannels && def.statusChannels.length > 0) {
+                    // Circle: standard status bands
+                    let statusCount = def.statusChannels.length;
                     let bandHeight = 120 / statusCount;
                     for (let i = 0; i < def.statusChannels.length; i++) {
                         let sch = def.statusChannels[i];
@@ -2762,7 +3046,6 @@
                         let trendIdx = cnlToTrendIdx[sch.cnlNum];
                         if (trendIdx === undefined) continue;
 
-                        // Band top-to-bottom: first status at top, last at bottom
                         let bandTop = 120 - i * bandHeight;
                         let bandBase = bandTop - bandHeight;
                         let trend = histData.trends[trendIdx];
@@ -2789,7 +3072,6 @@
                             _bandBase: bandBase,
                             _bandTop: bandTop
                         });
-
                         this._statusLegendItems.push({ alias: alias, color: color });
                     }
                 }
@@ -2828,6 +3110,45 @@
                     }
                     return self._fmtTime(ts);
                 };
+
+                // Build scales: triangle uses -10..120 temp only, circle uses 0..120 temp + pressure
+                let scales = {
+                    x: {
+                        type: 'time',
+                        time: {
+                            displayFormats: xTimeFormats,
+                            major: { enabled: true }
+                        },
+                        title: { display: false },
+                        ticks: {
+                            font: { size: 14 },
+                            callback: xTickCallback,
+                            maxRotation: 0,
+                            autoSkipPadding: 20,
+                            major: { enabled: true }
+                        }
+                    },
+                    yTemp: {
+                        type: 'linear',
+                        position: 'left',
+                        min: isTriangle ? -10 : 0,
+                        max: 120,
+                        title: { display: true, text: '°C', font: { size: 15 } },
+                        ticks: { font: { size: 14 } }
+                    }
+                };
+
+                if (!isTriangle) {
+                    scales.yPressure = {
+                        type: 'linear',
+                        position: 'right',
+                        min: 0,
+                        max: 25,
+                        title: { display: true, text: MapViewManager.LANG.pressureUnit, font: { size: 15 } },
+                        ticks: { font: { size: 14 } },
+                        grid: { drawOnChartArea: false }
+                    };
+                }
 
                 this._activeChart = new Chart(canvas, {
                     type: 'line',
@@ -2878,41 +3199,7 @@
                                 }
                             }
                         },
-                        scales: {
-                            x: {
-                                type: 'time',
-                                time: {
-                                    displayFormats: xTimeFormats,
-                                    major: { enabled: true }
-                                },
-                                title: { display: false },
-                                ticks: {
-                                    font: { size: 14 },
-                                    callback: xTickCallback,
-                                    maxRotation: 0,
-                                    autoSkipPadding: 20,
-                                    major: { enabled: true }
-                                }
-                            },
-                            yTemp: {
-                                type: 'linear',
-                                position: 'left',
-                                min: 0,
-                                max: 120,
-                                title: { display: true, text: '°C', font: { size: 15 } },
-                                ticks: { font: { size: 14 } }
-                            },
-                            yPressure: {
-                                type: 'linear',
-                                position: 'right',
-                                min: 0,
-                                max: 25,
-                                title: { display: true, text: MapViewManager.LANG.pressureUnit, font: { size: 15 } },
-                                ticks: { font: { size: 14 } },
-                                grid: { drawOnChartArea: false }
-                            },
-                            // yStatus removed — status bands now use yTemp axis (0-120)
-                        }
+                        scales: scales
                     }
                 });
             }
@@ -3487,27 +3774,40 @@
                 }
 
                 for (let entry of this.markerEntries) {
-                    let color = this._getGradientMarkerColor(entry.def);
+                    let isTriangle = entry.def.type === 'triangle';
+                    let color = isTriangle
+                        ? this._getTriangleMarkerColor(entry.def)
+                        : this._getGradientMarkerColor(entry.def);
                     let alert = this._hasActiveStatus(entry.def);
-                    entry.leafletMarker.setIcon(this._createMarkerIcon(color, alert));
+                    let icon = isTriangle
+                        ? this._createTriangleMarkerIcon(color, alert)
+                        : this._createMarkerIcon(color, alert);
+                    entry.leafletMarker.setIcon(icon);
 
                     // Update values in-place if popup is open, otherwise rebuild
                     let popup = entry.leafletMarker.getPopup();
                     if (popup && popup.isOpen()) {
                         let popupEl = popup.getElement();
                         if (popupEl) {
-                            for (let ch of entry.def.channels) {
-                                let valEl = popupEl.querySelector('td[data-cnl="' + ch.cnlNum + '"]');
-                                let rec = this.curDataMap[ch.cnlNum];
-                                if (valEl && rec) {
-                                    valEl.textContent = rec.text || "--";
+                            if (isTriangle) {
+                                // Update triangle popup in-place
+                                this._updateTrianglePopupInPlace(popupEl, entry.def);
+                            } else {
+                                for (let ch of entry.def.channels) {
+                                    let valEl = popupEl.querySelector('td[data-cnl="' + ch.cnlNum + '"]');
+                                    let rec = this.curDataMap[ch.cnlNum];
+                                    if (valEl && rec) {
+                                        valEl.textContent = rec.text || "--";
+                                    }
                                 }
                             }
                             continue;
                         }
                     }
 
-                    entry.leafletMarker.setPopupContent(this._buildPopupHtml(entry.def));
+                    entry.leafletMarker.setPopupContent(
+                        isTriangle ? this._buildTrianglePopupHtml(entry.def) : this._buildPopupHtml(entry.def)
+                    );
                 }
 
                 // Update extra channels popup if open

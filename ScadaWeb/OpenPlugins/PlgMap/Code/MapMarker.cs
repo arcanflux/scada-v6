@@ -7,6 +7,15 @@ using System.Xml;
 namespace Scada.Web.Plugins.PlgMap.Code
 {
     /// <summary>
+    /// Defines the visual shape of a map marker.
+    /// </summary>
+    public enum MarkerType
+    {
+        Circle = 0,
+        Triangle = 1
+    }
+
+    /// <summary>
     /// Represents a channel bound to a map marker.
     /// <para>Представляет канал, привязанный к маркеру карты.</para>
     /// </summary>
@@ -38,6 +47,11 @@ namespace Scada.Web.Plugins.PlgMap.Code
     /// </summary>
     public class MapMarker
     {
+        /// <summary>
+        /// Gets or sets the marker visual type (circle, triangle, etc.).
+        /// </summary>
+        public MarkerType Type { get; set; } = MarkerType.Circle;
+
         /// <summary>
         /// Gets or sets the marker ID.
         /// </summary>
@@ -106,7 +120,9 @@ namespace Scada.Web.Plugins.PlgMap.Code
                     node.Attributes?["longitude"]?.Value ?? "0",
                     CultureInfo.InvariantCulture),
                 Name = node.Attributes?["name"]?.Value ??
-                    node.Attributes?["caption"]?.Value ?? ""
+                    node.Attributes?["caption"]?.Value ?? "",
+                Type = Enum.TryParse<MarkerType>(node.Attributes?["type"]?.Value, true, out var mt)
+                    ? mt : MarkerType.Circle
             };
 
             // load child Channel elements
@@ -203,7 +219,9 @@ namespace Scada.Web.Plugins.PlgMap.Code
                     CultureInfo.InvariantCulture),
                 Name = node.SelectSingleNode("Name")?.InnerText ?? "",
                 Description = node.SelectSingleNode("Descr")?.InnerText ?? "",
-                StatusCnlNum = int.Parse(node.SelectSingleNode("StatusCnlNum")?.InnerText ?? "0")
+                StatusCnlNum = int.Parse(node.SelectSingleNode("StatusCnlNum")?.InnerText ?? "0"),
+                Type = Enum.TryParse<MarkerType>(node.SelectSingleNode("Type")?.InnerText, true, out var mt)
+                    ? mt : MarkerType.Circle
             };
 
             // parse Link viewID

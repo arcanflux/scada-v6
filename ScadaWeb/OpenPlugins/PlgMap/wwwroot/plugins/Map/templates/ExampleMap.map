@@ -134,5 +134,29 @@
         <StatusItem cnlNum="5105">Связь</StatusItem>
       </Statuses>
     </Location>
+
+    <!-- Triangle marker (flood/water level sensor) -->
+    <Location>
+      <Lat>55.035000</Lat>
+      <Lon>82.940000</Lon>
+      <Name>ДУ-01</Name>
+      <Descr>Датчик уровня воды ДУ-01</Descr>
+      <Type>Triangle</Type>
+      <StatusCnlNum>0</StatusCnlNum>
+      <Data>
+        <!-- Temperature 200mm depth -->
+        <DataItem cnlNum="6001">T 200мм</DataItem>
+        <!-- Temperature 700mm depth -->
+        <DataItem cnlNum="6002">T 700мм</DataItem>
+        <!-- Flood status 200mm (0 = flood, 1 = normal) -->
+        <DataItem cnlNum="6003">Затопление 200мм</DataItem>
+        <!-- Flood status 700mm (0 = flood, 1 = normal) -->
+        <DataItem cnlNum="6004">Затопление 700мм</DataItem>
+        <!-- Battery percentage -->
+        <DataItem cnlNum="6005">Батарея %</DataItem>
+        <!-- Online status (for future use) -->
+        <DataItem cnlNum="6006">Онлайн</DataItem>
+      </Data>
+    </Location>
   </Locations>
 </Map>

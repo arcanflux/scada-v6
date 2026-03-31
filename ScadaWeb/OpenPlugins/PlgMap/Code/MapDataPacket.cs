@@ -53,6 +53,7 @@ namespace Scada.Web.Plugins.PlgMap.Code
     public class MarkerDto
     {
         public int Id { get; set; }
+        public string Type { get; set; }
         public double Lat { get; set; }
         public double Lng { get; set; }
         public string Name { get; set; }

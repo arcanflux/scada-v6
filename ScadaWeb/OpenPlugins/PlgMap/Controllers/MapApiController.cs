@@ -176,6 +176,7 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
                 Markers = [.. mapView.Markers.Select(m => new MarkerDto
                 {
                     Id = m.Id,
+                    Type = m.Type == MarkerType.Circle ? null : m.Type.ToString().ToLowerInvariant(),
                     Lat = m.Latitude,
                     Lng = m.Longitude,
                     Name = m.Name,
