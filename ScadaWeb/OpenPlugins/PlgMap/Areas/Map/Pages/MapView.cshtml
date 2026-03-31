@@ -595,7 +595,7 @@
         .map-marker-filter-btn {
             position: absolute;
             top: 10px;
-            left: calc(50% - 310px);
+            right: calc(50% + 180px);
             z-index: 1000;
         }
         .map-marker-filter-btn button {
@@ -645,6 +645,26 @@
         .map-marker-filter-item.selected {
             font-weight: 700;
             color: #0073aa;
+        }
+        .map-marker-filter-item .radio {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid #999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .map-marker-filter-item.selected .radio {
+            border-color: #0073aa;
+        }
+        .map-marker-filter-item.selected .radio::after {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #0073aa;
         }
 
         /* Search bar */
@@ -1908,7 +1928,7 @@
                 for (let opt of options) {
                     let sel = this._markerFilter === opt.key ? ' selected' : '';
                     html += '<div class="map-marker-filter-item' + sel + '" data-filter="' + opt.key + '">' +
-                        this._escapeHtml(opt.label) + '</div>';
+                        '<span class="radio"></span>' + this._escapeHtml(opt.label) + '</div>';
                 }
                 panel.innerHTML = html;
 
