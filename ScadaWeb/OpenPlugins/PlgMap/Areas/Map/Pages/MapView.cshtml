@@ -1502,16 +1502,16 @@
                 });
             }
 
-            _createTriangleMarkerIcon(color, hasAlert) {
+            _createTriangleMarkerIcon(color, hasAlert, alertColor) {
                 color = color || "#1b5e20";
                 let size = this._getMarkerSize();
                 let half = size / 2;
                 let sw = Math.max(1.5, size * 0.08);
-                let ringColor = hasAlert ? "#d32f2f" : "#fff";
+                let ringColor = hasAlert ? (alertColor || "#d32f2f") : "#fff";
                 let ringSw = hasAlert ? Math.max(2.5, size * 0.14) : sw;
                 let ringClass = hasAlert ? ' class="marker-ring-blink"' : '';
-                // Triangle points: top-center, bottom-left, bottom-right
-                let pts = half + ',1 ' + (size - 1) + ',' + (size - 1) + ' 1,' + (size - 1);
+                // Triangle points: downward — top-left, top-right, bottom-center
+                let pts = '1,1 ' + (size - 1) + ',1 ' + half + ',' + (size - 1);
                 let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
                     '<polygon points="' + pts + '" fill="' + color + '" stroke="none"/>' +
                     '<polygon points="' + pts + '" fill="none" stroke="' + ringColor + '" stroke-width="' + ringSw + '"' + ringClass + '/>' +
@@ -1523,6 +1523,19 @@
                     iconAnchor: [half, size],
                     popupAnchor: [0, -size]
                 });
+            }
+
+            // Check triangle flood alert: returns { active, color }
+            // 700mm flood (ch[3], val===0) = red (#d32f2f), 200mm flood (ch[2], val===0) = yellow (#f0ad4e)
+            // Red takes priority over yellow
+            _getTriangleFloodAlert(def) {
+                let ch = def.channels || [];
+                if (!this._hasAnyWorkingChannel(def)) return { active: false, color: null };
+                let f700 = ch[3] ? this.curDataMap[ch[3].cnlNum] : null;
+                let f200 = ch[2] ? this.curDataMap[ch[2].cnlNum] : null;
+                if (f700 && f700.stat > 0 && f700.val === 0) return { active: true, color: '#d32f2f' };
+                if (f200 && f200.stat > 0 && f200.val === 0) return { active: true, color: '#f0ad4e' };
+                return { active: false, color: null };
             }
 
             // Triangle marker color: gray (#999), yellow (#f0ad4e), deep green (#1b5e20)
@@ -1581,10 +1594,14 @@
                     let color = isTriangle
                         ? this._getTriangleMarkerColor(entry.def)
                         : this._getGradientMarkerColor(entry.def);
-                    let alert = this._hasActiveStatus(entry.def);
-                    let icon = isTriangle
-                        ? this._createTriangleMarkerIcon(color, alert)
-                        : this._createMarkerIcon(color, alert);
+                    let icon;
+                    if (isTriangle) {
+                        let flood = this._getTriangleFloodAlert(entry.def);
+                        icon = this._createTriangleMarkerIcon(color, flood.active, flood.color);
+                    } else {
+                        let alert = this._hasActiveStatus(entry.def);
+                        icon = this._createMarkerIcon(color, alert);
+                    }
                     entry.leafletMarker.setIcon(icon);
                 }
             }
@@ -3935,10 +3952,14 @@
                     let color = isTriangle
                         ? this._getTriangleMarkerColor(entry.def)
                         : this._getGradientMarkerColor(entry.def);
-                    let alert = this._hasActiveStatus(entry.def);
-                    let icon = isTriangle
-                        ? this._createTriangleMarkerIcon(color, alert)
-                        : this._createMarkerIcon(color, alert);
+                    let icon;
+                    if (isTriangle) {
+                        let flood = this._getTriangleFloodAlert(entry.def);
+                        icon = this._createTriangleMarkerIcon(color, flood.active, flood.color);
+                    } else {
+                        let alert = this._hasActiveStatus(entry.def);
+                        icon = this._createMarkerIcon(color, alert);
+                    }
                     entry.leafletMarker.setIcon(icon);
 
                     // Update values in-place if popup is open, otherwise rebuild
