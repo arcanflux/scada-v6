@@ -14,13 +14,15 @@
 //        SawtoothCheck(200)
 //      где 200 — номер канала-индикатора, куда запишется результат (1/0).
 //
-//   Параметры по умолчанию:
-//     - Порог скачка: 10 градусов
-//     - Таймаут сброса: 60 минут (1 час)
+//   Параметры:
+//     - Порог скачка: 10 градусов (threshold)
+//     - Таймаут сброса: 60 минут (timeoutMinutes)
+//     - Задержка старта: 5 минут (startDelayMinutes)
 //
-//   Пример с нестандартными параметрами:
-//        SawtoothCheck(200, 15, 30)
-//      — порог 15°, таймаут 30 минут.
+//   Примеры:
+//     SawtoothCheck(200)              — всё по умолчанию
+//     SawtoothCheck(200, 10, 60, 15)  — задержка старта 15 минут
+//     SawtoothCheck(200, 15, 30, 10)  — порог 15°, таймаут 30 мин, задержка 10 мин
 //
 //   Канал температуры продолжает показывать температуру как обычно.
 //   Канал-индикатор (200) будет показывать:
@@ -36,6 +38,9 @@ protected Dictionary<int, DateTime> SawLastJumpTimes = new Dictionary<int, DateT
 // Словарь: номер канала температуры → текущий статус пилы.
 protected Dictionary<int, bool> SawActiveFlags = new Dictionary<int, bool>();
 
+// Словарь: номер канала температуры → время первого вызова (UTC).
+protected Dictionary<int, DateTime> SawStartTimes = new Dictionary<int, DateTime>();
+
 /// <summary>
 /// Ставится на канал температуры (InFormula).
 /// Анализирует значения на пилообразность и записывает результат 1/0 в outputCnlNum.
@@ -44,7 +49,8 @@ protected Dictionary<int, bool> SawActiveFlags = new Dictionary<int, bool>();
 /// <param name="outputCnlNum">Номер канала-индикатора для записи результата.</param>
 /// <param name="threshold">Порог скачка в градусах (по умолчанию 10).</param>
 /// <param name="timeoutMinutes">Минут без скачков для сброса (по умолчанию 60).</param>
-public CnlData SawtoothCheck(int outputCnlNum, double threshold = 10.0, double timeoutMinutes = 60.0)
+/// <param name="startDelayMinutes">Задержка старта в минутах для избежания ложных срабатываний (по умолчанию 5).</param>
+public CnlData SawtoothCheck(int outputCnlNum, double threshold = 10.0, double timeoutMinutes = 60.0, double startDelayMinutes = 5.0)
 {
     // Работаем только с текущими данными.
     if (!IsCurrent)
@@ -57,6 +63,14 @@ public CnlData SawtoothCheck(int outputCnlNum, double threshold = 10.0, double t
     double currentValue = CnlVal;
     DateTime now = Timestamp;
     int srcCnl = CnlNum;
+
+    // Запоминаем время первого вызова для этого канала.
+    if (!SawStartTimes.ContainsKey(srcCnl))
+        SawStartTimes[srcCnl] = now;
+
+    // Период прогрева: собираем данные, но не активируем пилу.
+    bool isWarming = (now - SawStartTimes[srcCnl]).TotalMinutes < startDelayMinutes;
+
     bool isActive = SawActiveFlags.ContainsKey(srcCnl) && SawActiveFlags[srcCnl];
 
     // Сравниваем с предыдущим значением.
@@ -64,9 +78,9 @@ public CnlData SawtoothCheck(int outputCnlNum, double threshold = 10.0, double t
     {
         double delta = Math.Abs(currentValue - prevValue);
 
-        if (delta >= threshold)
+        if (delta >= threshold && !isWarming)
         {
-            // Скачок обнаружен — пила активна.
+            // Скачок обнаружен и прогрев завершён — пила активна.
             isActive = true;
             SawLastJumpTimes[srcCnl] = now;
         }
