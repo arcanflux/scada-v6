@@ -420,69 +420,66 @@ public bool MonthStarted(int minMinute = 0)
     <ScriptID>102</ScriptID>
     <Name>Sawtooth detector</Name>
     <Source>// Детектор пилообразного сигнала.
-// Отслеживает резкие скачки значения канала (≥ порога) и устанавливает статус пилы.
-// Если в течение таймаута скачков нет — статус сбрасывается.
+// Формула ставится на канал ТЕМПЕРАТУРЫ (InFormula). Результат (1/0) пишется
+// в отдельный канал-индикатор. Значение температуры проходит без изменений.
 //
-// Использование в формуле канала (InFormula):
-//   DetectSawtooth(N)           — порог 10°, таймаут 60 мин
-//   DetectSawtooth(N, 15, 30)   — порог 15°, таймаут 30 мин
+// Использование в InFormula канала температуры:
+//   SawtoothCheck(200)            — результат в канал 200, порог 10°, таймаут 60 мин
+//   SawtoothCheck(200, 15, 30)    — результат в канал 200, порог 15°, таймаут 30 мин
 
-// Предыдущие значения отслеживаемых каналов.
+// Предыдущие значения каналов температуры.
 protected Dictionary&lt;int, double&gt; SawPrevValues = new Dictionary&lt;int, double&gt;();
 
-// Время последнего обнаруженного скачка (UTC).
+// Время последнего скачка (UTC).
 protected Dictionary&lt;int, DateTime&gt; SawLastJumpTimes = new Dictionary&lt;int, DateTime&gt;();
 
 // Текущий статус пилы.
 protected Dictionary&lt;int, bool&gt; SawActiveFlags = new Dictionary&lt;int, bool&gt;();
 
 /// &lt;summary&gt;
-/// Детектирует пилообразный сигнал на канале sourceCnlNum.
-/// Возвращает CnlData: 1.0 — пила обнаружена, 0.0 — нет.
+/// Ставится на канал температуры (InFormula).
+/// Анализирует значения на пилообразность и записывает 1/0 в outputCnlNum.
+/// Возвращает исходное значение канала без изменений.
 /// &lt;/summary&gt;
-public CnlData DetectSawtooth(int sourceCnlNum, double threshold = 10.0, double timeoutMinutes = 60.0)
+public CnlData SawtoothCheck(int outputCnlNum, double threshold = 10.0, double timeoutMinutes = 60.0)
 {
     if (!IsCurrent)
-        return Data();
+        return CnlData;
 
-    CnlData sourceData = Data(sourceCnlNum);
+    if (CnlStat &lt;= 0)
+        return CnlData;
 
-    if (sourceData.IsUndefined)
-        return Data();
-
-    double currentValue = sourceData.Val;
+    double currentValue = CnlVal;
     DateTime now = Timestamp;
-    bool isActive = SawActiveFlags.ContainsKey(sourceCnlNum) &amp;&amp; SawActiveFlags[sourceCnlNum];
+    int srcCnl = CnlNum;
+    bool isActive = SawActiveFlags.ContainsKey(srcCnl) &amp;&amp; SawActiveFlags[srcCnl];
 
-    if (SawPrevValues.TryGetValue(sourceCnlNum, out double prevValue))
+    if (SawPrevValues.TryGetValue(srcCnl, out double prevValue))
     {
         double delta = Math.Abs(currentValue - prevValue);
 
         if (delta &gt;= threshold)
         {
             isActive = true;
-            SawLastJumpTimes[sourceCnlNum] = now;
+            SawLastJumpTimes[srcCnl] = now;
         }
     }
 
-    SawPrevValues[sourceCnlNum] = currentValue;
+    SawPrevValues[srcCnl] = currentValue;
 
-    if (isActive &amp;&amp; SawLastJumpTimes.TryGetValue(sourceCnlNum, out DateTime lastJumpTime))
+    if (isActive &amp;&amp; SawLastJumpTimes.TryGetValue(srcCnl, out DateTime lastJumpTime))
     {
         if ((now - lastJumpTime).TotalMinutes &gt;= timeoutMinutes)
             isActive = false;
     }
 
-    SawActiveFlags[sourceCnlNum] = isActive;
-    return NewData(isActive ? 1.0 : 0.0, CnlStatusID.Defined);
-}
+    SawActiveFlags[srcCnl] = isActive;
 
-/// &lt;summary&gt;
-/// Упрощённая версия — возвращает double (1 или 0).
-/// &lt;/summary&gt;
-public double DetectSawtoothVal(int sourceCnlNum, double threshold = 10.0, double timeoutMinutes = 60.0)
-{
-    return DetectSawtooth(sourceCnlNum, threshold, timeoutMinutes).Val;
+    // Записываем результат (1/0) в канал-индикатор.
+    SetData(outputCnlNum, isActive ? 1.0 : 0.0, CnlStatusID.Defined);
+
+    // Возвращаем исходные данные температуры без изменений.
+    return CnlData;
 }
 </Source>
   </Script>
