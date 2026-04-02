@@ -1730,9 +1730,12 @@
                         return;
                     }
 
-                    let matches = this.markerEntries.filter(e =>
-                        e.def.name.toLowerCase().includes(query)
-                    );
+                    let matches = this.markerEntries.filter(e => {
+                        if (!e.def.name.toLowerCase().includes(query)) return false;
+                        if (this._markerFilter === 'circle' && e.def.type === 'triangle') return false;
+                        if (this._markerFilter === 'triangle' && e.def.type !== 'triangle') return false;
+                        return true;
+                    });
 
                     if (matches.length === 0) {
                         results.innerHTML = '<div class="map-search-item" style="color:#999">' +
