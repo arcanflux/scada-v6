@@ -71,23 +71,33 @@ public CnlData SawtoothCheck(int outputCnlNum, double threshold = 10.0, double t
     // Период прогрева: собираем данные, но не активируем пилу.
     bool isWarming = (now - SawStartTimes[srcCnl]).TotalMinutes < startDelayMinutes;
 
+    // Запоминаем текущее значение (всегда, даже во время прогрева).
+    SawPrevValues.TryGetValue(srcCnl, out double prevValue);
+    bool hasPrev = SawPrevValues.ContainsKey(srcCnl);
+    SawPrevValues[srcCnl] = currentValue;
+
+    // Во время прогрева — всегда выдаём 0, только копим данные.
+    if (isWarming)
+    {
+        SawActiveFlags[srcCnl] = false;
+        SetData(outputCnlNum, 0.0, CnlStatusID.Defined);
+        return CnlData;
+    }
+
     bool isActive = SawActiveFlags.ContainsKey(srcCnl) && SawActiveFlags[srcCnl];
 
     // Сравниваем с предыдущим значением.
-    if (SawPrevValues.TryGetValue(srcCnl, out double prevValue))
+    if (hasPrev)
     {
         double delta = Math.Abs(currentValue - prevValue);
 
-        if (delta >= threshold && !isWarming)
+        if (delta >= threshold)
         {
-            // Скачок обнаружен и прогрев завершён — пила активна.
+            // Скачок обнаружен — пила активна.
             isActive = true;
             SawLastJumpTimes[srcCnl] = now;
         }
     }
-
-    // Запоминаем текущее значение.
-    SawPrevValues[srcCnl] = currentValue;
 
     // Проверяем таймаут сброса.
     if (isActive && SawLastJumpTimes.TryGetValue(srcCnl, out DateTime lastJumpTime))

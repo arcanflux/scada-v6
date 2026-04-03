@@ -459,20 +459,31 @@ public CnlData SawtoothCheck(int outputCnlNum, double threshold = 10.0, double t
     // Период прогрева: собираем данные, но не активируем пилу.
     bool isWarming = (now - SawStartTimes[srcCnl]).TotalMinutes &lt; startDelayMinutes;
 
+    // Запоминаем текущее значение (всегда, даже во время прогрева).
+    SawPrevValues.TryGetValue(srcCnl, out double prevValue);
+    bool hasPrev = SawPrevValues.ContainsKey(srcCnl);
+    SawPrevValues[srcCnl] = currentValue;
+
+    // Во время прогрева — всегда выдаём 0, только копим данные.
+    if (isWarming)
+    {
+        SawActiveFlags[srcCnl] = false;
+        SetData(outputCnlNum, 0.0, CnlStatusID.Defined);
+        return CnlData;
+    }
+
     bool isActive = SawActiveFlags.ContainsKey(srcCnl) &amp;&amp; SawActiveFlags[srcCnl];
 
-    if (SawPrevValues.TryGetValue(srcCnl, out double prevValue))
+    if (hasPrev)
     {
         double delta = Math.Abs(currentValue - prevValue);
 
-        if (delta &gt;= threshold &amp;&amp; !isWarming)
+        if (delta &gt;= threshold)
         {
             isActive = true;
             SawLastJumpTimes[srcCnl] = now;
         }
     }
-
-    SawPrevValues[srcCnl] = currentValue;
 
     if (isActive &amp;&amp; SawLastJumpTimes.TryGetValue(srcCnl, out DateTime lastJumpTime))
     {
