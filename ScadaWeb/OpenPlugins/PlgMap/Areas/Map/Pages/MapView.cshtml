@@ -2065,10 +2065,13 @@
                 html += '<span class="map-popup-name">' + this._escapeHtml(def.name) + '</span>';
 
                 // Status dots horizontal row under name
+                let POPUP_STATUS_COLORS = ["#f0ad4e", "#f57c00", "#d32f2f", "#ff9800", "#7b1fa2"];
                 if (statusDots.length > 0) {
                     html += '<div class="map-popup-header-dots">';
-                    for (let d of statusDots) {
-                        let dotColor = d.on ? "#d32f2f" : "#3388ff";
+                    for (let si = 0; si < statusDots.length; si++) {
+                        let d = statusDots[si];
+                        let severityColor = POPUP_STATUS_COLORS[si % POPUP_STATUS_COLORS.length];
+                        let dotColor = d.on ? severityColor : "#bbb";
                         html += '<span class="map-popup-status-dot" style="background:' + dotColor + '" ' +
                             'onmouseenter="mapViewInstance._showMiniChart(event, ' + d.cnlNum + ', \'' +
                                 this._escapeHtml(d.alias).replace(/'/g, "\\'") + '\', \'' + dotColor + '\', \'above\')" ' +
@@ -3201,7 +3204,8 @@
                 }
 
                 // Status timeline bands
-                let STATUS_COLORS = ["#d32f2f", "#f57c00", "#7b1fa2", "#00796b", "#c62828"];
+                // Circle severity order: 0=amber (deviation), 1=orange (malfunction), 2=red (emergency), 3=light orange (diagnostic)
+                let STATUS_COLORS = ["#f0ad4e", "#f57c00", "#d32f2f", "#ff9800", "#7b1fa2"];
                 this._statusLegendItems = [];
 
                 if (isTriangle) {
