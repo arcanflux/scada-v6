@@ -29,77 +29,52 @@
 //     1 — пилообразный сигнал обнаружен
 //     0 — пилообразного сигнала нет
 
-// Словарь: номер канала температуры → предыдущее значение.
 protected Dictionary<int, double> SawPrevValues = new Dictionary<int, double>();
-
-// Словарь: номер канала температуры → время последнего скачка (UTC).
 protected Dictionary<int, DateTime> SawLastJumpTimes = new Dictionary<int, DateTime>();
-
-// Словарь: номер канала температуры → текущий статус пилы.
 protected Dictionary<int, bool> SawActiveFlags = new Dictionary<int, bool>();
-
-// Словарь: номер канала температуры → время первого вызова (UTC).
 protected Dictionary<int, DateTime> SawStartTimes = new Dictionary<int, DateTime>();
 
-/// <summary>
-/// Ставится на канал температуры (InFormula).
-/// Анализирует значения на пилообразность и записывает результат 1/0 в outputCnlNum.
-/// Возвращает исходное значение канала без изменений.
-/// </summary>
-/// <param name="outputCnlNum">Номер канала-индикатора для записи результата.</param>
-/// <param name="threshold">Порог скачка в градусах (по умолчанию 10).</param>
-/// <param name="timeoutMinutes">Минут без скачков для сброса (по умолчанию 60).</param>
-/// <param name="startDelayMinutes">Задержка старта в минутах для избежания ложных срабатываний (по умолчанию 5).</param>
-public CnlData SawtoothCheck(int outputCnlNum, double threshold = 10.0, double timeoutMinutes = 60.0, double startDelayMinutes = 5.0)
+public double SawtoothCheck(int outputCnlNum, double threshold = 10.0, double timeoutMinutes = 60.0, double startDelayMinutes = 5.0)
 {
-    // Работаем только с текущими данными.
     if (!IsCurrent)
-        return CnlData;
+        return CnlVal;
 
-    // Если данные канала не определены — пропускаем.
     if (CnlStat <= 0)
-        return CnlData;
+        return CnlVal;
 
     double currentValue = CnlVal;
     DateTime now = Timestamp;
     int srcCnl = CnlNum;
 
-    // Запоминаем время первого вызова для этого канала.
     if (!SawStartTimes.ContainsKey(srcCnl))
         SawStartTimes[srcCnl] = now;
 
-    // Период прогрева: собираем данные, но не активируем пилу.
     bool isWarming = (now - SawStartTimes[srcCnl]).TotalMinutes < startDelayMinutes;
 
-    // Запоминаем текущее значение (всегда, даже во время прогрева).
     SawPrevValues.TryGetValue(srcCnl, out double prevValue);
     bool hasPrev = SawPrevValues.ContainsKey(srcCnl);
     SawPrevValues[srcCnl] = currentValue;
 
-    // Во время прогрева — всегда выдаём 0, только копим данные.
     if (isWarming)
     {
         SawActiveFlags[srcCnl] = false;
-        SetData(outputCnlNum, 0.0, CnlStatusID.Defined);
-        return CnlData;
+        SetData(outputCnlNum, 0.0, 1);
+        return CnlVal;
     }
 
     bool isActive = SawActiveFlags.ContainsKey(srcCnl) && SawActiveFlags[srcCnl];
 
-    // Сравниваем с предыдущим значением.
     if (hasPrev)
     {
         double delta = Math.Abs(currentValue - prevValue);
 
         if (delta >= threshold)
         {
-            // Скачок обнаружен — пила активна.
             isActive = true;
             SawLastJumpTimes[srcCnl] = now;
         }
     }
 
-    // Проверяем таймаут сброса.
     if (isActive && SawLastJumpTimes.TryGetValue(srcCnl, out DateTime lastJumpTime))
     {
         if ((now - lastJumpTime).TotalMinutes >= timeoutMinutes)
@@ -108,9 +83,7 @@ public CnlData SawtoothCheck(int outputCnlNum, double threshold = 10.0, double t
 
     SawActiveFlags[srcCnl] = isActive;
 
-    // Записываем результат (1/0) в канал-индикатор.
-    SetData(outputCnlNum, isActive ? 1.0 : 0.0, CnlStatusID.Defined);
+    SetData(outputCnlNum, isActive ? 1.0 : 0.0, 1);
 
-    // Возвращаем исходные данные канала температуры без изменений.
-    return CnlData;
+    return CnlVal;
 }

@@ -428,48 +428,37 @@ public bool MonthStarted(int minMinute = 0)
 //   SawtoothCheck(200, 10, 60, 15)    — задержка старта 15 мин
 //   SawtoothCheck(200, 15, 30, 10)    — порог 15°, таймаут 30 мин, задержка 10 мин
 
-// Предыдущие значения каналов температуры.
 protected Dictionary&lt;int, double&gt; SawPrevValues = new Dictionary&lt;int, double&gt;();
-
-// Время последнего скачка (UTC).
 protected Dictionary&lt;int, DateTime&gt; SawLastJumpTimes = new Dictionary&lt;int, DateTime&gt;();
-
-// Текущий статус пилы.
 protected Dictionary&lt;int, bool&gt; SawActiveFlags = new Dictionary&lt;int, bool&gt;();
-
-// Время первого вызова для канала (UTC).
 protected Dictionary&lt;int, DateTime&gt; SawStartTimes = new Dictionary&lt;int, DateTime&gt;();
 
-public CnlData SawtoothCheck(int outputCnlNum, double threshold = 10.0, double timeoutMinutes = 60.0, double startDelayMinutes = 5.0)
+public double SawtoothCheck(int outputCnlNum, double threshold = 10.0, double timeoutMinutes = 60.0, double startDelayMinutes = 5.0)
 {
     if (!IsCurrent)
-        return CnlData;
+        return CnlVal;
 
     if (CnlStat &lt;= 0)
-        return CnlData;
+        return CnlVal;
 
     double currentValue = CnlVal;
     DateTime now = Timestamp;
     int srcCnl = CnlNum;
 
-    // Запоминаем время первого вызова.
     if (!SawStartTimes.ContainsKey(srcCnl))
         SawStartTimes[srcCnl] = now;
 
-    // Период прогрева: собираем данные, но не активируем пилу.
     bool isWarming = (now - SawStartTimes[srcCnl]).TotalMinutes &lt; startDelayMinutes;
 
-    // Запоминаем текущее значение (всегда, даже во время прогрева).
     SawPrevValues.TryGetValue(srcCnl, out double prevValue);
     bool hasPrev = SawPrevValues.ContainsKey(srcCnl);
     SawPrevValues[srcCnl] = currentValue;
 
-    // Во время прогрева — всегда выдаём 0, только копим данные.
     if (isWarming)
     {
         SawActiveFlags[srcCnl] = false;
-        SetData(outputCnlNum, 0.0, CnlStatusID.Defined);
-        return CnlData;
+        SetData(outputCnlNum, 0.0, 1);
+        return CnlVal;
     }
 
     bool isActive = SawActiveFlags.ContainsKey(srcCnl) &amp;&amp; SawActiveFlags[srcCnl];
@@ -493,9 +482,9 @@ public CnlData SawtoothCheck(int outputCnlNum, double threshold = 10.0, double t
 
     SawActiveFlags[srcCnl] = isActive;
 
-    SetData(outputCnlNum, isActive ? 1.0 : 0.0, CnlStatusID.Defined);
+    SetData(outputCnlNum, isActive ? 1.0 : 0.0, 1);
 
-    return CnlData;
+    return CnlVal;
 }
 </Source>
   </Script>
