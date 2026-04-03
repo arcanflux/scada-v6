@@ -2097,7 +2097,7 @@
                         let valText = rec ? this._escapeHtml(rec.text) : "--";
                         let alias = ch.alias || (this.t.channel + ch.cnlNum);
                         let color = this._getChannelColor(alias, i);
-                        let dash = this._isPressureAlias(alias) ? ' stroke-dasharray="4,3"' : '';
+                        let dash = '';
 
                         html += '<tr>' +
                             '<td class="alias">' + this._escapeHtml(alias) + '</td>' +
@@ -3181,15 +3181,12 @@
 
                     let axisGroup = isTriangle ? "temp" : this._getAxisGroup(alias);
                     let unit = axisGroup === "pressure" ? this.t.pressureUnit : "°C";
-                    let isPressure = !isTriangle && this._isPressureAlias(alias);
-
                     datasets.push({
                         label: alias,
                         data: data,
                         borderColor: color,
                         backgroundColor: color + "20",
-                        borderWidth: isPressure ? 2 : 1.5,
-                        borderDash: isPressure ? [6, 3] : [],
+                        borderWidth: 1.5,
                         pointRadius: 0,
                         pointHoverRadius: 4,
                         tension: 0.3,
