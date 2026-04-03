@@ -2153,8 +2153,8 @@
                 let f700 = ch[3] ? this.curDataMap[ch[3].cnlNum] : null;
                 let batt = ch[4] ? this.curDataMap[ch[4].cnlNum] : null;
 
-                let t200Text = t200 ? t200.text : '--';
-                let t700Text = t700 ? t700.text : '--';
+                let t200Text = t200 ? (t200.text + ' °C') : '--';
+                let t700Text = t700 ? (t700.text + ' °C') : '--';
                 // Flood active when val == 0 (0 = flood)
                 let f200Active = f200 && f200.stat > 0 && f200.val === 0;
                 let f700Active = f700 && f700.stat > 0 && f700.val === 0;
@@ -2199,7 +2199,7 @@
                     if (!ch[i]) continue;
                     let el = popupEl.querySelector('.map-tri-zone-temp[data-cnl="' + ch[i].cnlNum + '"]');
                     let rec = this.curDataMap[ch[i].cnlNum];
-                    if (el && rec) el.textContent = rec.text || '--';
+                    if (el && rec) el.textContent = rec.text ? (rec.text + ' °C') : '--';
                 }
                 // Flood indicators
                 for (let i = 2; i < 4; i++) {
