@@ -1643,6 +1643,25 @@
                 return "temp";
             }
 
+            // Fixed color per channel alias (pipeline conventions)
+            static ALIAS_COLORS = {
+                "T1": "#d32f2f",  // red — supply temp
+                "T2": "#1f77b4",  // blue — return temp
+                "T3": "#ff7f0e",  // orange — DHW supply
+                "P1": "#2ca02c",  // green — supply pressure
+                "P2": "#17becf"   // teal — return pressure
+            };
+
+            _getChannelColor(alias, index) {
+                let a = (alias || "").toUpperCase();
+                return MapViewManager.ALIAS_COLORS[a] || MapViewManager.CHART_COLORS[index % MapViewManager.CHART_COLORS.length];
+            }
+
+            _isPressureAlias(alias) {
+                let a = (alias || "").toUpperCase();
+                return a === "P1" || a === "P2";
+            }
+
             // --- Init ---
             async init() {
                 await this._loadLeafletCss();
@@ -2076,18 +2095,19 @@
                         let rec = this.curDataMap[ch.cnlNum];
                         let valText = rec ? this._escapeHtml(rec.text) : "--";
                         let alias = ch.alias || (this.t.channel + ch.cnlNum);
-                        let color = MapViewManager.CHART_COLORS[i % MapViewManager.CHART_COLORS.length];
+                        let color = this._getChannelColor(alias, i);
+                        let dash = this._isPressureAlias(alias) ? ' stroke-dasharray="4,3"' : '';
 
                         html += '<tr>' +
                             '<td class="alias">' + this._escapeHtml(alias) + '</td>' +
-                            '<td class="color-line"><svg width="40" height="2" style="vertical-align:middle;display:block"><line x1="0" y1="1" x2="40" y2="1" stroke="' + color + '" stroke-width="2"/></svg></td>' +
+                            '<td class="color-line"><svg width="40" height="2" style="vertical-align:middle;display:block"><line x1="0" y1="1" x2="40" y2="1" stroke="' + color + '" stroke-width="2"' + dash + '/></svg></td>' +
                             '<td class="val" data-cnl="' + ch.cnlNum + '">' + valText + '</td>' +
                             '<td class="chart-btn" ' +
                                 'onmouseenter="mapViewInstance._showMiniChart(event, ' + ch.cnlNum + ', \'' +
                                     this._escapeHtml(alias).replace(/'/g, "\\'") + '\', \'' + color + '\')" ' +
                                 'onmouseleave="mapViewInstance._scheduleMiniChartHide()">' +
                                 '<svg width="20" height="20" viewBox="0 0 14 14" style="vertical-align:middle">' +
-                                '<polyline points="1,12 4,6 7,9 10,3 13,7" fill="none" stroke="' + color + '" stroke-width="1.5"/>' +
+                                '<polyline points="1,12 4,6 7,9 10,3 13,7" fill="none" stroke="' + color + '" stroke-width="1.5"' + dash + '/>' +
                                 '</svg>' +
                             '</td>' +
                             '</tr>';
@@ -3143,12 +3163,12 @@
                 this._chartCnlNums = allCnlNums;
                 this._chartMarkerDef = def;
 
-                // Temperature line datasets
+                // Temperature/pressure line datasets
                 let TRI_LINE_COLORS = ['#f0ad4e', '#d32f2f']; // 200mm=yellow, 700mm=red
                 for (let i = 0; i < chartChannels.length; i++) {
                     let ch = chartChannels[i];
                     let alias = ch.alias || (this.t.channel + ch.cnlNum);
-                    let color = isTriangle ? TRI_LINE_COLORS[i] : MapViewManager.CHART_COLORS[i % MapViewManager.CHART_COLORS.length];
+                    let color = isTriangle ? TRI_LINE_COLORS[i] : this._getChannelColor(alias, i);
                     let trendIdx = cnlToTrendIdx[ch.cnlNum];
                     if (trendIdx === undefined) continue;
 
@@ -3160,13 +3180,15 @@
 
                     let axisGroup = isTriangle ? "temp" : this._getAxisGroup(alias);
                     let unit = axisGroup === "pressure" ? this.t.pressureUnit : "°C";
+                    let isPressure = !isTriangle && this._isPressureAlias(alias);
 
                     datasets.push({
                         label: alias,
                         data: data,
                         borderColor: color,
                         backgroundColor: color + "20",
-                        borderWidth: 1.5,
+                        borderWidth: isPressure ? 2 : 1.5,
+                        borderDash: isPressure ? [6, 3] : [],
                         pointRadius: 0,
                         pointHoverRadius: 4,
                         tension: 0.3,
