@@ -16,6 +16,8 @@
       <Lon>82.96893</Lon>
       <Name>ЦТП О-53</Name>
       <Descr>Центральный тепловой пункт О-53</Descr>
+      <!-- Optional: photo of the location -->
+      <!-- <Photo>plugins/Map/photos/tp-o53.jpg</Photo> -->
       <StatusCnlNum>0</StatusCnlNum>
       <Data>
         <DataItem cnlNum="1020">T1</DataItem>

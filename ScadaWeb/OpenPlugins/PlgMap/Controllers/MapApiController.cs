@@ -183,6 +183,7 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
                     LonCnlNum = m.LonCnlNum,
                     Name = m.Name,
                     Descr = m.Description,
+                    Photo = string.IsNullOrEmpty(m.Photo) ? null : m.Photo,
                     StatusCnlNum = m.StatusCnlNum,
                     LinkViewID = m.LinkViewID,
                     Channels = [.. m.Channels.Select(c => new ChannelDto

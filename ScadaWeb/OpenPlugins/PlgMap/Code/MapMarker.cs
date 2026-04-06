@@ -88,6 +88,11 @@ namespace Scada.Web.Plugins.PlgMap.Code
         public string Description { get; set; } = "";
 
         /// <summary>
+        /// Gets or sets the photo URL/path for this marker location.
+        /// </summary>
+        public string Photo { get; set; } = "";
+
+        /// <summary>
         /// Gets or sets the status channel number. 0 means not specified.
         /// Positive channel value = normal, otherwise needs attention.
         /// </summary>
@@ -134,7 +139,8 @@ namespace Scada.Web.Plugins.PlgMap.Code
                 Type = Enum.TryParse<MarkerType>(node.Attributes?["type"]?.Value, true, out var mt)
                     ? mt : MarkerType.Circle,
                 LatCnlNum = int.TryParse(node.Attributes?["latCnlNum"]?.Value, out int latCnl) ? latCnl : 0,
-                LonCnlNum = int.TryParse(node.Attributes?["lonCnlNum"]?.Value, out int lonCnl) ? lonCnl : 0
+                LonCnlNum = int.TryParse(node.Attributes?["lonCnlNum"]?.Value, out int lonCnl) ? lonCnl : 0,
+                Photo = node.Attributes?["photo"]?.Value ?? ""
             };
 
             // load child Channel elements
@@ -235,7 +241,8 @@ namespace Scada.Web.Plugins.PlgMap.Code
                 Type = Enum.TryParse<MarkerType>(node.SelectSingleNode("Type")?.InnerText, true, out var mt)
                     ? mt : MarkerType.Circle,
                 LatCnlNum = int.TryParse(node.SelectSingleNode("LatCnlNum")?.InnerText, out int latCnl2) ? latCnl2 : 0,
-                LonCnlNum = int.TryParse(node.SelectSingleNode("LonCnlNum")?.InnerText, out int lonCnl2) ? lonCnl2 : 0
+                LonCnlNum = int.TryParse(node.SelectSingleNode("LonCnlNum")?.InnerText, out int lonCnl2) ? lonCnl2 : 0,
+                Photo = node.SelectSingleNode("Photo")?.InnerText ?? ""
             };
 
             // parse Link viewID

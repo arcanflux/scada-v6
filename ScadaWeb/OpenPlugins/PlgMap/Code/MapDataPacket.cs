@@ -60,6 +60,7 @@ namespace Scada.Web.Plugins.PlgMap.Code
         public int LonCnlNum { get; set; }
         public string Name { get; set; }
         public string Descr { get; set; }
+        public string Photo { get; set; }
         public int StatusCnlNum { get; set; }
         public int LinkViewID { get; set; }
         public List<ChannelDto> Channels { get; set; }
