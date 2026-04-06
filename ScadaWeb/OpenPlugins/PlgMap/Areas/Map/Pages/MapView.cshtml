@@ -99,20 +99,14 @@
         .map-popup-name-row {
             display: flex;
             align-items: center;
+            justify-content: space-between;
         }
 
         .map-popup-name-row .map-popup-name {
-            flex: 1;
-            text-align: center;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
             min-width: 0;
-        }
-
-        .map-popup-name-spacer {
-            width: 24px;
-            flex-shrink: 0;
         }
 
         .map-popup-name {
@@ -2168,7 +2162,7 @@
                 // Name + photo button row
                 let photoBtn = this._buildPhotoButton(def.photo);
                 if (photoBtn) {
-                    html += '<div class="map-popup-name-row"><div class="map-popup-name-spacer"></div><span class="map-popup-name">' + this._escapeHtml(def.name) + '</span>' + photoBtn + '</div>';
+                    html += '<div class="map-popup-name-row"><span class="map-popup-name">' + this._escapeHtml(def.name) + '</span>' + photoBtn + '</div>';
                 } else {
                     html += '<span class="map-popup-name">' + this._escapeHtml(def.name) + '</span>';
                 }
@@ -2254,7 +2248,7 @@
                 let photoBtn = this._buildPhotoButton(def.photo);
                 let html = '';
                 if (photoBtn) {
-                    html += '<div class="map-popup-name-row"><div class="map-popup-name-spacer"></div><span class="map-popup-name">' + this._escapeHtml(def.name) + '</span>' + photoBtn + '</div>';
+                    html += '<div class="map-popup-name-row"><span class="map-popup-name">' + this._escapeHtml(def.name) + '</span>' + photoBtn + '</div>';
                 } else {
                     html += '<span class="map-popup-name">' + this._escapeHtml(def.name) + '</span>';
                 }
