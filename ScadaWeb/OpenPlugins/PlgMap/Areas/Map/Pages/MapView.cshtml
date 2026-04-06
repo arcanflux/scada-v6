@@ -2024,10 +2024,30 @@
                     let isTriangle = entry.def.type === 'triangle';
                     if (this._markerFilter === 'circle' && isTriangle) continue;
                     if (this._markerFilter === 'triangle' && !isTriangle) continue;
-                    let dots = this._getStatusDots(entry.def);
-                    let active = dots.filter(d => d.on);
-                    if (active.length > 0) {
-                        problemEntries.push({ entry, dots, activeCount: active.length });
+
+                    if (isTriangle) {
+                        // Triangle: check flood channels (ch[2]=200mm, ch[3]=700mm), val===0 means flood
+                        let ch = entry.def.channels || [];
+                        let floodDots = [];
+                        if (ch[2]) {
+                            let rec = this.curDataMap[ch[2].cnlNum];
+                            if (rec && rec.stat > 0 && rec.val === 0)
+                                floodDots.push({ alias: ch[2].alias || '200мм', on: true, cnlNum: ch[2].cnlNum, color: '#f0ad4e' });
+                        }
+                        if (ch[3]) {
+                            let rec = this.curDataMap[ch[3].cnlNum];
+                            if (rec && rec.stat > 0 && rec.val === 0)
+                                floodDots.push({ alias: ch[3].alias || '700мм', on: true, cnlNum: ch[3].cnlNum, color: '#d32f2f' });
+                        }
+                        if (floodDots.length > 0) {
+                            problemEntries.push({ entry, dots: floodDots, activeCount: floodDots.length, isTriangle: true });
+                        }
+                    } else {
+                        let dots = this._getStatusDots(entry.def);
+                        let active = dots.filter(d => d.on);
+                        if (active.length > 0) {
+                            problemEntries.push({ entry, dots, activeCount: active.length });
+                        }
                     }
                 }
 
@@ -2047,9 +2067,10 @@
                     html += '<div class="map-status-panel-name">' + this._escapeHtml(pe.entry.def.name) + '</div>';
                     html += '<div class="map-status-panel-dots">';
                     for (let d of pe.dots) {
-                        if (!d.on) continue; // only show broken statuses
+                        if (!d.on) continue; // only show active statuses
+                        let dotColor = d.color || '#d32f2f';
                         html += '<span class="map-status-panel-dot">' +
-                            '<span class="dot" style="background:#d32f2f"></span>' +
+                            '<span class="dot" style="background:' + dotColor + '"></span>' +
                             this._escapeHtml(d.alias) + '</span>';
                     }
                     html += '</div></div>';
