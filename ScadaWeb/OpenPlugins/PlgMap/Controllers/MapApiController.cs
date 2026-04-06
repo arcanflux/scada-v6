@@ -179,6 +179,8 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
                     Type = m.Type == MarkerType.Circle ? null : m.Type.ToString().ToLowerInvariant(),
                     Lat = m.Latitude,
                     Lng = m.Longitude,
+                    LatCnlNum = m.LatCnlNum,
+                    LonCnlNum = m.LonCnlNum,
                     Name = m.Name,
                     Descr = m.Description,
                     StatusCnlNum = m.StatusCnlNum,

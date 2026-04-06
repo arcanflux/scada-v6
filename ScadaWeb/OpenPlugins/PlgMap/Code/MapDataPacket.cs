@@ -56,6 +56,8 @@ namespace Scada.Web.Plugins.PlgMap.Code
         public string Type { get; set; }
         public double Lat { get; set; }
         public double Lng { get; set; }
+        public int LatCnlNum { get; set; }
+        public int LonCnlNum { get; set; }
         public string Name { get; set; }
         public string Descr { get; set; }
         public int StatusCnlNum { get; set; }

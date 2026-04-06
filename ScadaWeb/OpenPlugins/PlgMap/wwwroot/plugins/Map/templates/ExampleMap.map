@@ -143,6 +143,9 @@
       <Descr>Датчик уровня воды ДУ-01</Descr>
       <Type>Triangle</Type>
       <StatusCnlNum>0</StatusCnlNum>
+      <!-- Optional: real-time GPS coordinates from SCADA channels -->
+      <!-- <LatCnlNum>7001</LatCnlNum> -->
+      <!-- <LonCnlNum>7002</LonCnlNum> -->
       <Data>
         <!-- Temperature 200mm depth -->
         <DataItem cnlNum="6001">T 200мм</DataItem>

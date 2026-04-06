@@ -88,6 +88,10 @@ namespace Scada.Web.Plugins.PlgMap.Code
                         AddCnlNum(ch.CnlNum);
                     }
                 }
+
+                // real-time coordinate channels
+                AddCnlNum(marker.LatCnlNum);
+                AddCnlNum(marker.LonCnlNum);
             }
             catch
             {

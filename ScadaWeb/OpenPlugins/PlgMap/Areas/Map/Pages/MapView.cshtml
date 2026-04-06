@@ -3986,6 +3986,16 @@
                 }
 
                 for (let entry of this.markerEntries) {
+                    // Update marker position from real-time coordinate channels
+                    let def = entry.def;
+                    if (def.latCnlNum && def.lonCnlNum) {
+                        let latRec = this.curDataMap[def.latCnlNum];
+                        let lonRec = this.curDataMap[def.lonCnlNum];
+                        if (latRec && latRec.stat > 0 && lonRec && lonRec.stat > 0) {
+                            entry.leafletMarker.setLatLng([latRec.val, lonRec.val]);
+                        }
+                    }
+
                     let isTriangle = entry.def.type === 'triangle';
                     let color = isTriangle
                         ? this._getTriangleMarkerColor(entry.def)

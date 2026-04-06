@@ -68,6 +68,16 @@ namespace Scada.Web.Plugins.PlgMap.Code
         public double Longitude { get; set; }
 
         /// <summary>
+        /// Gets or sets the channel number for real-time latitude updates. 0 means static.
+        /// </summary>
+        public int LatCnlNum { get; set; }
+
+        /// <summary>
+        /// Gets or sets the channel number for real-time longitude updates. 0 means static.
+        /// </summary>
+        public int LonCnlNum { get; set; }
+
+        /// <summary>
         /// Gets or sets the marker name / caption.
         /// </summary>
         public string Name { get; set; } = "";
@@ -122,7 +132,9 @@ namespace Scada.Web.Plugins.PlgMap.Code
                 Name = node.Attributes?["name"]?.Value ??
                     node.Attributes?["caption"]?.Value ?? "",
                 Type = Enum.TryParse<MarkerType>(node.Attributes?["type"]?.Value, true, out var mt)
-                    ? mt : MarkerType.Circle
+                    ? mt : MarkerType.Circle,
+                LatCnlNum = int.TryParse(node.Attributes?["latCnlNum"]?.Value, out int latCnl) ? latCnl : 0,
+                LonCnlNum = int.TryParse(node.Attributes?["lonCnlNum"]?.Value, out int lonCnl) ? lonCnl : 0
             };
 
             // load child Channel elements
@@ -221,7 +233,9 @@ namespace Scada.Web.Plugins.PlgMap.Code
                 Description = node.SelectSingleNode("Descr")?.InnerText ?? "",
                 StatusCnlNum = int.Parse(node.SelectSingleNode("StatusCnlNum")?.InnerText ?? "0"),
                 Type = Enum.TryParse<MarkerType>(node.SelectSingleNode("Type")?.InnerText, true, out var mt)
-                    ? mt : MarkerType.Circle
+                    ? mt : MarkerType.Circle,
+                LatCnlNum = int.TryParse(node.SelectSingleNode("LatCnlNum")?.InnerText, out int latCnl2) ? latCnl2 : 0,
+                LonCnlNum = int.TryParse(node.SelectSingleNode("LonCnlNum")?.InnerText, out int lonCnl2) ? lonCnl2 : 0
             };
 
             // parse Link viewID
