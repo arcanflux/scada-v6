@@ -292,7 +292,7 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
                 return BadRequest("Path is required.");
 
             // Prevent directory traversal
-            if (path.Contains("..") || path.Contains("~"))
+            if (path.Contains("..") || path.Contains('~'))
                 return BadRequest("Invalid path.");
 
             try
