@@ -26,6 +26,7 @@
         .map-marker-icon {
             background: none !important;
             border: none !important;
+            overflow: hidden !important;
         }
 
         /* Blinking red ring for markers with active statuses — only outer ring blinks */
@@ -1553,7 +1554,7 @@
                 let ringColor = hasAlert ? "#d32f2f" : "#fff";
                 let ringSw = hasAlert ? Math.max(2.5, size * 0.14) : sw;
                 let ringClass = hasAlert ? ' class="marker-ring-blink"' : '';
-                let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
+                let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" overflow="hidden">' +
                     '<circle cx="' + half + '" cy="' + half + '" r="' + r + '" fill="' + color + '" stroke="none"/>' +
                     '<circle cx="' + half + '" cy="' + half + '" r="' + r + '" fill="none" stroke="' + ringColor + '" stroke-width="' + ringSw + '"' + ringClass + '/>' +
                     '</svg>';
@@ -1574,9 +1575,11 @@
                 let ringColor = hasAlert ? (alertColor || "#d32f2f") : "#fff";
                 let ringSw = hasAlert ? Math.max(2.5, size * 0.14) : sw;
                 let ringClass = hasAlert ? ' class="marker-ring-blink"' : '';
+                // Inset vertices by half the max stroke width so stroke stays within SVG viewport
+                let inset = Math.ceil(ringSw / 2) + 1;
                 // Triangle points: downward — top-left, top-right, bottom-center
-                let pts = '1,1 ' + (size - 1) + ',1 ' + half + ',' + (size - 1);
-                let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
+                let pts = inset + ',' + inset + ' ' + (size - inset) + ',' + inset + ' ' + half + ',' + (size - inset);
+                let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" overflow="hidden">' +
                     '<polygon points="' + pts + '" fill="' + color + '" stroke="none"/>' +
                     '<polygon points="' + pts + '" fill="none" stroke="' + ringColor + '" stroke-width="' + ringSw + '"' + ringClass + '/>' +
                     '</svg>';
