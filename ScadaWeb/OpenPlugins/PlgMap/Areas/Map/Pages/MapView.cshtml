@@ -2021,6 +2021,9 @@
 
                 let problemEntries = [];
                 for (let entry of this.markerEntries) {
+                    let isTriangle = entry.def.type === 'triangle';
+                    if (this._markerFilter === 'circle' && isTriangle) continue;
+                    if (this._markerFilter === 'triangle' && !isTriangle) continue;
                     let dots = this._getStatusDots(entry.def);
                     let active = dots.filter(d => d.on);
                     if (active.length > 0) {
