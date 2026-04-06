@@ -99,8 +99,11 @@
         .map-popup-name-row {
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 6px;
+        }
+
+        .map-popup-name-row .map-popup-name {
+            flex: 1;
+            text-align: center;
         }
 
         .map-popup-name {
@@ -2140,7 +2143,7 @@
                 // Build URL through the API endpoint to serve from SCADA Views storage
                 let apiUrl = this._apiRoot() + 'GetPhoto?path=' + encodeURIComponent(photoUrl);
                 return '<button class="map-popup-photo-btn" onclick="event.stopPropagation();mapViewInstance._openPhoto(\'' +
-                    apiUrl.replace(/'/g, "\\'") + '\')" title="Photo">' +
+                    apiUrl.replace(/'/g, "\\'") + '\')">' +
                     '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
                     '<rect x="3" y="3" width="18" height="18" rx="2"/>' +
                     '<circle cx="8.5" cy="8.5" r="1.5"/>' +
