@@ -281,6 +281,55 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
             }
         }
 
+        /// <summary>
+        /// Serves a photo file from the SCADA Views storage.
+        /// Path is relative to the Views folder, e.g. "Photo/N.jpg".
+        /// </summary>
+        [HttpGet]
+        public IActionResult GetPhoto(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return BadRequest("Path is required.");
+
+            // Prevent directory traversal
+            if (path.Contains("..") || path.Contains("~"))
+                return BadRequest("Invalid path.");
+
+            try
+            {
+                BinaryReader reader = webContext.Storage.OpenBinary(DataCategory.View, path);
+                byte[] data;
+                using (var ms = new System.IO.MemoryStream())
+                {
+                    reader.BaseStream.CopyTo(ms);
+                    data = ms.ToArray();
+                }
+                reader.Dispose();
+
+                string ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
+                string contentType = ext switch
+                {
+                    ".jpg" or ".jpeg" => "image/jpeg",
+                    ".png" => "image/png",
+                    ".gif" => "image/gif",
+                    ".webp" => "image/webp",
+                    ".bmp" => "image/bmp",
+                    _ => "application/octet-stream"
+                };
+
+                return File(data, contentType);
+            }
+            catch (FileNotFoundException)
+            {
+                return NotFound("Photo not found: " + path);
+            }
+            catch (Exception ex)
+            {
+                webContext.Log.WriteError(ex, "Error loading photo: {0}", path);
+                return StatusCode(500, "Error loading photo.");
+            }
+        }
+
 
         /// <summary>
         /// Cache entry for a loaded MapView.
