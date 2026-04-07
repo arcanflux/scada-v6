@@ -1,0 +1,281 @@
+/* Thermal Camera Plugin Styles */
+/* Стили плагина тепловых камер */
+
+.tc-container {
+    padding: 10px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.tc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
+    border-radius: 6px;
+    color: #fff;
+}
+
+.tc-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.tc-title i {
+    margin-right: 6px;
+}
+
+.tc-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tc-server-time {
+    font-size: 0.85rem;
+    color: #cbd5e0;
+}
+
+.tc-toolbar .btn {
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.tc-toolbar .btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* Table wrapper */
+.tc-table-wrapper {
+    flex: 1;
+    overflow: auto;
+}
+
+/* Table */
+.tc-table {
+    font-size: 0.85rem;
+    margin-bottom: 0;
+    table-layout: fixed;
+}
+
+.tc-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    font-size: 0.8rem;
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+    padding: 6px 8px;
+}
+
+.tc-table thead th i {
+    margin-right: 4px;
+}
+
+.tc-table tbody td {
+    vertical-align: middle;
+    padding: 4px 6px;
+}
+
+/* Column widths */
+.tc-col-district { width: 70px; }
+.tc-col-name { width: 140px; }
+.tc-col-address { width: 200px; }
+.tc-col-online { width: 90px; }
+.tc-col-flooding { width: auto; min-width: 250px; }
+.tc-col-comment { width: 180px; }
+.tc-col-status { width: 80px; }
+
+/* Triangle marker icon */
+.tc-marker-icon {
+    color: #e53e3e;
+    font-size: 0.9rem;
+    margin-right: 2px;
+}
+
+/* Address and photo */
+.tc-address-text {
+    font-size: 0.8rem;
+}
+
+.tc-photo-btn {
+    padding: 1px 5px;
+    font-size: 0.7rem;
+    margin-left: 4px;
+    vertical-align: baseline;
+}
+
+.tc-photo-img {
+    max-height: 70vh;
+}
+
+/* Online indicator */
+.tc-online-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.tc-online-text {
+    font-size: 0.7rem;
+}
+
+.tc-status-online {
+    background-color: #c6f6d5;
+    color: #22543d;
+}
+
+.tc-status-online i {
+    color: #38a169;
+}
+
+.tc-status-offline {
+    background-color: #fed7d7;
+    color: #9b2c2c;
+}
+
+.tc-status-offline i {
+    color: #e53e3e;
+}
+
+.tc-status-unknown {
+    background-color: #e2e8f0;
+    color: #718096;
+}
+
+.tc-status-unknown i {
+    color: #a0aec0;
+}
+
+/* Flooding signals container */
+.tc-flooding-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+/* Individual flooding signal */
+.tc-flooding-signal {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    min-width: 52px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.tc-signal-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-align: center;
+    padding: 1px 4px;
+    background: #edf2f7;
+    width: 100%;
+    color: #4a5568;
+    white-space: nowrap;
+}
+
+.tc-signal-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2px 6px;
+    width: 100%;
+}
+
+.tc-signal-status {
+    font-size: 0.7rem;
+    margin-bottom: 1px;
+}
+
+.tc-signal-temp {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #2d3748;
+    white-space: nowrap;
+}
+
+/* Flooding states */
+.tc-flood-normal {
+    border-color: #48bb78;
+    background-color: #f0fff4;
+}
+
+.tc-flood-normal .tc-signal-status {
+    color: #38a169;
+}
+
+.tc-flood-normal .tc-signal-label {
+    background: #c6f6d5;
+    color: #22543d;
+}
+
+.tc-flood-alarm {
+    border-color: #e53e3e;
+    background-color: #fff5f5;
+    animation: tc-pulse 1.5s infinite;
+}
+
+.tc-flood-alarm .tc-signal-status {
+    color: #e53e3e;
+}
+
+.tc-flood-alarm .tc-signal-label {
+    background: #fed7d7;
+    color: #9b2c2c;
+}
+
+.tc-flood-unknown {
+    border-color: #e2e8f0;
+    background-color: #f7fafc;
+}
+
+.tc-flood-unknown .tc-signal-status {
+    color: #a0aec0;
+}
+
+@keyframes tc-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.4); }
+    50% { box-shadow: 0 0 0 4px rgba(229, 62, 62, 0); }
+}
+
+/* Comment input */
+.tc-comment-input {
+    font-size: 0.75rem;
+    resize: vertical;
+    min-height: 28px;
+    padding: 2px 6px;
+}
+
+/* Commissioned checkbox */
+.tc-commissioned-cb {
+    width: 1.2em;
+    height: 1.2em;
+    cursor: pointer;
+}
+
+/* Row hover */
+.tc-table tbody tr:hover {
+    background-color: #ebf8ff;
+}
+
+/* Striped rows */
+.tc-table tbody tr:nth-child(even) {
+    background-color: #f7fafc;
+}
+
+.tc-table tbody tr:nth-child(even):hover {
+    background-color: #ebf8ff;
+}

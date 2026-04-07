@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<PlgThermalCameraDictionaries>
+  <Dictionary key="Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages.ThermalCameraTable">
+    <Phrase key="PageTitle">Thermal Cameras {0}</Phrase>
+    <Phrase key="ErrorLoadingView">Error loading view</Phrase>
+  </Dictionary>
+</PlgThermalCameraDictionaries>
