@@ -13,7 +13,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
 
         public override string FileExtension => "map";
 
-        public override string IconUrl => "~/plugins/ThermalCamera/images/thermal-icon.png";
+        public override string IconUrl => "";
 
         public override Type ViewType => typeof(ThermalCameraTableView);
 
