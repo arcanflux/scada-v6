@@ -27,19 +27,8 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
             this.thermalCameraContext = thermalCameraContext;
         }
 
-        /// <summary>
-        /// Gets the JSON-serialized thermal camera items for client-side rendering.
-        /// </summary>
         public string ItemsJson { get; private set; } = "[]";
-
-        /// <summary>
-        /// Gets the JSON-serialized user data (comments, commissioned status).
-        /// </summary>
         public string UserDataJson { get; private set; } = "{}";
-
-        /// <summary>
-        /// Gets the error message, if any.
-        /// </summary>
         public string ErrorMessage { get; private set; } = "";
 
         public void OnGet(int? id)
@@ -50,8 +39,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
             {
                 ViewData["Title"] = view.Title;
 
-                // Sort items by district number
-                List<ThermalCameraItem> sortedItems = view.Config.Items
+                List<ThermalCameraItem> sortedItems = view.Items
                     .OrderBy(i => i.DistrictNumber)
                     .ThenBy(i => i.Name)
                     .ToList();
@@ -61,7 +49,6 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                 });
 
-                // Load user data
                 ThermalCameraUserData userData = thermalCameraContext.LoadUserData();
                 UserDataJson = JsonSerializer.Serialize(userData.Entries, new JsonSerializerOptions
                 {

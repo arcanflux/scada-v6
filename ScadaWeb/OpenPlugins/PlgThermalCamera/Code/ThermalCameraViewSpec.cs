@@ -9,29 +9,14 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
     /// </summary>
     public class ThermalCameraViewSpec : ViewSpec
     {
-        /// <summary>
-        /// Gets the view type code.
-        /// </summary>
         public override string TypeCode => nameof(ThermalCameraTableView);
 
-        /// <summary>
-        /// Gets the extension of view files.
-        /// </summary>
-        public override string FileExtension => "xml";
+        public override string FileExtension => "map";
 
-        /// <summary>
-        /// Gets the view icon URL.
-        /// </summary>
         public override string IconUrl => "~/plugins/ThermalCamera/images/thermal-icon.png";
 
-        /// <summary>
-        /// Gets the view type.
-        /// </summary>
         public override Type ViewType => typeof(ThermalCameraTableView);
 
-        /// <summary>
-        /// Gets the view frame URL.
-        /// </summary>
         public override string GetFrameUrl(int viewID) => "~/ThermalCamera/ThermalCameraTable/" + viewID;
     }
 }

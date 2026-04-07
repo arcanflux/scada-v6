@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Пример файла .map для плагина тепловых камер.
+  Плагин PlgThermalCamera извлекает из этого файла все элементы Location с Type=Triangle.
+
+  Добавленный элемент <District> определяет номер района для сортировки в таблице.
+
+  DataItem определяются по тексту:
+    "Т 200мм"          - температура трубы 200мм
+    "Т 700мм"          - температура трубы 700мм
+    "Затопление 200мм" - статус затопления 200мм (0=норма, 1=затоплено)
+    "Затопление 700мм" - статус затопления 700мм (0=норма, 1=затоплено)
+    "Батарея %"         - процент заряда батареи
+    "Онлайн"            - статус связи
+-->
+<MapView>
+  <InitialView>
+    <Lat>55.030</Lat>
+    <Lon>82.920</Lon>
+    <Zoom>12</Zoom>
+  </InitialView>
+
+  <LayerGroup>
+    <Options>
+      <Name>Тепловые камеры</Name>
+      <DefaultIcon>Site</DefaultIcon>
+      <Visible>true</Visible>
+      <ShowTooltips>true</ShowTooltips>
+    </Options>
+
+    <Location>
+      <Lat>55.069000</Lat>
+      <Lon>82.850000</Lon>
+      <LatCnlNum>500107</LatCnlNum>
+      <LonCnlNum>500108</LonCnlNum>
+      <Name>TK-1152a</Name>
+      <Descr>ул. Ленина, 15</Descr>
+      <Type>Triangle</Type>
+      <District>1</District>
+      <PhotoUrl>/images/tk/tk-1152a.jpg</PhotoUrl>
+      <StatusCnlNum>0</StatusCnlNum>
+      <Data>
+        <DataItem cnlNum="500101">Т 200мм</DataItem>
+        <DataItem cnlNum="500102">Т 700мм</DataItem>
+        <DataItem cnlNum="500103">Затопление 200мм</DataItem>
+        <DataItem cnlNum="500104">Затопление 700мм</DataItem>
+        <DataItem cnlNum="500105">Батарея %</DataItem>
+        <DataItem cnlNum="500106">Онлайн</DataItem>
+      </Data>
+    </Location>
+
+    <Location>
+      <Lat>55.041000</Lat>
+      <Lon>82.934000</Lon>
+      <LatCnlNum>500207</LatCnlNum>
+      <LonCnlNum>500208</LonCnlNum>
+      <Name>TK-0845b</Name>
+      <Descr>ул. Мира, 42</Descr>
+      <Type>Triangle</Type>
+      <District>1</District>
+      <PhotoUrl>/images/tk/tk-0845b.jpg</PhotoUrl>
+      <StatusCnlNum>0</StatusCnlNum>
+      <Data>
+        <DataItem cnlNum="500201">Т 200мм</DataItem>
+        <DataItem cnlNum="500202">Т 700мм</DataItem>
+        <DataItem cnlNum="500203">Затопление 200мм</DataItem>
+        <DataItem cnlNum="500204">Затопление 700мм</DataItem>
+        <DataItem cnlNum="500205">Батарея %</DataItem>
+        <DataItem cnlNum="500206">Онлайн</DataItem>
+      </Data>
+    </Location>
+
+    <Location>
+      <Lat>55.012000</Lat>
+      <Lon>82.880000</Lon>
+      <LatCnlNum>500307</LatCnlNum>
+      <LonCnlNum>500308</LonCnlNum>
+      <Name>TK-2001c</Name>
+      <Descr>пр. Победы, 8</Descr>
+      <Type>Triangle</Type>
+      <District>2</District>
+      <PhotoUrl>/images/tk/tk-2001c.jpg</PhotoUrl>
+      <StatusCnlNum>0</StatusCnlNum>
+      <Data>
+        <DataItem cnlNum="500301">Т 200мм</DataItem>
+        <DataItem cnlNum="500302">Т 700мм</DataItem>
+        <DataItem cnlNum="500303">Затопление 200мм</DataItem>
+        <DataItem cnlNum="500304">Затопление 700мм</DataItem>
+        <DataItem cnlNum="500305">Батарея %</DataItem>
+        <DataItem cnlNum="500306">Онлайн</DataItem>
+      </Data>
+    </Location>
+
+    <!-- Non-triangle locations are ignored by PlgThermalCamera -->
+    <Location>
+      <Lat>55.050000</Lat>
+      <Lon>82.900000</Lon>
+      <Name>Подстанция №5</Name>
+      <Descr>Энергоподстанция</Descr>
+      <Type>Circle</Type>
+      <StatusCnlNum>600001</StatusCnlNum>
+      <Data>
+        <DataItem cnlNum="600002">Напряжение</DataItem>
+      </Data>
+    </Location>
+
+  </LayerGroup>
+</MapView>

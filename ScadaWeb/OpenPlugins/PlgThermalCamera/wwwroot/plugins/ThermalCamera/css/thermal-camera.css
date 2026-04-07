@@ -88,7 +88,7 @@
 .tc-col-name { width: 140px; }
 .tc-col-address { width: 200px; }
 .tc-col-online { width: 90px; }
-.tc-col-flooding { width: auto; min-width: 250px; }
+.tc-col-flooding { width: auto; min-width: 200px; }
 .tc-col-comment { width: 180px; }
 .tc-col-status { width: 80px; }
 
@@ -171,9 +171,8 @@
     align-items: center;
     border: 1px solid #e2e8f0;
     border-radius: 4px;
-    min-width: 52px;
+    min-width: 60px;
     overflow: hidden;
-    transition: all 0.3s ease;
 }
 
 .tc-signal-label {
@@ -207,7 +206,7 @@
     white-space: nowrap;
 }
 
-/* Flooding states */
+/* Normal state (no flooding) - green */
 .tc-flood-normal {
     border-color: #48bb78;
     background-color: #f0fff4;
@@ -222,10 +221,29 @@
     color: #22543d;
 }
 
+/* 200mm flooding - yellow */
+.tc-flood-warning {
+    border-color: #d69e2e;
+    background-color: #fefcbf;
+}
+
+.tc-flood-warning .tc-signal-status {
+    color: #d69e2e;
+}
+
+.tc-flood-warning .tc-signal-label {
+    background: #fefcbf;
+    color: #744210;
+}
+
+.tc-flood-warning .tc-signal-temp {
+    color: #744210;
+}
+
+/* 700mm flooding - red */
 .tc-flood-alarm {
     border-color: #e53e3e;
     background-color: #fff5f5;
-    animation: tc-pulse 1.5s infinite;
 }
 
 .tc-flood-alarm .tc-signal-status {
@@ -237,6 +255,11 @@
     color: #9b2c2c;
 }
 
+.tc-flood-alarm .tc-signal-temp {
+    color: #9b2c2c;
+}
+
+/* Unknown state */
 .tc-flood-unknown {
     border-color: #e2e8f0;
     background-color: #f7fafc;
@@ -244,11 +267,6 @@
 
 .tc-flood-unknown .tc-signal-status {
     color: #a0aec0;
-}
-
-@keyframes tc-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.4); }
-    50% { box-shadow: 0 0 0 4px rgba(229, 62, 62, 0); }
 }
 
 /* Comment input */

@@ -6,101 +6,22 @@ using System.Xml;
 namespace Scada.Web.Plugins.PlgThermalCamera.Models
 {
     /// <summary>
-    /// Represents the thermal camera plugin configuration.
-    /// <para>Представляет конфигурацию плагина тепловых камер.</para>
-    /// </summary>
-    public class ThermalCameraConfig
-    {
-        /// <summary>
-        /// Gets the list of thermal camera objects.
-        /// </summary>
-        public List<ThermalCameraItem> Items { get; set; } = new();
-
-        /// <summary>
-        /// Loads the configuration from the specified file.
-        /// </summary>
-        public bool Load(string fileName, out string errMsg)
-        {
-            try
-            {
-                if (!File.Exists(fileName))
-                {
-                    Items = new List<ThermalCameraItem>();
-                    errMsg = "";
-                    return true;
-                }
-
-                XmlDocument xmlDoc = new();
-                xmlDoc.Load(fileName);
-                Items.Clear();
-
-                if (xmlDoc.DocumentElement?.SelectNodes("ThermalCamera") is XmlNodeList nodes)
-                {
-                    foreach (XmlNode node in nodes)
-                    {
-                        ThermalCameraItem item = new();
-                        item.LoadFromXml(node);
-                        Items.Add(item);
-                    }
-                }
-
-                errMsg = "";
-                return true;
-            }
-            catch (Exception ex)
-            {
-                errMsg = ex.Message;
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Saves the configuration to the specified file.
-        /// </summary>
-        public bool Save(string fileName, out string errMsg)
-        {
-            try
-            {
-                XmlDocument xmlDoc = new();
-                XmlDeclaration xmlDecl = xmlDoc.CreateXmlDeclaration("1.0", "utf-8", null);
-                xmlDoc.AppendChild(xmlDecl);
-
-                XmlElement rootElem = xmlDoc.CreateElement("ThermalCameraConfig");
-                xmlDoc.AppendChild(rootElem);
-
-                foreach (ThermalCameraItem item in Items)
-                {
-                    XmlElement itemElem = xmlDoc.CreateElement("ThermalCamera");
-                    item.SaveToXml(itemElem);
-                    rootElem.AppendChild(itemElem);
-                }
-
-                string dir = Path.GetDirectoryName(fileName);
-                if (!string.IsNullOrEmpty(dir))
-                    Directory.CreateDirectory(dir);
-
-                xmlDoc.Save(fileName);
-                errMsg = "";
-                return true;
-            }
-            catch (Exception ex)
-            {
-                errMsg = ex.Message;
-                return false;
-            }
-        }
-    }
-
-    /// <summary>
-    /// Represents a thermal camera item (ТК object).
-    /// <para>Представляет объект тепловой камеры.</para>
+    /// Represents a parsed thermal camera item extracted from a .map file Location element.
+    /// <para>Представляет объект ТК, извлечённый из элемента Location файла .map.</para>
     /// </summary>
     public class ThermalCameraItem
     {
+        private static int idCounter = 0;
+
+        public ThermalCameraItem()
+        {
+            Id = Interlocked.Increment(ref idCounter);
+        }
+
         /// <summary>
-        /// Gets or sets the unique identifier.
+        /// Gets the auto-generated unique identifier.
         /// </summary>
-        public int Id { get; set; }
+        public int Id { get; }
 
         /// <summary>
         /// Gets or sets the district number for sorting.
@@ -113,9 +34,9 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
         public string Name { get; set; } = "";
 
         /// <summary>
-        /// Gets or sets the real address.
+        /// Gets or sets the description (used as address).
         /// </summary>
-        public string Address { get; set; } = "";
+        public string Descr { get; set; } = "";
 
         /// <summary>
         /// Gets or sets the photo URL.
@@ -128,111 +49,113 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
         public int OnlineCnlNum { get; set; }
 
         /// <summary>
-        /// Gets or sets the channel numbers for flooding status signals.
-        /// Each channel represents a separate flooding zone/pipe signal.
+        /// Gets or sets the channel number for battery percentage.
         /// </summary>
-        public List<FloodingSignal> FloodingSignals { get; set; } = new();
+        public int BatteryCnlNum { get; set; }
 
         /// <summary>
-        /// Gets or sets the comment for the object (saved in plugin).
+        /// Gets or sets the temperature channel for 200mm pipe.
         /// </summary>
-        public string Comment { get; set; } = "";
+        public int Temp200CnlNum { get; set; }
 
         /// <summary>
-        /// Gets or sets whether the thermal camera is commissioned.
+        /// Gets or sets the temperature channel for 700mm pipe.
         /// </summary>
-        public bool IsCommissioned { get; set; }
+        public int Temp700CnlNum { get; set; }
 
         /// <summary>
-        /// Loads the item from an XML node.
+        /// Gets or sets the flooding status channel for 200mm pipe.
         /// </summary>
-        public void LoadFromXml(XmlNode node)
-        {
-            Id = GetAttrInt(node, "id");
-            DistrictNumber = GetAttrInt(node, "districtNumber");
-            Name = GetAttrStr(node, "name");
-            Address = GetAttrStr(node, "address");
-            PhotoUrl = GetAttrStr(node, "photoUrl");
-            OnlineCnlNum = GetAttrInt(node, "onlineCnlNum");
-            Comment = GetAttrStr(node, "comment");
-            IsCommissioned = GetAttrBool(node, "isCommissioned");
-
-            FloodingSignals.Clear();
-            if (node.SelectNodes("FloodingSignal") is XmlNodeList signalNodes)
-            {
-                foreach (XmlNode signalNode in signalNodes)
-                {
-                    FloodingSignals.Add(new FloodingSignal
-                    {
-                        Label = GetAttrStr(signalNode, "label"),
-                        StatusCnlNum = GetAttrInt(signalNode, "statusCnlNum"),
-                        TemperatureCnlNum = GetAttrInt(signalNode, "temperatureCnlNum")
-                    });
-                }
-            }
-        }
+        public int Flood200CnlNum { get; set; }
 
         /// <summary>
-        /// Saves the item to an XML element.
+        /// Gets or sets the flooding status channel for 700mm pipe.
         /// </summary>
-        public void SaveToXml(XmlElement elem)
-        {
-            elem.SetAttribute("id", Id.ToString());
-            elem.SetAttribute("districtNumber", DistrictNumber.ToString());
-            elem.SetAttribute("name", Name);
-            elem.SetAttribute("address", Address);
-            elem.SetAttribute("photoUrl", PhotoUrl);
-            elem.SetAttribute("onlineCnlNum", OnlineCnlNum.ToString());
-            elem.SetAttribute("comment", Comment);
-            elem.SetAttribute("isCommissioned", IsCommissioned.ToString().ToLowerInvariant());
-
-            foreach (FloodingSignal signal in FloodingSignals)
-            {
-                XmlElement signalElem = elem.OwnerDocument.CreateElement("FloodingSignal");
-                signalElem.SetAttribute("label", signal.Label);
-                signalElem.SetAttribute("statusCnlNum", signal.StatusCnlNum.ToString());
-                signalElem.SetAttribute("temperatureCnlNum", signal.TemperatureCnlNum.ToString());
-                elem.AppendChild(signalElem);
-            }
-        }
-
-        private static string GetAttrStr(XmlNode node, string name)
-        {
-            return node.Attributes?[name]?.Value ?? "";
-        }
-
-        private static int GetAttrInt(XmlNode node, string name)
-        {
-            string val = GetAttrStr(node, name);
-            return int.TryParse(val, out int result) ? result : 0;
-        }
-
-        private static bool GetAttrBool(XmlNode node, string name)
-        {
-            string val = GetAttrStr(node, name);
-            return bool.TryParse(val, out bool result) && result;
-        }
-    }
-
-    /// <summary>
-    /// Represents a flooding status signal with temperature.
-    /// <para>Представляет сигнал состояния затопления с температурой.</para>
-    /// </summary>
-    public class FloodingSignal
-    {
-        /// <summary>
-        /// Gets or sets the signal label (e.g., "Т1", "Т2", "ОТ1", "ОТ2").
-        /// </summary>
-        public string Label { get; set; } = "";
+        public int Flood700CnlNum { get; set; }
 
         /// <summary>
-        /// Gets or sets the channel number for flooding status (0/1).
+        /// Gets or sets the status channel number.
         /// </summary>
         public int StatusCnlNum { get; set; }
 
         /// <summary>
-        /// Gets or sets the channel number for temperature value.
+        /// Parses a Location XML node from a .map file.
+        /// Only processes nodes with Type=Triangle.
         /// </summary>
-        public int TemperatureCnlNum { get; set; }
+        public static ThermalCameraItem ParseFromMapLocation(XmlNode locationNode)
+        {
+            string type = GetChildText(locationNode, "Type");
+            if (!string.Equals(type, "Triangle", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            ThermalCameraItem item = new()
+            {
+                Name = GetChildText(locationNode, "Name"),
+                Descr = GetChildText(locationNode, "Descr"),
+                PhotoUrl = GetChildText(locationNode, "PhotoUrl"),
+                StatusCnlNum = GetChildInt(locationNode, "StatusCnlNum"),
+                DistrictNumber = GetChildInt(locationNode, "District")
+            };
+
+            // Parse DataItem elements to identify channels by label
+            XmlNode dataNode = locationNode.SelectSingleNode("Data");
+            if (dataNode != null)
+            {
+                foreach (XmlNode dataItem in dataNode.SelectNodes("DataItem"))
+                {
+                    int cnlNum = 0;
+                    if (dataItem.Attributes?["cnlNum"] != null)
+                        int.TryParse(dataItem.Attributes["cnlNum"].Value, out cnlNum);
+
+                    if (cnlNum <= 0)
+                        continue;
+
+                    string label = dataItem.InnerText?.Trim() ?? "";
+                    string labelLower = label.ToLowerInvariant();
+
+                    if (labelLower.Contains("затопление") && labelLower.Contains("200"))
+                        item.Flood200CnlNum = cnlNum;
+                    else if (labelLower.Contains("затопление") && labelLower.Contains("700"))
+                        item.Flood700CnlNum = cnlNum;
+                    else if ((labelLower.StartsWith("т ") || labelLower.StartsWith("т\u00a0")) && labelLower.Contains("200"))
+                        item.Temp200CnlNum = cnlNum;
+                    else if ((labelLower.StartsWith("т ") || labelLower.StartsWith("т\u00a0")) && labelLower.Contains("700"))
+                        item.Temp700CnlNum = cnlNum;
+                    else if (labelLower.Contains("онлайн") || labelLower.Contains("online"))
+                        item.OnlineCnlNum = cnlNum;
+                    else if (labelLower.Contains("батарея") || labelLower.Contains("battery"))
+                        item.BatteryCnlNum = cnlNum;
+                }
+            }
+
+            return item;
+        }
+
+        /// <summary>
+        /// Collects all channel numbers used by this item.
+        /// </summary>
+        public List<int> GetAllCnlNums()
+        {
+            List<int> cnlNums = new();
+            if (OnlineCnlNum > 0) cnlNums.Add(OnlineCnlNum);
+            if (BatteryCnlNum > 0) cnlNums.Add(BatteryCnlNum);
+            if (Temp200CnlNum > 0) cnlNums.Add(Temp200CnlNum);
+            if (Temp700CnlNum > 0) cnlNums.Add(Temp700CnlNum);
+            if (Flood200CnlNum > 0) cnlNums.Add(Flood200CnlNum);
+            if (Flood700CnlNum > 0) cnlNums.Add(Flood700CnlNum);
+            if (StatusCnlNum > 0) cnlNums.Add(StatusCnlNum);
+            return cnlNums;
+        }
+
+        private static string GetChildText(XmlNode parent, string childName)
+        {
+            return parent.SelectSingleNode(childName)?.InnerText?.Trim() ?? "";
+        }
+
+        private static int GetChildInt(XmlNode parent, string childName)
+        {
+            string text = GetChildText(parent, childName);
+            return int.TryParse(text, out int result) ? result : 0;
+        }
     }
 }

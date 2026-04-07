@@ -30,6 +30,4 @@
     </Reference>
   </ItemGroup>
 
-  <Import Project="..\PlgThermalCamera.Shared\PlgThermalCamera.Shared.projitems" Label="Shared" />
-
 </Project>

@@ -9,8 +9,8 @@ using System.Xml;
 namespace Scada.Web.Plugins.PlgThermalCamera.Code
 {
     /// <summary>
-    /// Represents a thermal camera table view.
-    /// <para>Представляет представление таблицы тепловых камер.</para>
+    /// Represents a thermal camera table view that reads data from a .map file.
+    /// <para>Представляет таблицу тепловых камер, данные берутся из файла .map.</para>
     /// </summary>
     public class ThermalCameraTableView : ViewBase
     {
@@ -20,41 +20,40 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         public ThermalCameraTableView(View viewEntity)
             : base(viewEntity)
         {
-            Config = new ThermalCameraConfig();
+            Items = new List<ThermalCameraItem>();
         }
 
         /// <summary>
-        /// Gets the thermal camera configuration.
+        /// Gets the parsed thermal camera items (Triangle locations from .map).
         /// </summary>
-        public ThermalCameraConfig Config { get; }
+        public List<ThermalCameraItem> Items { get; }
 
         /// <summary>
-        /// Loads the view from the specified stream.
+        /// Loads the view from a .map XML stream.
+        /// Extracts Location elements with Type=Triangle.
         /// </summary>
         public override void LoadView(Stream stream)
         {
             XmlDocument xmlDoc = new();
             xmlDoc.Load(stream);
-            Config.Items.Clear();
+            Items.Clear();
 
-            if (xmlDoc.DocumentElement?.SelectNodes("ThermalCamera") is XmlNodeList nodes)
+            // Select all Location nodes from any LayerGroup
+            XmlNodeList locationNodes = xmlDoc.SelectNodes("//Location");
+            if (locationNodes == null)
+                return;
+
+            foreach (XmlNode locationNode in locationNodes)
             {
-                foreach (XmlNode node in nodes)
+                ThermalCameraItem item = ThermalCameraItem.ParseFromMapLocation(locationNode);
+                if (item != null)
                 {
-                    ThermalCameraItem item = new();
-                    item.LoadFromXml(node);
-                    Config.Items.Add(item);
+                    Items.Add(item);
 
-                    // Register channel numbers for real-time data
-                    if (item.OnlineCnlNum > 0)
-                        AddCnlNum(item.OnlineCnlNum);
-
-                    foreach (FloodingSignal signal in item.FloodingSignals)
+                    // Register channel numbers for real-time data updates
+                    foreach (int cnlNum in item.GetAllCnlNums())
                     {
-                        if (signal.StatusCnlNum > 0)
-                            AddCnlNum(signal.StatusCnlNum);
-                        if (signal.TemperatureCnlNum > 0)
-                            AddCnlNum(signal.TemperatureCnlNum);
+                        AddCnlNum(cnlNum);
                     }
                 }
             }

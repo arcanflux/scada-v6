@@ -55,8 +55,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PlgThermalCamera", "PlgTher
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PlgThermalCamera.View", "PlgThermalCamera.View\PlgThermalCamera.View.csproj", "{D1E2F3A4-B5C6-7890-ABCD-EF1234567893}"
 EndProject
-Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "PlgThermalCamera.Shared", "PlgThermalCamera.Shared\PlgThermalCamera.Shared.shproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -160,7 +158,6 @@ Global
 		{2418118A-C3C1-4BA0-A4D2-B3C9F76C4006} = {1C746D2E-749E-408B-A180-63AD78EFFAFC}
 		{C1D2E3F4-A5B6-7890-ABCD-EF1234567892} = {B1C2D3E4-F5A6-7890-ABCD-EF1234567891}
 		{D1E2F3A4-B5C6-7890-ABCD-EF1234567893} = {B1C2D3E4-F5A6-7890-ABCD-EF1234567891}
-		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890} = {B1C2D3E4-F5A6-7890-ABCD-EF1234567891}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {19C6959B-66D1-4335-AA8A-0E2F23894099}
@@ -172,8 +169,5 @@ Global
 		PlgWebPage.Shared\PlgWebPage.Shared.projitems*{c85cd47d-4492-4229-8d28-8579b063365a}*SharedItemsImports = 5
 		PlgSchBasicComp.Shared\PlgSchBasicComp.Shared.projitems*{decef963-2048-4c8d-adf1-5f8c90d9b4a8}*SharedItemsImports = 5
 		PlgSchBasicComp.Shared\PlgSchBasicComp.Shared.projitems*{fd3deb6d-c6d7-4654-bb5c-b8bc0c97b4ac}*SharedItemsImports = 5
-		PlgThermalCamera.Shared\PlgThermalCamera.Shared.projitems*{a1b2c3d4-e5f6-7890-abcd-ef1234567890}*SharedItemsImports = 13
-		PlgThermalCamera.Shared\PlgThermalCamera.Shared.projitems*{c1d2e3f4-a5b6-7890-abcd-ef1234567892}*SharedItemsImports = 5
-		PlgThermalCamera.Shared\PlgThermalCamera.Shared.projitems*{d1e2f3a4-b5c6-7890-abcd-ef1234567893}*SharedItemsImports = 5
 	EndGlobalSection
 EndGlobal
