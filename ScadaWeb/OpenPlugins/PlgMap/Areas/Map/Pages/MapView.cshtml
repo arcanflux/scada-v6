@@ -1776,7 +1776,7 @@
                         title: m.name
                     }).addTo(this.map);
 
-                    let popupOpts = { maxWidth: 350, minWidth: 160, closeButton: false };
+                    let popupOpts = { maxWidth: 350, minWidth: 160, closeButton: false, autoPan: false };
                     let popupHtml = isTriangle
                         ? this._buildTrianglePopupHtml(m)
                         : this._buildPopupHtml(m);
