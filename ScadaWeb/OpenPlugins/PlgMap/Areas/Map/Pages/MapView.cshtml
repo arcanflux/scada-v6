@@ -1552,11 +1552,10 @@
                 let sw = Math.max(1.5, size * 0.08);
                 let half = size / 2;
                 let ringColor = hasAlert ? "#d32f2f" : "#fff";
-                let ringSw = hasAlert ? Math.max(2.5, size * 0.14) : sw;
                 let ringClass = hasAlert ? ' class="marker-ring-blink"' : '';
                 let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" overflow="hidden">' +
                     '<circle cx="' + half + '" cy="' + half + '" r="' + r + '" fill="' + color + '" stroke="none"/>' +
-                    '<circle cx="' + half + '" cy="' + half + '" r="' + r + '" fill="none" stroke="' + ringColor + '" stroke-width="' + ringSw + '"' + ringClass + '/>' +
+                    '<circle cx="' + half + '" cy="' + half + '" r="' + r + '" fill="none" stroke="' + ringColor + '" stroke-width="' + sw + '"' + ringClass + '/>' +
                     '</svg>';
                 return L.divIcon({
                     html: svg,
@@ -1573,15 +1572,14 @@
                 let half = size / 2;
                 let sw = Math.max(1.5, size * 0.08);
                 let ringColor = hasAlert ? (alertColor || "#d32f2f") : "#fff";
-                let ringSw = hasAlert ? Math.max(2.5, size * 0.14) : sw;
                 let ringClass = hasAlert ? ' class="marker-ring-blink"' : '';
-                // Inset vertices by half the max stroke width so stroke stays within SVG viewport
-                let inset = Math.ceil(ringSw / 2) + 1;
+                // Inset vertices by half the stroke width so stroke stays within SVG viewport
+                let inset = Math.ceil(sw / 2) + 1;
                 // Triangle points: downward — top-left, top-right, bottom-center
                 let pts = inset + ',' + inset + ' ' + (size - inset) + ',' + inset + ' ' + half + ',' + (size - inset);
                 let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" overflow="hidden">' +
                     '<polygon points="' + pts + '" fill="' + color + '" stroke="none"/>' +
-                    '<polygon points="' + pts + '" fill="none" stroke="' + ringColor + '" stroke-width="' + ringSw + '"' + ringClass + '/>' +
+                    '<polygon points="' + pts + '" fill="none" stroke="' + ringColor + '" stroke-width="' + sw + '" stroke-linejoin="round"' + ringClass + '/>' +
                     '</svg>';
                 return L.divIcon({
                     html: svg,
