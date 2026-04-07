@@ -9,23 +9,15 @@ using System.Text.Json;
 
 namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
 {
-    /// <summary>
-    /// Represents the thermal camera table page model.
-    /// <para>Представляет модель страницы таблицы тепловых камер.</para>
-    /// </summary>
-    public class ThermalCameraTableModel : PageModel
+    public class ThermalCameraTableModel(
+        IUserContext userContext,
+        IViewLoader viewLoader,
+        ThermalCameraContext thermalCameraContext) : PageModel
     {
-        private readonly IUserContext userContext;
-        private readonly IViewLoader viewLoader;
-        private readonly ThermalCameraContext thermalCameraContext;
-
-        public ThermalCameraTableModel(IUserContext userContext, IViewLoader viewLoader,
-            ThermalCameraContext thermalCameraContext)
+        private static readonly JsonSerializerOptions JsonOpts = new()
         {
-            this.userContext = userContext;
-            this.viewLoader = viewLoader;
-            this.thermalCameraContext = thermalCameraContext;
-        }
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
 
         public string ItemsJson { get; private set; } = "[]";
         public string UserDataJson { get; private set; } = "{}";
@@ -39,21 +31,15 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
             {
                 ViewData["Title"] = view.Title;
 
-                List<ThermalCameraItem> sortedItems = view.Items
+                var sortedItems = view.Items
                     .OrderBy(i => i.DistrictNumber)
                     .ThenBy(i => i.Name)
                     .ToList();
 
-                ItemsJson = JsonSerializer.Serialize(sortedItems, new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                });
+                ItemsJson = JsonSerializer.Serialize(sortedItems, JsonOpts);
 
                 ThermalCameraUserData userData = thermalCameraContext.LoadUserData();
-                UserDataJson = JsonSerializer.Serialize(userData.Entries, new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                });
+                UserDataJson = JsonSerializer.Serialize(userData.Entries, JsonOpts);
             }
             else
             {

@@ -11,40 +11,20 @@ using Scada.Web.Services;
 
 namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
 {
-    /// <summary>
-    /// Represents the thermal camera plugin web API.
-    /// <para>Представляет веб-API плагина тепловых камер.</para>
-    /// </summary>
     [ApiController]
     [Route("Api/ThermalCamera/[action]")]
-    public class ThermalCameraApiController : ControllerBase
+    public class ThermalCameraApiController(
+        IWebContext webContext,
+        IClientAccessor clientAccessor,
+        IUserContext userContext,
+        ThermalCameraContext thermalCameraContext) : ControllerBase
     {
-        private readonly IWebContext webContext;
-        private readonly IClientAccessor clientAccessor;
-        private readonly IUserContext userContext;
-        private readonly ThermalCameraContext thermalCameraContext;
-
-        /// <summary>
-        /// Initializes a new instance of the class.
-        /// </summary>
-        public ThermalCameraApiController(IWebContext webContext, IClientAccessor clientAccessor,
-            IUserContext userContext, ThermalCameraContext thermalCameraContext)
-        {
-            this.webContext = webContext;
-            this.clientAccessor = clientAccessor;
-            this.userContext = userContext;
-            this.thermalCameraContext = thermalCameraContext;
-        }
-
-        /// <summary>
-        /// Gets the current data for the specified channel numbers.
-        /// </summary>
         public Dto<CurDataResult> GetCurData(string cnlNums)
         {
             try
             {
                 int[] cnlNumArr = string.IsNullOrEmpty(cnlNums)
-                    ? Array.Empty<int>()
+                    ? []
                     : cnlNums.Split(',', StringSplitOptions.RemoveEmptyEntries)
                              .Select(s => int.TryParse(s.Trim(), out int n) ? n : 0)
                              .Where(n => n > 0)
@@ -56,7 +36,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
                 CnlData[] cnlDataArr = clientAccessor.ScadaClient.GetCurrentData(cnlNumArr, false, out _);
                 CnlDataFormatter formatter = new(webContext.ConfigDatabase, userContext.TimeZone);
 
-                Dictionary<int, CnlDataItem> dataItems = new();
+                Dictionary<int, CnlDataItem> dataItems = [];
                 for (int i = 0; i < cnlNumArr.Length; i++)
                 {
                     int cnlNum = cnlNumArr[i];
@@ -86,9 +66,6 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
             }
         }
 
-        /// <summary>
-        /// Gets the user data (comments and commissioned status).
-        /// </summary>
         public Dto<ThermalCameraUserData> GetUserData()
         {
             try
@@ -103,9 +80,6 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
             }
         }
 
-        /// <summary>
-        /// Saves a comment for a thermal camera item.
-        /// </summary>
         [HttpPost]
         public Dto SaveComment([FromBody] SaveCommentRequest request)
         {
@@ -121,10 +95,9 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
 
                 entry.Comment = request.Comment ?? "";
 
-                if (thermalCameraContext.SaveUserData(userData, out string errMsg))
-                    return Dto.Success();
-
-                return Dto.Fail(errMsg);
+                return thermalCameraContext.SaveUserData(userData, out string errMsg)
+                    ? Dto.Success()
+                    : Dto.Fail(errMsg);
             }
             catch (Exception ex)
             {
@@ -133,9 +106,6 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
             }
         }
 
-        /// <summary>
-        /// Saves the commissioned status for a thermal camera item.
-        /// </summary>
         [HttpPost]
         public Dto SaveCommissioned([FromBody] SaveCommissionedRequest request)
         {
@@ -151,10 +121,9 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
 
                 entry.IsCommissioned = request.IsCommissioned;
 
-                if (thermalCameraContext.SaveUserData(userData, out string errMsg))
-                    return Dto.Success();
-
-                return Dto.Fail(errMsg);
+                return thermalCameraContext.SaveUserData(userData, out string errMsg)
+                    ? Dto.Success()
+                    : Dto.Fail(errMsg);
             }
             catch (Exception ex)
             {
@@ -164,18 +133,12 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
         }
     }
 
-    /// <summary>
-    /// Represents the result of a current data request.
-    /// </summary>
     public class CurDataResult
     {
         public string ServerTime { get; set; } = "";
-        public Dictionary<int, CnlDataItem> Data { get; set; } = new();
+        public Dictionary<int, CnlDataItem> Data { get; set; } = [];
     }
 
-    /// <summary>
-    /// Represents a single channel data item.
-    /// </summary>
     public class CnlDataItem
     {
         public int CnlNum { get; set; }
@@ -185,18 +148,12 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
         public string Color { get; set; } = "";
     }
 
-    /// <summary>
-    /// Represents a request to save a comment.
-    /// </summary>
     public class SaveCommentRequest
     {
         public int ItemId { get; set; }
         public string Comment { get; set; } = "";
     }
 
-    /// <summary>
-    /// Represents a request to save the commissioned status.
-    /// </summary>
     public class SaveCommissionedRequest
     {
         public int ItemId { get; set; }

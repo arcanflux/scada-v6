@@ -14,7 +14,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
         /// <summary>
         /// Gets the dictionary of item user data keyed by item ID.
         /// </summary>
-        public Dictionary<int, UserDataEntry> Entries { get; set; } = new();
+        public Dictionary<int, UserDataEntry> Entries { get; set; } = [];
 
         /// <summary>
         /// Loads user data from the specified file.

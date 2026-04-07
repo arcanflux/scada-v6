@@ -103,11 +103,9 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
             {
                 foreach (XmlNode dataItem in dataNode.SelectNodes("DataItem"))
                 {
-                    int cnlNum = 0;
-                    if (dataItem.Attributes?["cnlNum"] != null)
-                        int.TryParse(dataItem.Attributes["cnlNum"].Value, out cnlNum);
-
-                    if (cnlNum <= 0)
+                    if (dataItem.Attributes?["cnlNum"] == null ||
+                        !int.TryParse(dataItem.Attributes["cnlNum"].Value, out int cnlNum) ||
+                        cnlNum <= 0)
                         continue;
 
                     string label = dataItem.InnerText?.Trim() ?? "";
@@ -136,15 +134,9 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
         /// </summary>
         public List<int> GetAllCnlNums()
         {
-            List<int> cnlNums = new();
-            if (OnlineCnlNum > 0) cnlNums.Add(OnlineCnlNum);
-            if (BatteryCnlNum > 0) cnlNums.Add(BatteryCnlNum);
-            if (Temp200CnlNum > 0) cnlNums.Add(Temp200CnlNum);
-            if (Temp700CnlNum > 0) cnlNums.Add(Temp700CnlNum);
-            if (Flood200CnlNum > 0) cnlNums.Add(Flood200CnlNum);
-            if (Flood700CnlNum > 0) cnlNums.Add(Flood700CnlNum);
-            if (StatusCnlNum > 0) cnlNums.Add(StatusCnlNum);
-            return cnlNums;
+            int[] all = [OnlineCnlNum, BatteryCnlNum, Temp200CnlNum, Temp700CnlNum,
+                         Flood200CnlNum, Flood700CnlNum, StatusCnlNum];
+            return [.. all.Where(n => n > 0)];
         }
 
         private static string GetChildText(XmlNode parent, string childName)
