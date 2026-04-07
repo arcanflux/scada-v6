@@ -28,7 +28,6 @@ var thermalCamera = (function () {
         for (var i = 0; i < items.length; i++) {
             var item = items[i];
             if (item.onlineCnlNum > 0) cnlSet[item.onlineCnlNum] = true;
-            if (item.batteryCnlNum > 0) cnlSet[item.batteryCnlNum] = true;
             if (item.temp200CnlNum > 0) cnlSet[item.temp200CnlNum] = true;
             if (item.temp700CnlNum > 0) cnlSet[item.temp700CnlNum] = true;
             if (item.flood200CnlNum > 0) cnlSet[item.flood200CnlNum] = true;

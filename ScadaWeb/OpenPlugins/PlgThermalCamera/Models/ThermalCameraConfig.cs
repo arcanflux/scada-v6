@@ -49,11 +49,6 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
         public int OnlineCnlNum { get; set; }
 
         /// <summary>
-        /// Gets or sets the channel number for battery percentage.
-        /// </summary>
-        public int BatteryCnlNum { get; set; }
-
-        /// <summary>
         /// Gets or sets the temperature channel for 200mm pipe.
         /// </summary>
         public int Temp200CnlNum { get; set; }
@@ -121,8 +116,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
                         item.Temp700CnlNum = cnlNum;
                     else if (labelLower.Contains("онлайн") || labelLower.Contains("online"))
                         item.OnlineCnlNum = cnlNum;
-                    else if (labelLower.Contains("батарея") || labelLower.Contains("battery"))
-                        item.BatteryCnlNum = cnlNum;
+
                 }
             }
 
@@ -134,7 +128,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
         /// </summary>
         public List<int> GetAllCnlNums()
         {
-            int[] all = [OnlineCnlNum, BatteryCnlNum, Temp200CnlNum, Temp700CnlNum,
+            int[] all = [OnlineCnlNum, Temp200CnlNum, Temp700CnlNum,
                          Flood200CnlNum, Flood700CnlNum, StatusCnlNum];
             return [.. all.Where(n => n > 0)];
         }
