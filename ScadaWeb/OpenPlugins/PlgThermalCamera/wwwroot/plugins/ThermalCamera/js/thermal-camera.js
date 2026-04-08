@@ -12,10 +12,12 @@ var thermalCamera = (function () {
     var updateTimer = null;
 
     function init() {
-        if (typeof thermalCameraData === "undefined") return;
+        var itemsEl = document.getElementById("tcItems");
+        var userDataEl = document.getElementById("tcUserData");
+        if (!itemsEl) return;
 
-        items = thermalCameraData.items || [];
-        userData = thermalCameraData.userData || {};
+        items = JSON.parse(itemsEl.textContent) || [];
+        userData = userDataEl ? JSON.parse(userDataEl.textContent) || {} : {};
 
         collectChannelNumbers();
         renderTable();

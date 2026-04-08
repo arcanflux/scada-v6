@@ -10,12 +10,8 @@
 
 @section Scripts {
     <script src="~/plugins/ThermalCamera/js/thermal-camera.js" asp-append-version="true"></script>
-    <script>
-        var thermalCameraData = {
-            items: @Html.Raw(Model.ItemsJson),
-            userData: @Html.Raw(Model.UserDataJson)
-        };
-    </script>
+    <script id="tcItems" type="application/json">@Html.Raw(Model.ItemsJson)</script>
+    <script id="tcUserData" type="application/json">@Html.Raw(Model.UserDataJson)</script>
 }
 
 @if (!string.IsNullOrEmpty(Model.ErrorMessage))
