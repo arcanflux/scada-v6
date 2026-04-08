@@ -8,8 +8,14 @@ using System.Xml;
 
 namespace Scada.Web.Plugins.PlgThermalCamera.Code
 {
-    public class ThermalCameraTableView(View viewEntity) : ViewBase(viewEntity)
+    public class ThermalCameraTableView : ViewBase
     {
+        public ThermalCameraTableView(View viewEntity) : base(viewEntity)
+        {
+            // If no .map file path is specified, skip server-side file loading
+            StoredOnServer = !string.IsNullOrEmpty(viewEntity.Path);
+        }
+
         public List<ThermalCameraItem> Items { get; } = [];
 
         public override void LoadView(Stream stream)

@@ -31,6 +31,13 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
             {
                 ViewData["Title"] = view.Title;
 
+                if (view.Items.Count == 0)
+                {
+                    ErrorMessage = "Файл карты (.map) не указан или не содержит объектов ТК (Location с Type=Triangle). " +
+                        "Укажите путь к файлу .map в поле «Путь» настроек представления.";
+                    return;
+                }
+
                 var sortedItems = view.Items
                     .OrderBy(i => i.DistrictNumber)
                     .ThenBy(i => i.Name)
