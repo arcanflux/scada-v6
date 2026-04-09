@@ -27,10 +27,9 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
             {
                 int[] cnlNumArr = string.IsNullOrEmpty(cnlNums)
                     ? []
-                    : cnlNums.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                             .Select(s => int.TryParse(s.Trim(), out int n) ? n : 0)
-                             .Where(n => n > 0)
-                             .ToArray();
+                    : [.. cnlNums.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                 .Select(s => int.TryParse(s.Trim(), out int n) ? n : 0)
+                                 .Where(n => n > 0)];
 
                 if (cnlNumArr.Length == 0)
                     return Dto<CurDataResult>.Success(new CurDataResult());
