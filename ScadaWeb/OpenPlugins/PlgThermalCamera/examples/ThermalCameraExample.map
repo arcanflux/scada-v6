@@ -12,7 +12,7 @@
     "Затопление 700мм"              - статус затопления 700мм (0=затоплено, 1=норма)
     "Онлайн"                        - статус связи
 
-  PhotoUrl — относительный путь к фото в папке Views, например "Photo/1.png"
+  Photo — относительный путь к фото в папке Views, например "Photo/1.png"
 -->
 <MapView>
   <InitialView>
@@ -38,7 +38,7 @@
       <Descr>ул. Ленина, 15</Descr>
       <Type>Triangle</Type>
       <District>1</District>
-      <PhotoUrl>Photo/tk-1152a.png</PhotoUrl>
+      <Photo>Photo/tk-1152a.png</Photo>
       <StatusCnlNum>0</StatusCnlNum>
       <Data>
         <DataItem cnlNum="500101">Т 200мм</DataItem>
@@ -58,7 +58,7 @@
       <Descr>ул. Мира, 42</Descr>
       <Type>Triangle</Type>
       <District>1</District>
-      <PhotoUrl>Photo/tk-0845b.png</PhotoUrl>
+      <Photo>Photo/tk-0845b.png</Photo>
       <StatusCnlNum>0</StatusCnlNum>
       <Data>
         <DataItem cnlNum="500201">Т 200мм</DataItem>
@@ -79,7 +79,7 @@
       <Descr>пр. Победы, 8</Descr>
       <Type>Triangle</Type>
       <District>2</District>
-      <PhotoUrl>Photo/tk-2001c.png</PhotoUrl>
+      <Photo>Photo/tk-2001c.png</Photo>
       <StatusCnlNum>0</StatusCnlNum>
       <Data>
         <DataItem cnlNum="500301">Т 200мм</DataItem>

@@ -87,7 +87,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
             {
                 Name = GetChildText(locationNode, "Name"),
                 Descr = GetChildText(locationNode, "Descr"),
-                PhotoUrl = GetChildText(locationNode, "PhotoUrl"),
+                PhotoUrl = GetChildText(locationNode, "Photo"),
                 StatusCnlNum = GetChildInt(locationNode, "StatusCnlNum"),
                 DistrictNumber = GetChildInt(locationNode, "District")
             };
