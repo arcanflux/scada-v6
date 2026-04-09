@@ -1567,7 +1567,7 @@
             }
 
             _createTriangleMarkerIcon(color, hasAlert, alertColor) {
-                color = color || "#4caf50";
+                color = color || "#3388ff";
                 let size = this._getMarkerSize();
                 let half = size / 2;
                 let sw = Math.max(1.5, size * 0.08);
@@ -1603,7 +1603,7 @@
                 return { active: false, color: null };
             }
 
-            // Triangle marker color: gray (#999), yellow (#f0ad4e), deep green (#4caf50)
+            // Triangle marker color: gray (#999), yellow (#f0ad4e), blue (#3388ff)
             _getTriangleMarkerColor(def) {
                 let channels = def.channels || [];
                 if (channels.length === 0) return "#999";
@@ -1615,7 +1615,7 @@
                 }
                 if (working === 0) return "#999";
                 if (working < total) return "#f0ad4e";
-                return "#4caf50";
+                return "#3388ff";
             }
 
             // Check if at least one parameter channel has valid signal
