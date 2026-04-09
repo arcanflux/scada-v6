@@ -2,7 +2,9 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using Microsoft.AspNetCore.Mvc;
+using Scada.Data.Const;
 using Scada.Data.Models;
+using Scada.Protocol;
 using Scada.Web.Api;
 using Scada.Web.Lang;
 using Scada.Web.Plugins.PlgThermalCamera.Code;
@@ -129,6 +131,61 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
             {
                 webContext.Log.WriteError(ex.BuildErrorMessage(WebPhrases.ErrorInWebApi, nameof(SaveCommissioned)));
                 return Dto.Fail(ex.Message);
+            }
+        }
+
+        private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"
+        };
+
+        [HttpGet]
+        public IActionResult GetPhoto(string path)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(path))
+                    return BadRequest("Path is required");
+
+                // Directory traversal protection
+                if (path.Contains("..") || path.Contains('~'))
+                    return BadRequest("Invalid path");
+
+                string ext = Path.GetExtension(path);
+                if (!AllowedExtensions.Contains(ext))
+                    return BadRequest("Unsupported image format");
+
+                string contentType = ext.ToLowerInvariant() switch
+                {
+                    ".jpg" or ".jpeg" => "image/jpeg",
+                    ".png" => "image/png",
+                    ".gif" => "image/gif",
+                    ".webp" => "image/webp",
+                    ".bmp" => "image/bmp",
+                    _ => "application/octet-stream"
+                };
+
+                if (webContext.Storage.ViewAvailable)
+                {
+                    using BinaryReader reader = webContext.Storage.OpenBinary(DataCategory.View, path);
+                    MemoryStream ms = new();
+                    reader.BaseStream.CopyTo(ms);
+                    ms.Position = 0;
+                    return File(ms, contentType);
+                }
+                else
+                {
+                    MemoryStream ms = new();
+                    RelativePath relativePath = new(TopFolder.View, AppFolder.Root, path);
+                    clientAccessor.ScadaClient.DownloadFile(relativePath, ms, true);
+                    ms.Position = 0;
+                    return File(ms, contentType);
+                }
+            }
+            catch (Exception ex)
+            {
+                webContext.Log.WriteError(ex.BuildErrorMessage(WebPhrases.ErrorInWebApi, nameof(GetPhoto)));
+                return NotFound("Photo not found");
             }
         }
     }

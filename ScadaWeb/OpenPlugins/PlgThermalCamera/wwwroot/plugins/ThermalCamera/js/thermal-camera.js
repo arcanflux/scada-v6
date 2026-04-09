@@ -62,7 +62,7 @@ var thermalCamera = (function () {
             if (item.photoUrl) {
                 html += ' <button class="btn btn-sm btn-outline-primary tc-photo-btn" ' +
                     'onclick="thermalCamera.showPhoto(\'' + escapeAttr(item.photoUrl) + '\', \'' +
-                    escapeAttr(item.name) + '\')" title="Открыть фото">' +
+                    escapeAttr(item.name) + '\')" title="Фото">' +
                     '<i class="fa-solid fa-camera"></i></button>';
             }
             html += '</td>';
@@ -271,10 +271,13 @@ var thermalCamera = (function () {
         });
     }
 
-    function showPhoto(url, name) {
+    function showPhoto(photoPath, name) {
         var img = document.getElementById("imgPhoto");
         var errorDiv = document.getElementById("divPhotoError");
         var label = document.getElementById("photoModalLabel");
+
+        // Build URL through plugin API endpoint
+        var url = "/Api/ThermalCamera/GetPhoto?path=" + encodeURIComponent(photoPath);
 
         if (label) label.textContent = "Фото: " + name;
         if (img) {

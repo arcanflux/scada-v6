@@ -6,11 +6,13 @@
   Добавленный элемент <District> определяет номер района для сортировки в таблице.
 
   DataItem определяются по тексту:
-    "Т 200мм"          - температура трубы 200мм
-    "Т 700мм"          - температура трубы 700мм
-    "Затопление 200мм" - статус затопления 200мм (0=норма, 1=затоплено)
-    "Затопление 700мм" - статус затопления 700мм (0=норма, 1=затоплено)
-"Онлайн"            - статус связи
+    "Т 200мм" / "Температура 200мм" - температура трубы 200мм
+    "Т 700мм" / "Температура 700мм" - температура трубы 700мм
+    "Затопление 200мм"              - статус затопления 200мм (0=затоплено, 1=норма)
+    "Затопление 700мм"              - статус затопления 700мм (0=затоплено, 1=норма)
+    "Онлайн"                        - статус связи
+
+  PhotoUrl — относительный путь к фото в папке Views, например "Photo/1.png"
 -->
 <MapView>
   <InitialView>
@@ -36,7 +38,7 @@
       <Descr>ул. Ленина, 15</Descr>
       <Type>Triangle</Type>
       <District>1</District>
-      <PhotoUrl>/images/tk/tk-1152a.jpg</PhotoUrl>
+      <PhotoUrl>Photo/tk-1152a.png</PhotoUrl>
       <StatusCnlNum>0</StatusCnlNum>
       <Data>
         <DataItem cnlNum="500101">Т 200мм</DataItem>
@@ -56,7 +58,7 @@
       <Descr>ул. Мира, 42</Descr>
       <Type>Triangle</Type>
       <District>1</District>
-      <PhotoUrl>/images/tk/tk-0845b.jpg</PhotoUrl>
+      <PhotoUrl>Photo/tk-0845b.png</PhotoUrl>
       <StatusCnlNum>0</StatusCnlNum>
       <Data>
         <DataItem cnlNum="500201">Т 200мм</DataItem>
@@ -77,7 +79,7 @@
       <Descr>пр. Победы, 8</Descr>
       <Type>Triangle</Type>
       <District>2</District>
-      <PhotoUrl>/images/tk/tk-2001c.jpg</PhotoUrl>
+      <PhotoUrl>Photo/tk-2001c.png</PhotoUrl>
       <StatusCnlNum>0</StatusCnlNum>
       <Data>
         <DataItem cnlNum="500301">Т 200мм</DataItem>
