@@ -24,16 +24,21 @@
     margin: 0;
     font-size: 1.1rem;
     font-weight: 600;
-}
-
-.tc-title i {
-    margin-right: 6px;
+    text-align: center;
+    flex: 1;
 }
 
 .tc-toolbar {
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-shrink: 0;
+}
+
+.tc-header-spacer {
+    flex: 0 0 auto;
+    width: 0;
+    visibility: hidden;
 }
 
 .tc-server-time {
@@ -84,20 +89,13 @@
 }
 
 /* Column widths */
-.tc-col-district { width: 70px; }
-.tc-col-name { width: 140px; }
-.tc-col-address { width: 200px; }
-.tc-col-online { width: 90px; }
-.tc-col-flooding { width: auto; min-width: 200px; }
-.tc-col-comment { width: 180px; }
-.tc-col-status { width: 80px; }
-
-/* Triangle marker icon */
-.tc-marker-icon {
-    color: #e53e3e;
-    font-size: 0.9rem;
-    margin-right: 2px;
-}
+.tc-col-district { width: 100px; }
+.tc-col-name { width: 150px; }
+.tc-col-address { width: 250px; }
+.tc-col-online { width: 100px; }
+.tc-col-flooding { width: 300px; }
+.tc-col-comment { width: auto; min-width: 200px; }
+.tc-col-status { width: 100px; }
 
 /* Address and photo */
 .tc-address-text {

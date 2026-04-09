@@ -53,10 +53,8 @@ var thermalCamera = (function () {
             html += '<td class="tc-col-district text-center">' +
                 '<span class="badge bg-secondary">' + escapeHtml(String(item.districtNumber || "—")) + '</span></td>';
 
-            // 2. Object name (with triangle marker)
-            html += '<td class="tc-col-name">' +
-                '<span class="tc-marker-icon">&#9650;</span> ' +
-                escapeHtml(item.name) + '</td>';
+            // 2. Object name
+            html += '<td class="tc-col-name">' + escapeHtml(item.name) + '</td>';
 
             // 3. Address (descr) + photo button
             html += '<td class="tc-col-address">' +
@@ -174,7 +172,7 @@ var thermalCamera = (function () {
             var timeSpan = document.getElementById("spanServerTime");
             if (timeSpan) {
                 var dt = new Date(result.serverTime);
-                timeSpan.textContent = dt.toLocaleTimeString();
+                timeSpan.textContent = dt.toLocaleTimeString("ru-RU", { hour12: false });
             }
         }
 
@@ -217,7 +215,7 @@ var thermalCamera = (function () {
         if (signalEl && floodCnlNum > 0) {
             var fd = data[floodCnlNum];
             if (fd) {
-                var isFlooded = fd.val !== 0 && fd.stat > 0;
+                var isFlooded = fd.val === 0 && fd.stat > 0;
                 var isUnknown = fd.stat <= 0;
                 signalEl.className = "tc-flooding-signal " +
                     (isUnknown ? "tc-flood-unknown" : isFlooded ? alarmClass : "tc-flood-normal");

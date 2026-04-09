@@ -106,13 +106,19 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
                     string label = dataItem.InnerText?.Trim() ?? "";
                     string labelLower = label.ToLowerInvariant();
 
-                    if (labelLower.Contains("затопление") && labelLower.Contains("200"))
+                    bool isTemp = labelLower.StartsWith("т ") || labelLower.StartsWith("т\u00a0") ||
+                                  labelLower.StartsWith("температура");
+                    bool isFlood = labelLower.Contains("затопление");
+                    bool is200 = labelLower.Contains("200");
+                    bool is700 = labelLower.Contains("700");
+
+                    if (isFlood && is200)
                         item.Flood200CnlNum = cnlNum;
-                    else if (labelLower.Contains("затопление") && labelLower.Contains("700"))
+                    else if (isFlood && is700)
                         item.Flood700CnlNum = cnlNum;
-                    else if ((labelLower.StartsWith("т ") || labelLower.StartsWith("т\u00a0")) && labelLower.Contains("200"))
+                    else if (isTemp && is200)
                         item.Temp200CnlNum = cnlNum;
-                    else if ((labelLower.StartsWith("т ") || labelLower.StartsWith("т\u00a0")) && labelLower.Contains("700"))
+                    else if (isTemp && is700)
                         item.Temp700CnlNum = cnlNum;
                     else if (labelLower.Contains("онлайн") || labelLower.Contains("online"))
                         item.OnlineCnlNum = cnlNum;
