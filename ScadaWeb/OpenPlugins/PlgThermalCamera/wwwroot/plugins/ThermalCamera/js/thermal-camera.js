@@ -52,7 +52,9 @@ var thermalCamera = (function () {
                 if (items[j].id === itemId) { item = items[j]; break; }
             }
             if (!item) continue;
-            var match = !q || (item.name && item.name.toLowerCase().indexOf(q) >= 0);
+            var nameMatch = item.name && item.name.toLowerCase().indexOf(q) >= 0;
+            var addrMatch = item.descr && item.descr.toLowerCase().indexOf(q) >= 0;
+            var match = !q || nameMatch || addrMatch;
             row.style.display = match ? "" : "none";
         }
     }
