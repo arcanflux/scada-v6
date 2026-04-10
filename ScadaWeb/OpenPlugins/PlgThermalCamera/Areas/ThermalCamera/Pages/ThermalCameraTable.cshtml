@@ -24,49 +24,51 @@ else
 {
     <div class="tc-container">
         <div class="tc-header">
-            <div class="tc-toolbar">
-                <button id="btnRefresh" class="btn btn-sm btn-outline-secondary" title="Обновить данные">
-                    <i class="fa-solid fa-arrows-rotate"></i>
-                </button>
-                <span id="spanServerTime" class="tc-server-time"></span>
-            </div>
-            <div class="tc-district-filter dropdown">
-                <button class="btn btn-sm tc-district-btn dropdown-toggle" type="button"
-                        data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                    <i class="fa-solid fa-map-location-dot"></i>
-                    <span id="tcDistrictLabel">Районы 6/6</span>
-                </button>
-                <ul class="dropdown-menu tc-district-menu">
-                    <li><label class="dropdown-item tc-district-option">
-                        <input type="checkbox" class="form-check-input tc-district-cb" value="1" checked>
-                        <span>Район 1</span>
-                    </label></li>
-                    <li><label class="dropdown-item tc-district-option">
-                        <input type="checkbox" class="form-check-input tc-district-cb" value="2" checked>
-                        <span>Район 2</span>
-                    </label></li>
-                    <li><label class="dropdown-item tc-district-option">
-                        <input type="checkbox" class="form-check-input tc-district-cb" value="3" checked>
-                        <span>Район 3</span>
-                    </label></li>
-                    <li><label class="dropdown-item tc-district-option">
-                        <input type="checkbox" class="form-check-input tc-district-cb" value="4" checked>
-                        <span>Район 4</span>
-                    </label></li>
-                    <li><label class="dropdown-item tc-district-option">
-                        <input type="checkbox" class="form-check-input tc-district-cb" value="5" checked>
-                        <span>Район 5</span>
-                    </label></li>
-                    <li><label class="dropdown-item tc-district-option">
-                        <input type="checkbox" class="form-check-input tc-district-cb" value="6" checked>
-                        <span>Район 6</span>
-                    </label></li>
-                </ul>
-            </div>
-            <div class="tc-search-wrapper">
-                <i class="fa-solid fa-magnifying-glass tc-search-icon"></i>
-                <input id="tcSearchInput" class="tc-search-input" type="text"
-                       placeholder="Поиск" autocomplete="off" />
+            <div class="tc-header-controls">
+                <div class="tc-toolbar">
+                    <button id="btnRefresh" class="btn btn-sm btn-outline-secondary" title="Обновить данные">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                    </button>
+                    <span id="spanServerTime" class="tc-server-time"></span>
+                </div>
+                <div class="tc-district-filter dropdown">
+                    <button class="btn btn-sm tc-district-btn dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                        <i class="fa-solid fa-map-location-dot"></i>
+                        <span id="tcDistrictLabel">Районы 6/6</span>
+                    </button>
+                    <ul class="dropdown-menu tc-district-menu">
+                        <li><label class="dropdown-item tc-district-option">
+                            <input type="checkbox" class="form-check-input tc-district-cb" value="1" checked>
+                            <span>Район 1</span>
+                        </label></li>
+                        <li><label class="dropdown-item tc-district-option">
+                            <input type="checkbox" class="form-check-input tc-district-cb" value="2" checked>
+                            <span>Район 2</span>
+                        </label></li>
+                        <li><label class="dropdown-item tc-district-option">
+                            <input type="checkbox" class="form-check-input tc-district-cb" value="3" checked>
+                            <span>Район 3</span>
+                        </label></li>
+                        <li><label class="dropdown-item tc-district-option">
+                            <input type="checkbox" class="form-check-input tc-district-cb" value="4" checked>
+                            <span>Район 4</span>
+                        </label></li>
+                        <li><label class="dropdown-item tc-district-option">
+                            <input type="checkbox" class="form-check-input tc-district-cb" value="5" checked>
+                            <span>Район 5</span>
+                        </label></li>
+                        <li><label class="dropdown-item tc-district-option">
+                            <input type="checkbox" class="form-check-input tc-district-cb" value="6" checked>
+                            <span>Район 6</span>
+                        </label></li>
+                    </ul>
+                </div>
+                <div class="tc-search-wrapper">
+                    <i class="fa-solid fa-magnifying-glass tc-search-icon"></i>
+                    <input id="tcSearchInput" class="tc-search-input" type="text"
+                           placeholder="Поиск" autocomplete="off" />
+                </div>
             </div>
             <h4 class="tc-title"><i class="fa-solid fa-temperature-half"></i> Тепловые камеры мониторинг</h4>
         </div>
