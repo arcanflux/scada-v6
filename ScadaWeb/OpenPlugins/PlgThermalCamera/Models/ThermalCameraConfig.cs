@@ -1,6 +1,9 @@
 // Copyright (c) Rapid Software LLC. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using Scada.Data.Const;
+using Scada.Data.Entities;
+using Scada.Data.Models;
 using System.Xml;
 
 namespace Scada.Web.Plugins.PlgThermalCamera.Models
@@ -69,6 +72,11 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
         public int Flood700CnlNum { get; set; }
 
         /// <summary>
+        /// Gets or sets the battery percentage channel.
+        /// </summary>
+        public int BatteryCnlNum { get; set; }
+
+        /// <summary>
         /// Gets or sets the status channel number.
         /// </summary>
         public int StatusCnlNum { get; set; }
@@ -76,8 +84,11 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
         /// <summary>
         /// Parses a Location XML node from a .map file.
         /// Only processes nodes with Type=Triangle.
+        /// Uses ConfigDatabase to classify channels by DataType:
+        ///   Double (System.Single) → Temp200, Temp700, Battery
+        ///   Int64  (System.Int32)  → Flood200, Flood700, Online
         /// </summary>
-        public static ThermalCameraItem ParseFromMapLocation(XmlNode locationNode)
+        public static ThermalCameraItem ParseFromMapLocation(XmlNode locationNode, ConfigDataset configDatabase)
         {
             string type = GetChildText(locationNode, "Type");
             if (!string.Equals(type, "Triangle", StringComparison.OrdinalIgnoreCase))
@@ -92,7 +103,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
                 DistrictNumber = GetChildInt(locationNode, "District")
             };
 
-            // Parse DataItem elements to identify channels by label
+            // Parse DataItem elements — classify by DataType from ConfigDatabase
             XmlNode dataNode = locationNode.SelectSingleNode("Data");
             if (dataNode != null)
             {
@@ -105,24 +116,33 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
 
                     string label = dataItem.InnerText?.Trim() ?? "";
                     string labelLower = label.ToLowerInvariant();
-
-                    bool isTemp = labelLower.StartsWith("т ") || labelLower.StartsWith("т\u00a0") ||
-                                  labelLower.StartsWith("температура");
-                    bool isFlood = labelLower.Contains("затопление");
                     bool is200 = labelLower.Contains("200");
                     bool is700 = labelLower.Contains("700");
 
-                    if (isFlood && is200)
-                        item.Flood200CnlNum = cnlNum;
-                    else if (isFlood && is700)
-                        item.Flood700CnlNum = cnlNum;
-                    else if (isTemp && is200)
-                        item.Temp200CnlNum = cnlNum;
-                    else if (isTemp && is700)
-                        item.Temp700CnlNum = cnlNum;
-                    else if (labelLower.Contains("онлайн") || labelLower.Contains("online"))
-                        item.OnlineCnlNum = cnlNum;
+                    // Look up channel data type from ConfigDatabase
+                    Cnl cnl = configDatabase?.CnlTable?.GetItem(cnlNum);
+                    int dataTypeID = cnl?.DataTypeID ?? DataTypeID.Double;
 
+                    if (dataTypeID == DataTypeID.Double)
+                    {
+                        // System.Single: temperature and battery channels
+                        if (is200)
+                            item.Temp200CnlNum = cnlNum;
+                        else if (is700)
+                            item.Temp700CnlNum = cnlNum;
+                        else if (labelLower.Contains("батарея") || labelLower.Contains("battery"))
+                            item.BatteryCnlNum = cnlNum;
+                    }
+                    else if (dataTypeID == DataTypeID.Int64)
+                    {
+                        // System.Int32: flooding and online channels
+                        if (is200)
+                            item.Flood200CnlNum = cnlNum;
+                        else if (is700)
+                            item.Flood700CnlNum = cnlNum;
+                        else if (labelLower.Contains("онлайн") || labelLower.Contains("online"))
+                            item.OnlineCnlNum = cnlNum;
+                    }
                 }
             }
 
@@ -135,7 +155,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
         public List<int> GetAllCnlNums()
         {
             int[] all = [OnlineCnlNum, Temp200CnlNum, Temp700CnlNum,
-                         Flood200CnlNum, Flood700CnlNum, StatusCnlNum];
+                         Flood200CnlNum, Flood700CnlNum, BatteryCnlNum, StatusCnlNum];
             return [.. all.Where(n => n > 0)];
         }
 

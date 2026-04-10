@@ -134,6 +134,7 @@ var thermalCamera = (function () {
             if (item.temp700CnlNum > 0) cnlSet[item.temp700CnlNum] = true;
             if (item.flood200CnlNum > 0) cnlSet[item.flood200CnlNum] = true;
             if (item.flood700CnlNum > 0) cnlSet[item.flood700CnlNum] = true;
+            if (item.batteryCnlNum > 0) cnlSet[item.batteryCnlNum] = true;
         }
         allCnlNums = Object.keys(cnlSet).map(Number).sort(function (a, b) { return a - b; });
     }

@@ -18,6 +18,12 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
 
         public List<ThermalCameraItem> Items { get; } = [];
 
+        /// <summary>
+        /// Gets or sets the configuration database for channel data type lookup.
+        /// Must be set before LoadView is called.
+        /// </summary>
+        public ConfigDataset ConfigDatabase { get; set; }
+
         public override void LoadView(Stream stream)
         {
             XmlDocument xmlDoc = new();
@@ -30,7 +36,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
 
             foreach (XmlNode locationNode in locationNodes)
             {
-                ThermalCameraItem item = ThermalCameraItem.ParseFromMapLocation(locationNode);
+                ThermalCameraItem item = ThermalCameraItem.ParseFromMapLocation(locationNode, ConfigDatabase);
                 if (item != null)
                 {
                     Items.Add(item);
