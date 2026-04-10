@@ -12,6 +12,7 @@ var thermalCamera = (function () {
     var updateTimer = null;
     var districtSortAsc = true;
     var searchQuery = "";
+    var selectedDistricts = {};
 
     function init() {
         var itemsEl = document.getElementById("tcItems");
@@ -27,6 +28,7 @@ var thermalCamera = (function () {
         bindHeaderSort();
         updateSortIndicator();
         bindSearch();
+        bindDistrictFilter();
         applyFilter();
         requestData();
         startAutoUpdate();
@@ -39,6 +41,34 @@ var thermalCamera = (function () {
             searchQuery = this.value;
             applyFilter();
         });
+    }
+
+    function bindDistrictFilter() {
+        var checkboxes = document.querySelectorAll(".tc-district-cb");
+        for (var i = 0; i < checkboxes.length; i++) {
+            var cb = checkboxes[i];
+            var v = parseInt(cb.value);
+            if (cb.checked) selectedDistricts[v] = true;
+            cb.addEventListener("change", function () {
+                var val = parseInt(this.value);
+                if (this.checked) selectedDistricts[val] = true;
+                else delete selectedDistricts[val];
+                updateDistrictLabel();
+                applyFilter();
+            });
+        }
+        updateDistrictLabel();
+    }
+
+    function updateDistrictLabel() {
+        var label = document.getElementById("tcDistrictLabel");
+        if (!label) return;
+        var total = document.querySelectorAll(".tc-district-cb").length;
+        var selected = 0;
+        for (var k in selectedDistricts) {
+            if (selectedDistricts[k]) selected++;
+        }
+        label.textContent = "Районы " + selected + "/" + total;
     }
 
     function applyFilter() {
@@ -54,8 +84,9 @@ var thermalCamera = (function () {
             if (!item) continue;
             var nameMatch = item.name && item.name.toLowerCase().indexOf(q) >= 0;
             var addrMatch = item.descr && item.descr.toLowerCase().indexOf(q) >= 0;
-            var match = !q || nameMatch || addrMatch;
-            row.style.display = match ? "" : "none";
+            var searchOk = !q || nameMatch || addrMatch;
+            var districtOk = selectedDistricts[item.districtNumber || 0] === true;
+            row.style.display = (searchOk && districtOk) ? "" : "none";
         }
     }
 
