@@ -199,13 +199,23 @@ var thermalCamera = (function () {
             }
             html += '</div></td>';
 
-            // 6. Comment
+            // 6. Battery
+            html += '<td class="tc-col-battery text-center">';
+            if (item.batteryCnlNum > 0) {
+                html += '<span id="battery-' + item.id + '" class="tc-battery-value tc-battery-unknown">' +
+                    '<i class="fa-solid fa-battery-half"></i> \u2014</span>';
+            } else {
+                html += '<span class="text-muted">\u2014</span>';
+            }
+            html += '</td>';
+
+            // 7. Comment
             html += '<td class="tc-col-comment">' +
                 '<textarea class="form-control form-control-sm tc-comment-input" ' +
                 'data-item-id="' + item.id + '" rows="1" ' +
                 'placeholder="Комментарий...">' + escapeHtml(ud.comment) + '</textarea></td>';
 
-            // 7. Commissioned status
+            // 8. Commissioned status
             html += '<td class="tc-col-status text-center">' +
                 '<div class="form-check d-flex justify-content-center">' +
                 '<input class="form-check-input tc-commissioned-cb" type="checkbox" ' +
@@ -284,7 +294,36 @@ var thermalCamera = (function () {
 
             // 700mm flooding (red when flooded)
             updateFloodingSignal(item.id, "700", item.flood700CnlNum, item.temp700CnlNum, data, "tc-flood-alarm");
+
+            // Battery
+            updateBattery(item, data);
         }
+    }
+
+    function updateBattery(item, data) {
+        if (item.batteryCnlNum <= 0) return;
+        var el = document.getElementById("battery-" + item.id);
+        if (!el) return;
+
+        var d = data[item.batteryCnlNum];
+        if (!d) return;
+
+        if (d.stat <= 0) {
+            el.className = "tc-battery-value tc-battery-unknown";
+            el.innerHTML = '<i class="fa-solid fa-battery-half"></i> \u2014';
+            return;
+        }
+
+        var pct = d.val;
+        var icon = pct > 75 ? "fa-battery-full" :
+                   pct > 50 ? "fa-battery-three-quarters" :
+                   pct > 25 ? "fa-battery-half" :
+                   pct > 10 ? "fa-battery-quarter" : "fa-battery-empty";
+        var cls = pct > 25 ? "tc-battery-good" :
+                  pct > 10 ? "tc-battery-low" : "tc-battery-critical";
+
+        el.className = "tc-battery-value " + cls;
+        el.innerHTML = '<i class="fa-solid ' + icon + '"></i> ' + pct.toFixed(0) + '%';
     }
 
     function updateOnlineStatus(item, data) {

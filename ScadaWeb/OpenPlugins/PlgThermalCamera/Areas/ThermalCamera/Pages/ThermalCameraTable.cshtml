@@ -25,13 +25,11 @@ else
     <div class="tc-container">
         <div class="tc-header">
             <div class="tc-header-controls">
-                <div class="tc-toolbar">
-                    <button id="btnRefresh" class="tc-refresh-btn" title="Обновить данные">
-                        <i class="fa-solid fa-arrows-rotate"></i>
-                        <span>Обновить</span>
-                    </button>
-                    <span id="spanServerTime" class="tc-server-time"></span>
-                </div>
+                <span id="spanServerTime" class="tc-server-time">--:--:--</span>
+                <button id="btnRefresh" class="tc-refresh-btn" title="Обновить данные">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                    <span>Обновить</span>
+                </button>
                 <div class="tc-district-filter dropdown">
                     <button class="btn btn-sm tc-district-btn dropdown-toggle" type="button"
                             data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
@@ -92,6 +90,9 @@ else
                         </th>
                         <th class="tc-col-flooding">
                             <i class="fa-solid fa-water"></i> Состояние затопления
+                        </th>
+                        <th class="tc-col-battery">
+                            <i class="fa-solid fa-battery-half"></i> Батарея
                         </th>
                         <th class="tc-col-comment">
                             <i class="fa-solid fa-comment"></i> Комментарий

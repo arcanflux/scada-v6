@@ -22,11 +22,12 @@
 
 .tc-header-controls {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    align-items: stretch;
+    gap: 6px;
     width: 660px;
-    padding-left: 8px;
+    padding-left: 6px;
     max-width: 100%;
+    height: 36px;
 }
 
 .tc-title {
@@ -42,21 +43,9 @@
     pointer-events: none;
 }
 
-.tc-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex: 0 0 262px;
-}
-
 .tc-district-filter {
     position: relative;
-    flex: 0 0 140px;
-}
-
-.tc-district-btn {
-    width: 100%;
-    justify-content: center;
+    flex: 0 0 auto;
 }
 
 .tc-district-btn {
@@ -64,11 +53,14 @@
     border: 1px solid rgba(255, 255, 255, 0.35);
     background: rgba(255, 255, 255, 0.12);
     font-size: 0.9rem;
-    padding: 6px 14px;
+    padding: 0 14px;
     border-radius: 18px;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
+    height: 100%;
+    white-space: nowrap;
 }
 
 .tc-district-btn:hover,
@@ -124,7 +116,8 @@
 
 .tc-search-input {
     width: 100%;
-    padding: 6px 12px 6px 32px;
+    height: 100%;
+    padding: 0 12px 0 32px;
     font-size: 0.9rem;
     border-radius: 18px;
     border: 1px solid rgba(255, 255, 255, 0.35);
@@ -144,15 +137,32 @@
     opacity: 0.9;
 }
 
-.tc-refresh-btn {
+.tc-server-time {
+    flex: 0 0 104px;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    padding: 0 10px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 18px;
+    white-space: nowrap;
+}
+
+.tc-refresh-btn {
+    flex: 0 0 164px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     gap: 6px;
     color: #fff;
     background: rgba(255, 255, 255, 0.12);
     border: 1px solid rgba(255, 255, 255, 0.35);
     border-radius: 18px;
-    padding: 6px 14px;
+    padding: 0 14px;
     font-size: 0.9rem;
     font-weight: 500;
     cursor: pointer;
@@ -165,18 +175,6 @@
     background: rgba(255, 255, 255, 0.22);
     border-color: rgba(255, 255, 255, 0.7);
     outline: none;
-}
-
-.tc-server-time {
-    display: inline-flex;
-    align-items: center;
-    padding: 3px 10px;
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: #e2e8f0;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 14px;
-    white-space: nowrap;
 }
 
 /* Table wrapper */
@@ -218,9 +216,10 @@
 .tc-col-name { width: 170px; }
 .tc-col-address { width: 250px; }
 .tc-col-online { width: 130px; }
-.tc-col-flooding { width: 320px; }
+.tc-col-flooding { width: 300px; }
+.tc-col-battery { width: 100px; }
 .tc-col-comment { width: auto; min-width: 200px; }
-.tc-col-status { width: 110px; }
+.tc-col-status { width: 100px; }
 
 /* District badge */
 .tc-col-district .badge {
@@ -414,6 +413,29 @@
 }
 
 .tc-flood-unknown .tc-signal-status {
+    color: #a0aec0;
+}
+
+/* Battery indicator */
+.tc-battery-value {
+    font-size: 1rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.tc-battery-good {
+    color: #38a169;
+}
+
+.tc-battery-low {
+    color: #d69e2e;
+}
+
+.tc-battery-critical {
+    color: #e53e3e;
+}
+
+.tc-battery-unknown {
     color: #a0aec0;
 }
 
