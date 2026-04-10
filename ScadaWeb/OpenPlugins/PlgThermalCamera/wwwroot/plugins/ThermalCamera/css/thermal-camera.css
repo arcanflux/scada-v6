@@ -424,15 +424,15 @@
 }
 
 .tc-battery-good {
-    color: #38a169;
+    color: #4caf50;
 }
 
 .tc-battery-low {
-    color: #d69e2e;
+    color: #f0ad4e;
 }
 
 .tc-battery-critical {
-    color: #e53e3e;
+    color: #d32f2f;
 }
 
 .tc-battery-unknown {

@@ -319,8 +319,8 @@ var thermalCamera = (function () {
                    pct > 50 ? "fa-battery-three-quarters" :
                    pct > 25 ? "fa-battery-half" :
                    pct > 10 ? "fa-battery-quarter" : "fa-battery-empty";
-        var cls = pct > 25 ? "tc-battery-good" :
-                  pct > 10 ? "tc-battery-low" : "tc-battery-critical";
+        var cls = pct > 50 ? "tc-battery-good" :
+                  pct > 20 ? "tc-battery-low" : "tc-battery-critical";
 
         el.className = "tc-battery-value " + cls;
         el.innerHTML = '<i class="fa-solid ' + icon + '"></i> ' + pct.toFixed(0) + '%';
