@@ -42,7 +42,8 @@
 }
 
 .tc-server-time {
-    font-size: 0.85rem;
+    font-size: 1.15rem;
+    font-weight: 600;
     color: #cbd5e0;
 }
 
@@ -106,7 +107,7 @@
 }
 
 /* Object name */
-.tc-col-name {
+.tc-table tbody td.tc-col-name {
     font-size: 1rem;
     font-weight: 600;
 }
