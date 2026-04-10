@@ -112,15 +112,24 @@
 }
 
 /* Address and photo */
+.tc-col-address {
+    position: relative;
+    padding-right: 40px !important;
+}
+
 .tc-address-text {
-    font-size: 0.8rem;
+    font-size: 0.95rem;
+    font-weight: 700;
 }
 
 .tc-photo-btn {
-    padding: 1px 5px;
-    font-size: 0.7rem;
-    margin-left: 4px;
-    vertical-align: baseline;
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 4px 8px;
+    font-size: 0.85rem;
+    margin: 0;
 }
 
 .tc-photo-img {
