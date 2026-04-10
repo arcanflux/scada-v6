@@ -158,8 +158,9 @@
 /* Flooding signals container */
 .tc-flooding-container {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 4px;
+    width: 100%;
 }
 
 /* Individual flooding signal */
@@ -169,7 +170,8 @@
     align-items: center;
     border: 1px solid #e2e8f0;
     border-radius: 4px;
-    min-width: 60px;
+    flex: 1 1 0;
+    min-width: 0;
     overflow: hidden;
 }
 
