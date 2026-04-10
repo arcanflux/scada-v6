@@ -118,8 +118,6 @@ var thermalCamera = (function () {
                 html += '<div class="tc-flooding-signal tc-flood-unknown" id="flood200-' + item.id + '">' +
                     '<div class="tc-signal-label">200мм</div>' +
                     '<div class="tc-signal-body">' +
-                    '<div class="tc-signal-status" id="flood200-status-' + item.id + '">' +
-                    '<i class="fa-solid fa-droplet"></i></div>' +
                     '<div class="tc-signal-temp" id="flood200-temp-' + item.id + '">\u2014</div>' +
                     '</div></div>';
             }
@@ -129,8 +127,6 @@ var thermalCamera = (function () {
                 html += '<div class="tc-flooding-signal tc-flood-unknown" id="flood700-' + item.id + '">' +
                     '<div class="tc-signal-label">700мм</div>' +
                     '<div class="tc-signal-body">' +
-                    '<div class="tc-signal-status" id="flood700-status-' + item.id + '">' +
-                    '<i class="fa-solid fa-droplet"></i></div>' +
                     '<div class="tc-signal-temp" id="flood700-temp-' + item.id + '">\u2014</div>' +
                     '</div></div>';
             }
@@ -265,7 +261,7 @@ var thermalCamera = (function () {
             var td = data[tempCnlNum];
             if (td) {
                 tempEl.textContent = td.stat > 0
-                    ? (td.text || td.val.toFixed(1) + "\u00b0C")
+                    ? td.val.toFixed(1) + "\u00b0C"
                     : "\u2014";
             }
         }

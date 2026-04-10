@@ -89,13 +89,27 @@
 }
 
 /* Column widths */
-.tc-col-district { width: 100px; }
-.tc-col-name { width: 150px; }
+.tc-col-district { width: 110px; }
+.tc-col-name { width: 170px; }
 .tc-col-address { width: 250px; }
-.tc-col-online { width: 100px; }
-.tc-col-flooding { width: 300px; }
+.tc-col-online { width: 130px; }
+.tc-col-flooding { width: 320px; }
 .tc-col-comment { width: auto; min-width: 200px; }
-.tc-col-status { width: 100px; }
+.tc-col-status { width: 110px; }
+
+/* District badge */
+.tc-col-district .badge {
+    font-size: 1rem;
+    font-weight: 700;
+    padding: 6px 12px;
+    min-width: 36px;
+}
+
+/* Object name */
+.tc-col-name {
+    font-size: 1rem;
+    font-weight: 600;
+}
 
 /* Address and photo */
 .tc-address-text {
@@ -117,15 +131,19 @@
 .tc-online-indicator {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 12px;
+    gap: 6px;
+    font-size: 1rem;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 16px;
+}
+
+.tc-online-indicator i {
+    font-size: 0.9rem;
 }
 
 .tc-online-text {
-    font-size: 0.7rem;
+    font-size: 0.95rem;
 }
 
 .tc-status-online {
@@ -176,10 +194,10 @@
 }
 
 .tc-signal-label {
-    font-size: 0.65rem;
+    font-size: 0.8rem;
     font-weight: 700;
     text-align: center;
-    padding: 1px 4px;
+    padding: 3px 6px;
     background: #edf2f7;
     width: 100%;
     color: #4a5568;
@@ -190,18 +208,14 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 2px 6px;
+    justify-content: center;
+    padding: 6px 8px;
     width: 100%;
 }
 
-.tc-signal-status {
-    font-size: 0.7rem;
-    margin-bottom: 1px;
-}
-
 .tc-signal-temp {
-    font-size: 0.75rem;
-    font-weight: 600;
+    font-size: 1.05rem;
+    font-weight: 700;
     color: #2d3748;
     white-space: nowrap;
 }
@@ -279,8 +293,8 @@
 
 /* Commissioned checkbox */
 .tc-commissioned-cb {
-    width: 1.2em;
-    height: 1.2em;
+    width: 1.8em;
+    height: 1.8em;
     cursor: pointer;
 }
 
