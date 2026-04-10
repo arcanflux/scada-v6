@@ -2,7 +2,7 @@
 // Плагин тепловых камер - Таблица с данными каналов в реальном времени из файла .map
 
 var thermalCamera = (function () {
-    var UPDATE_INTERVAL = 3000;
+    var UPDATE_INTERVAL = 1000;
     var COMMENT_SAVE_DELAY = 1000;
 
     var items = [];
@@ -10,6 +10,7 @@ var thermalCamera = (function () {
     var allCnlNums = [];
     var commentTimers = {};
     var updateTimer = null;
+    var districtSortAsc = true;
 
     function init() {
         var itemsEl = document.getElementById("tcItems");
@@ -20,9 +21,46 @@ var thermalCamera = (function () {
         userData = userDataEl ? JSON.parse(userDataEl.textContent) || {} : {};
 
         collectChannelNumbers();
+        sortItemsByDistrict();
         renderTable();
+        bindHeaderSort();
+        updateSortIndicator();
         requestData();
         startAutoUpdate();
+    }
+
+    function sortItemsByDistrict() {
+        items.sort(function (a, b) {
+            var da = a.districtNumber || 0;
+            var db = b.districtNumber || 0;
+            return districtSortAsc ? da - db : db - da;
+        });
+    }
+
+    function bindHeaderSort() {
+        var th = document.querySelector("#tblThermalCameras th.tc-col-district");
+        if (!th) return;
+        th.style.cursor = "pointer";
+        th.addEventListener("click", function () {
+            districtSortAsc = !districtSortAsc;
+            sortItemsByDistrict();
+            renderTable();
+            updateSortIndicator();
+            requestData();
+        });
+    }
+
+    function updateSortIndicator() {
+        var th = document.querySelector("#tblThermalCameras th.tc-col-district");
+        if (!th) return;
+        var existing = th.querySelector(".tc-sort-indicator");
+        if (existing) existing.remove();
+        var span = document.createElement("span");
+        span.className = "tc-sort-indicator ms-1";
+        span.innerHTML = districtSortAsc
+            ? '<i class="fa-solid fa-arrow-down-short-wide"></i>'
+            : '<i class="fa-solid fa-arrow-up-short-wide"></i>';
+        th.appendChild(span);
     }
 
     function collectChannelNumbers() {
