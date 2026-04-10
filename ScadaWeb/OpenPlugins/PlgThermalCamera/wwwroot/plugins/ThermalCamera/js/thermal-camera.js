@@ -11,6 +11,7 @@ var thermalCamera = (function () {
     var commentTimers = {};
     var updateTimer = null;
     var districtSortAsc = true;
+    var searchQuery = "";
 
     function init() {
         var itemsEl = document.getElementById("tcItems");
@@ -25,8 +26,35 @@ var thermalCamera = (function () {
         renderTable();
         bindHeaderSort();
         updateSortIndicator();
+        bindSearch();
+        applyFilter();
         requestData();
         startAutoUpdate();
+    }
+
+    function bindSearch() {
+        var searchInput = document.getElementById("tcSearchInput");
+        if (!searchInput) return;
+        searchInput.addEventListener("input", function () {
+            searchQuery = this.value;
+            applyFilter();
+        });
+    }
+
+    function applyFilter() {
+        var q = (searchQuery || "").trim().toLowerCase();
+        var rows = document.querySelectorAll("#tbodyThermalCameras tr");
+        for (var i = 0; i < rows.length; i++) {
+            var row = rows[i];
+            var itemId = parseInt(row.getAttribute("data-item-id"));
+            var item = null;
+            for (var j = 0; j < items.length; j++) {
+                if (items[j].id === itemId) { item = items[j]; break; }
+            }
+            if (!item) continue;
+            var match = !q || (item.name && item.name.toLowerCase().indexOf(q) >= 0);
+            row.style.display = match ? "" : "none";
+        }
     }
 
     function sortItemsByDistrict() {
@@ -46,6 +74,7 @@ var thermalCamera = (function () {
             sortItemsByDistrict();
             renderTable();
             updateSortIndicator();
+            applyFilter();
             requestData();
         });
     }
