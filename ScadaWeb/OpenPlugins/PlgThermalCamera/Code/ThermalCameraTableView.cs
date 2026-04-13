@@ -2,7 +2,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using Scada.Data.Entities;
-using Scada.Data.Models;
 using Scada.Web.Plugins.PlgThermalCamera.Models;
 using System.Xml;
 
@@ -18,12 +17,6 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
 
         public List<ThermalCameraItem> Items { get; } = [];
 
-        /// <summary>
-        /// Gets or sets the configuration database for channel data type lookup.
-        /// Must be set before LoadView is called.
-        /// </summary>
-        public ConfigDataset ConfigDatabase { get; set; }
-
         public override void LoadView(Stream stream)
         {
             XmlDocument xmlDoc = new();
@@ -36,7 +29,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
 
             foreach (XmlNode locationNode in locationNodes)
             {
-                ThermalCameraItem item = ThermalCameraItem.ParseFromMapLocation(locationNode, ConfigDatabase);
+                ThermalCameraItem item = ThermalCameraItem.ParseFromMapLocation(locationNode);
                 if (item != null)
                 {
                     Items.Add(item);

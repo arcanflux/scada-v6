@@ -2,7 +2,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using Microsoft.Extensions.DependencyInjection;
-using Scada.Data.Models;
 using Scada.Lang;
 using Scada.Web.Lang;
 using Scada.Web.Plugins.PlgThermalCamera.Code;
@@ -45,17 +44,6 @@ namespace Scada.Web.Plugins.PlgThermalCamera
         {
             if (!Locale.LoadDictionaries(AppDirs.LangDir, Code, out string errMsg))
                 Log.WriteError(WebPhrases.PluginMessage, Code, errMsg);
-        }
-
-        /// <summary>
-        /// Prepares the specified view by injecting ConfigDatabase for channel type lookup.
-        /// </summary>
-        public override void PrepareView(ViewBase view)
-        {
-            if (view is ThermalCameraTableView tcView)
-            {
-                tcView.ConfigDatabase = WebContext.ConfigDatabase;
-            }
         }
 
         /// <summary>
