@@ -9,7 +9,7 @@
 }
 
 @section Scripts {
-    <script>var tcViewID = @Model.ViewID;</script>
+    <script>var tcViewID = @(Model.ViewID);</script>
     <script src="~/plugins/ThermalCamera/js/thermal-camera.js" asp-append-version="true"></script>
     <script id="tcItems" type="application/json">@Html.Raw(Model.ItemsJson)</script>
     <script id="tcUserData" type="application/json">@Html.Raw(Model.UserDataJson)</script>
