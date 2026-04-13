@@ -21,7 +21,11 @@ var thermalCamera = (function () {
 
         items = JSON.parse(itemsEl.textContent) || [];
         userData = userDataEl ? JSON.parse(userDataEl.textContent) || {} : {};
-        viewID = (typeof tcViewID === "number") ? tcViewID : 0;
+
+        // viewID is read from data-view-id on .tc-container so the Razor page
+        // does not need inline C# inside a <script> block.
+        var containerEl = document.querySelector(".tc-container");
+        viewID = containerEl ? parseInt(containerEl.getAttribute("data-view-id"), 10) || 0 : 0;
 
         sortItemsByDistrict();
         renderTable();
