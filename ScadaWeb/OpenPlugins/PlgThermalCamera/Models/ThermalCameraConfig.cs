@@ -82,12 +82,14 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
         /// Parses a Location XML node from a .map file.
         /// Only processes nodes with Type=Triangle.
         /// Classifies DataItem channels by their label text:
-        ///   "Затопление 200мм" / "flood 200"   → Flood200
-        ///   "Затопление 700мм" / "flood 700"   → Flood700
-        ///   "Т 200мм" / "Температура 200" / "temp 200" → Temp200
-        ///   "Т 700мм" / "Температура 700" / "temp 700" → Temp700
-        ///   "Батарея %" / "battery"            → Battery
-        ///   "Онлайн" / "online"                → Online
+        ///   "Затопление 200мм" / "flood 200"        → Flood200
+        ///   "Затопление 700мм" / "flood 700"        → Flood700
+        ///   "Батарея %" / "battery" / "заряд"       → Battery
+        ///   "Онлайн" / "online" / "связь"           → Online
+        ///   any other label containing "200"        → Temp200
+        ///     (e.g. "Температура 200мм", "Т 200мм", "temp 200")
+        ///   any other label containing "700"        → Temp700
+        ///     (e.g. "Температура 700мм", "Т 700мм", "temp 700")
         /// </summary>
         public static ThermalCameraItem ParseFromMapLocation(XmlNode locationNode)
         {

@@ -5,12 +5,13 @@
 
   Добавленный элемент <District> определяет номер района для сортировки в таблице.
 
-  DataItem определяются по тексту:
-    "Т 200мм" / "Температура 200мм" - температура трубы 200мм
-    "Т 700мм" / "Температура 700мм" - температура трубы 700мм
-    "Затопление 200мм"              - статус затопления 200мм (0=затоплено, 1=норма)
-    "Затопление 700мм"              - статус затопления 700мм (0=затоплено, 1=норма)
-    "Онлайн"                        - статус связи
+  DataItem определяются по тексту метки:
+    содержит "затопл"/"flood" + "200"  - статус затопления 200мм (0=затоплено, 1=норма)
+    содержит "затопл"/"flood" + "700"  - статус затопления 700мм (0=затоплено, 1=норма)
+    содержит "батар"/"battery"/"заряд" - заряд батареи, %
+    содержит "онлайн"/"online"/"связь" - статус связи
+    содержит "200" (не затопление)     - температура трубы 200мм (напр. "Температура 200мм")
+    содержит "700" (не затопление)     - температура трубы 700мм (напр. "Температура 700мм")
 
   Photo — относительный путь к фото в папке Views, например "Photo/1.png"
 -->
@@ -41,8 +42,8 @@
       <Photo>Photo/tk-1152a.png</Photo>
       <StatusCnlNum>0</StatusCnlNum>
       <Data>
-        <DataItem cnlNum="500101">Т 200мм</DataItem>
-        <DataItem cnlNum="500102">Т 700мм</DataItem>
+        <DataItem cnlNum="500101">Температура 200мм</DataItem>
+        <DataItem cnlNum="500102">Температура 700мм</DataItem>
         <DataItem cnlNum="500103">Затопление 200мм</DataItem>
         <DataItem cnlNum="500104">Затопление 700мм</DataItem>
 <DataItem cnlNum="500106">Онлайн</DataItem>
@@ -61,8 +62,8 @@
       <Photo>Photo/tk-0845b.png</Photo>
       <StatusCnlNum>0</StatusCnlNum>
       <Data>
-        <DataItem cnlNum="500201">Т 200мм</DataItem>
-        <DataItem cnlNum="500202">Т 700мм</DataItem>
+        <DataItem cnlNum="500201">Температура 200мм</DataItem>
+        <DataItem cnlNum="500202">Температура 700мм</DataItem>
         <DataItem cnlNum="500203">Затопление 200мм</DataItem>
         <DataItem cnlNum="500204">Затопление 700мм</DataItem>
         <DataItem cnlNum="500205">Батарея %</DataItem>
@@ -82,8 +83,8 @@
       <Photo>Photo/tk-2001c.png</Photo>
       <StatusCnlNum>0</StatusCnlNum>
       <Data>
-        <DataItem cnlNum="500301">Т 200мм</DataItem>
-        <DataItem cnlNum="500302">Т 700мм</DataItem>
+        <DataItem cnlNum="500301">Температура 200мм</DataItem>
+        <DataItem cnlNum="500302">Температура 700мм</DataItem>
         <DataItem cnlNum="500303">Затопление 200мм</DataItem>
         <DataItem cnlNum="500304">Затопление 700мм</DataItem>
         <DataItem cnlNum="500305">Батарея %</DataItem>
