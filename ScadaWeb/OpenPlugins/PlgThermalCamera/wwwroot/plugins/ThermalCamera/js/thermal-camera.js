@@ -334,12 +334,15 @@ var thermalCamera = (function () {
         var d = data[item.onlineCnlNum];
         if (!d) return;
 
-        var isOnline = d.val !== 0 && d.stat > 0;
+        // Offline covers both explicit 0 and stale/undefined data (stat<=0):
+        // when the driver loses contact with the device, SCADA marks the channel
+        // as Undefined, which from the user's point of view IS "offline".
+        var isOnline = d.stat > 0 && d.val !== 0;
         var textEl = onlineEl.querySelector(".tc-online-text");
         onlineEl.className = "tc-online-indicator " +
-            (d.stat <= 0 ? "tc-status-unknown" : isOnline ? "tc-status-online" : "tc-status-offline");
+            (isOnline ? "tc-status-online" : "tc-status-offline");
         if (textEl) {
-            textEl.textContent = d.stat <= 0 ? "\u2014" : isOnline ? "Online" : "Offline";
+            textEl.textContent = isOnline ? "Online" : "Offline";
         }
     }
 
