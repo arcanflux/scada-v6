@@ -19,39 +19,50 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
         IWebContext webContext,
         IClientAccessor clientAccessor,
         IUserContext userContext,
+        IViewLoader viewLoader,
         ThermalCameraContext thermalCameraContext) : ControllerBase
     {
-        public Dto<CurDataResult> GetCurData(string cnlNums)
+        /// <summary>
+        /// Gets current channel data for the specified thermal-camera view.
+        /// Follows the same pattern as PlgMain.GetCurDataByView / PlgMap:
+        ///   1. Load the view by viewID from the view cache.
+        ///   2. Use the view's CnlNumList that was registered during LoadView.
+        ///   3. Ask SCADA Server for the latest values via ScadaClient.GetCurrentData.
+        ///   4. Return {serverTime, data} so the same response also drives the header clock.
+        /// </summary>
+        public Dto<CurDataResult> GetCurData(int viewID)
         {
             try
             {
-                int[] cnlNumArr = string.IsNullOrEmpty(cnlNums)
-                    ? []
-                    : [.. cnlNums.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                                 .Select(s => int.TryParse(s.Trim(), out int n) ? n : 0)
-                                 .Where(n => n > 0)];
+                if (!viewLoader.GetView(viewID, out ThermalCameraTableView view, out string errMsg))
+                    return Dto<CurDataResult>.Fail(errMsg);
 
-                if (cnlNumArr.Length == 0)
-                    return Dto<CurDataResult>.Success(new CurDataResult());
-
-                CnlData[] cnlDataArr = clientAccessor.ScadaClient.GetCurrentData(cnlNumArr, false, out _);
-                CnlDataFormatter formatter = new(webContext.ConfigDatabase, userContext.TimeZone);
+                List<int> cnlNumList = view.CnlNumList ?? [];
+                int cnlCnt = cnlNumList.Count;
 
                 Dictionary<int, CnlDataItem> dataItems = [];
-                for (int i = 0; i < cnlNumArr.Length; i++)
-                {
-                    int cnlNum = cnlNumArr[i];
-                    CnlData cnlData = i < cnlDataArr.Length ? cnlDataArr[i] : CnlData.Empty;
-                    CnlDataFormatted formatted = formatter.FormatCnlData(cnlData, cnlNum, true);
 
-                    dataItems[cnlNum] = new CnlDataItem
+                if (cnlCnt > 0)
+                {
+                    int[] cnlNumArr = [.. cnlNumList];
+                    CnlData[] cnlDataArr = clientAccessor.ScadaClient.GetCurrentData(cnlNumArr, false, out _);
+                    CnlDataFormatter formatter = new(webContext.ConfigDatabase, userContext.TimeZone);
+
+                    for (int i = 0; i < cnlCnt; i++)
                     {
-                        CnlNum = cnlNum,
-                        Val = cnlData.Val,
-                        Stat = cnlData.Stat,
-                        Text = formatted.DispVal,
-                        Color = formatted.Colors?.Length > 0 ? formatted.Colors[0] : ""
-                    };
+                        int cnlNum = cnlNumArr[i];
+                        CnlData cnlData = i < cnlDataArr.Length ? cnlDataArr[i] : CnlData.Empty;
+                        CnlDataFormatted formatted = formatter.FormatCnlData(cnlData, cnlNum, true);
+
+                        dataItems[cnlNum] = new CnlDataItem
+                        {
+                            CnlNum = cnlNum,
+                            Val = cnlData.Val,
+                            Stat = cnlData.Stat,
+                            Text = formatted.DispVal,
+                            Color = formatted.Colors?.Length > 0 ? formatted.Colors[0] : ""
+                        };
+                    }
                 }
 
                 return Dto<CurDataResult>.Success(new CurDataResult

@@ -19,6 +19,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
 
+        public int ViewID { get; private set; }
         public string ItemsJson { get; private set; } = "[]";
         public string UserDataJson { get; private set; } = "{}";
         public string ErrorMessage { get; private set; } = "";
@@ -26,6 +27,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
         public void OnGet(int? id)
         {
             int viewID = id ?? userContext.Views.GetFirstViewID() ?? 0;
+            ViewID = viewID;
 
             if (viewLoader.GetView(viewID, true, out ThermalCameraTableView view, out string errMsg))
             {

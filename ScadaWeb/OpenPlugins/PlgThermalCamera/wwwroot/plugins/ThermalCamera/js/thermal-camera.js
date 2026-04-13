@@ -7,7 +7,7 @@ var thermalCamera = (function () {
 
     var items = [];
     var userData = {};
-    var allCnlNums = [];
+    var viewID = 0;
     var commentTimers = {};
     var updateTimer = null;
     var districtSortAsc = true;
@@ -21,8 +21,8 @@ var thermalCamera = (function () {
 
         items = JSON.parse(itemsEl.textContent) || [];
         userData = userDataEl ? JSON.parse(userDataEl.textContent) || {} : {};
+        viewID = (typeof tcViewID === "number") ? tcViewID : 0;
 
-        collectChannelNumbers();
         sortItemsByDistrict();
         renderTable();
         bindHeaderSort();
@@ -125,19 +125,6 @@ var thermalCamera = (function () {
         th.appendChild(span);
     }
 
-    function collectChannelNumbers() {
-        var cnlSet = {};
-        for (var i = 0; i < items.length; i++) {
-            var item = items[i];
-            if (item.onlineCnlNum > 0) cnlSet[item.onlineCnlNum] = true;
-            if (item.temp200CnlNum > 0) cnlSet[item.temp200CnlNum] = true;
-            if (item.temp700CnlNum > 0) cnlSet[item.temp700CnlNum] = true;
-            if (item.flood200CnlNum > 0) cnlSet[item.flood200CnlNum] = true;
-            if (item.flood700CnlNum > 0) cnlSet[item.flood700CnlNum] = true;
-            if (item.batteryCnlNum > 0) cnlSet[item.batteryCnlNum] = true;
-        }
-        allCnlNums = Object.keys(cnlSet).map(Number).sort(function (a, b) { return a - b; });
-    }
 
     function renderTable() {
         var tbody = document.getElementById("tbodyThermalCameras");
@@ -255,10 +242,11 @@ var thermalCamera = (function () {
     }
 
     function requestData() {
-        if (allCnlNums.length === 0) return;
-
+        // Follows the PlgMap / PlgMain pattern: ask the server for current
+        // data by viewID — the backend resolves the view's CnlNumList on its
+        // own, just like MapApiController.GetCurData / GetCurDataByView.
         $.ajax({
-            url: "/Api/ThermalCamera/GetCurData?cnlNums=" + allCnlNums.join(","),
+            url: "/Api/ThermalCamera/GetCurData?viewID=" + viewID,
             type: "GET",
             dataType: "json",
             success: function (dto) {
