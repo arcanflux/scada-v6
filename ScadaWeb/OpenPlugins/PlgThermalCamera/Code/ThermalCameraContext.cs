@@ -72,7 +72,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
             }
         }
 
-        private UserDataEntry GetOrCreateEntry(ThermalCameraUserData userData, int itemId)
+        private static UserDataEntry GetOrCreateEntry(ThermalCameraUserData userData, int itemId)
         {
             if (!userData.Entries.TryGetValue(itemId, out UserDataEntry entry))
             {
@@ -84,11 +84,16 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
 
         private static void TrimMessages(UserDataEntry entry)
         {
+            // EnableMessageLimit is a const switch — when it's false the rest of the
+            // method is dead-code-eliminated, which is exactly the toggle behavior we
+            // want, so the unreachable-code warning is suppressed locally.
+#pragma warning disable CS0162 // Unreachable code detected
             if (!EnableMessageLimit)
                 return;
             int excess = entry.Messages.Count - MaxMessagesPerItem;
             if (excess > 0)
                 entry.Messages.RemoveRange(0, excess);
+#pragma warning restore CS0162
         }
 
         /// <summary>
