@@ -115,6 +115,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
         /// for the first time so the user immediately sees everything that was posted
         /// before their session started.
         /// </summary>
+        [HttpGet]
         public Dto<ChatHistoryResult> GetChatHistory(int itemId)
         {
             try

@@ -522,7 +522,6 @@ var thermalCamera = (function () {
                 '<textarea id="tcChatInput" class="tc-chat-input" rows="2" ' +
                     'placeholder="Введите сообщение..." maxlength="2000"></textarea>' +
                 '<button type="button" class="tc-chat-send" id="tcChatSend" title="Отправить">' +
-                    '<i class="fa-solid fa-paper-plane"></i>' +
                     '<span>Отправить</span>' +
                 '</button>' +
             '</div>';
