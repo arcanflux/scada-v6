@@ -23,14 +23,18 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
         ThermalCameraContext thermalCameraContext) : ControllerBase
     {
         /// <summary>
-        /// Gets current channel data for the specified thermal-camera view.
+        /// Gets current channel data for the specified thermal-camera view and, as a side
+        /// effect, detects normal→flooded transitions so the chat log auto-records flood
+        /// events. Also returns any chat messages newer than the supplied cursor so the
+        /// browser can incrementally refresh its panels using the existing 1Hz poll.
         /// Follows the same pattern as PlgMain.GetCurDataByView / PlgMap:
         ///   1. Load the view by viewID from the view cache.
         ///   2. Use the view's CnlNumList that was registered during LoadView.
         ///   3. Ask SCADA Server for the latest values via ScadaClient.GetCurrentData.
-        ///   4. Return {serverTime, data} so the same response also drives the header clock.
+        ///   4. Classify per-item flood flags + dispatch to DetectFloodTransitions.
+        ///   5. Return {serverTime, data, chatUpdates}.
         /// </summary>
-        public Dto<CurDataResult> GetCurData(int viewID)
+        public Dto<CurDataResult> GetCurData(int viewID, long chatCursor = 0)
         {
             try
             {
@@ -41,6 +45,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
                 int cnlCnt = cnlNumList.Count;
 
                 Dictionary<int, CnlDataItem> dataItems = [];
+                Dictionary<int, CnlData> rawByCnl = [];
 
                 if (cnlCnt > 0)
                 {
@@ -52,6 +57,8 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
                     {
                         int cnlNum = cnlNumArr[i];
                         CnlData cnlData = i < cnlDataArr.Length ? cnlDataArr[i] : CnlData.Empty;
+                        rawByCnl[cnlNum] = cnlData;
+
                         CnlDataFormatted formatted = formatter.FormatCnlData(cnlData, cnlNum, true);
 
                         dataItems[cnlNum] = new CnlDataItem
@@ -65,16 +72,115 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
                     }
                 }
 
+                // Build a per-item flood snapshot and let the context emit transition messages.
+                // Flood semantics mirror the JS: val == 0 && stat > 0 → flooded.
+                Dictionary<int, FloodStateSnapshot> floodStates = [];
+                foreach (ThermalCameraItem item in view.Items)
+                {
+                    FloodStateSnapshot snap = new();
+                    if (item.Flood200CnlNum > 0 && rawByCnl.TryGetValue(item.Flood200CnlNum, out CnlData d200))
+                    {
+                        snap.Flood200HasValue = d200.Stat > 0;
+                        snap.Flood200 = d200.Stat > 0 && d200.Val == 0;
+                    }
+                    if (item.Flood700CnlNum > 0 && rawByCnl.TryGetValue(item.Flood700CnlNum, out CnlData d700))
+                    {
+                        snap.Flood700HasValue = d700.Stat > 0;
+                        snap.Flood700 = d700.Stat > 0 && d700.Val == 0;
+                    }
+                    floodStates[item.Id] = snap;
+                }
+                thermalCameraContext.DetectFloodTransitions(view.Items, floodStates);
+
+                // Collect any new chat messages so the client can merge them in.
+                ChatSyncResult chatSync = thermalCameraContext.GetChatUpdates(chatCursor);
+
                 return Dto<CurDataResult>.Success(new CurDataResult
                 {
                     ServerTime = DateTime.UtcNow.ToString("o"),
-                    Data = dataItems
+                    Data = dataItems,
+                    ChatCursor = chatSync.Cursor,
+                    ChatUpdates = chatSync.Messages
                 });
             }
             catch (Exception ex)
             {
                 webContext.Log.WriteError(ex.BuildErrorMessage(WebPhrases.ErrorInWebApi, nameof(GetCurData)));
                 return Dto<CurDataResult>.Fail(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Returns the full chat history for a single item. Used when a panel is opened
+        /// for the first time so the user immediately sees everything that was posted
+        /// before their session started.
+        /// </summary>
+        public Dto<ChatHistoryResult> GetChatHistory(int itemId)
+        {
+            try
+            {
+                List<ChatMessage> history = thermalCameraContext.GetHistory(itemId);
+                return Dto<ChatHistoryResult>.Success(new ChatHistoryResult
+                {
+                    ItemId = itemId,
+                    Messages = history
+                });
+            }
+            catch (Exception ex)
+            {
+                webContext.Log.WriteError(ex.BuildErrorMessage(WebPhrases.ErrorInWebApi, nameof(GetChatHistory)));
+                return Dto<ChatHistoryResult>.Fail(ex.Message);
+            }
+        }
+
+        [HttpPost]
+        public Dto<ChatMessage> PostChatMessage([FromBody] PostChatMessageRequest request)
+        {
+            try
+            {
+                if (request == null || request.ItemId <= 0)
+                    return Dto<ChatMessage>.Fail("Некорректный запрос");
+
+                string text = (request.Text ?? "").Trim();
+                if (string.IsNullOrEmpty(text))
+                    return Dto<ChatMessage>.Fail("Сообщение не может быть пустым");
+
+                if (text.Length > 2000)
+                    text = text[..2000];
+
+                string author = userContext.UserEntity?.Name ?? "anonymous";
+                ChatMessage msg = thermalCameraContext.AddUserMessage(request.ItemId, author, text, out string errMsg);
+                return msg != null
+                    ? Dto<ChatMessage>.Success(msg)
+                    : Dto<ChatMessage>.Fail(errMsg);
+            }
+            catch (Exception ex)
+            {
+                webContext.Log.WriteError(ex.BuildErrorMessage(WebPhrases.ErrorInWebApi, nameof(PostChatMessage)));
+                return Dto<ChatMessage>.Fail(ex.Message);
+            }
+        }
+
+        [HttpPost]
+        public Dto DeleteChatMessage([FromBody] DeleteChatMessageRequest request)
+        {
+            try
+            {
+                if (request == null || request.ItemId <= 0 || request.MessageId <= 0)
+                    return Dto.Fail("Некорректный запрос");
+
+                string currentUser = userContext.UserEntity?.Name ?? "";
+                bool isAdmin = userContext.UserEntity?.RoleID == RoleID.Administrator;
+
+                return thermalCameraContext.DeleteMessage(
+                    request.ItemId, request.MessageId, currentUser, isAdmin, out string errMsg)
+                    ? Dto.Success()
+                    : Dto.Fail(errMsg);
+            }
+            catch (Exception ex)
+            {
+                webContext.Log.WriteError(ex.BuildErrorMessage(WebPhrases.ErrorInWebApi, nameof(DeleteChatMessage)));
+                return Dto.Fail(ex.Message);
             }
         }
 
@@ -89,32 +195,6 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
             {
                 webContext.Log.WriteError(ex.BuildErrorMessage(WebPhrases.ErrorInWebApi, nameof(GetUserData)));
                 return Dto<ThermalCameraUserData>.Fail(ex.Message);
-            }
-        }
-
-        [HttpPost]
-        public Dto SaveComment([FromBody] SaveCommentRequest request)
-        {
-            try
-            {
-                ThermalCameraUserData userData = thermalCameraContext.LoadUserData();
-
-                if (!userData.Entries.TryGetValue(request.ItemId, out UserDataEntry entry))
-                {
-                    entry = new UserDataEntry();
-                    userData.Entries[request.ItemId] = entry;
-                }
-
-                entry.Comment = request.Comment ?? "";
-
-                return thermalCameraContext.SaveUserData(userData, out string errMsg)
-                    ? Dto.Success()
-                    : Dto.Fail(errMsg);
-            }
-            catch (Exception ex)
-            {
-                webContext.Log.WriteError(ex.BuildErrorMessage(WebPhrases.ErrorInWebApi, nameof(SaveComment)));
-                return Dto.Fail(ex.Message);
             }
         }
 
@@ -204,6 +284,8 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
     {
         public string ServerTime { get; set; } = "";
         public Dictionary<int, CnlDataItem> Data { get; set; } = [];
+        public long ChatCursor { get; set; }
+        public List<ChatUpdateItem> ChatUpdates { get; set; } = [];
     }
 
     public class CnlDataItem
@@ -215,10 +297,22 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
         public string Color { get; set; } = "";
     }
 
-    public class SaveCommentRequest
+    public class ChatHistoryResult
     {
         public int ItemId { get; set; }
-        public string Comment { get; set; } = "";
+        public List<ChatMessage> Messages { get; set; } = [];
+    }
+
+    public class PostChatMessageRequest
+    {
+        public int ItemId { get; set; }
+        public string Text { get; set; } = "";
+    }
+
+    public class DeleteChatMessageRequest
+    {
+        public int ItemId { get; set; }
+        public long MessageId { get; set; }
     }
 
     public class SaveCommissionedRequest

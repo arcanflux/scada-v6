@@ -6,8 +6,9 @@ using System.Xml;
 namespace Scada.Web.Plugins.PlgThermalCamera.Models
 {
     /// <summary>
-    /// Represents user-editable data stored within the plugin (comments and commissioned status).
-    /// <para>Представляет пользовательские данные, хранимые внутри плагина.</para>
+    /// Represents user-editable data stored within the plugin.
+    /// <para>Представляет пользовательские данные, хранимые внутри плагина (комментарии,
+    /// статус «в работе», а также историю чата по каждому объекту ТК).</para>
     /// </summary>
     public class ThermalCameraUserData
     {
@@ -15,6 +16,11 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
         /// Gets the dictionary of item user data keyed by item ID.
         /// </summary>
         public Dictionary<int, UserDataEntry> Entries { get; set; } = [];
+
+        /// <summary>
+        /// Gets or sets the last allocated chat message ID (monotonically increasing).
+        /// </summary>
+        public long LastMessageId { get; set; }
 
         /// <summary>
         /// Loads user data from the specified file.
@@ -32,20 +38,55 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
                 XmlDocument xmlDoc = new();
                 xmlDoc.Load(fileName);
                 Entries.Clear();
+                LastMessageId = 0;
 
-                if (xmlDoc.DocumentElement?.SelectNodes("Entry") is XmlNodeList nodes)
+                XmlElement root = xmlDoc.DocumentElement;
+                if (root == null)
+                {
+                    errMsg = "";
+                    return true;
+                }
+
+                string lastIdAttr = root.GetAttribute("lastMessageId");
+                if (long.TryParse(lastIdAttr, out long lastId))
+                    LastMessageId = lastId;
+
+                if (root.SelectNodes("Entry") is XmlNodeList nodes)
                 {
                     foreach (XmlNode node in nodes)
                     {
                         int id = GetAttrInt(node, "id");
-                        if (id > 0)
+                        if (id <= 0)
+                            continue;
+
+                        UserDataEntry entry = new()
                         {
-                            Entries[id] = new UserDataEntry
+                            Comment = GetAttrStr(node, "comment"),
+                            IsCommissioned = GetAttrBool(node, "isCommissioned")
+                        };
+
+                        if (node.SelectNodes("Message") is XmlNodeList msgNodes)
+                        {
+                            foreach (XmlNode msgNode in msgNodes)
                             {
-                                Comment = GetAttrStr(node, "comment"),
-                                IsCommissioned = GetAttrBool(node, "isCommissioned")
-                            };
+                                ChatMessage msg = new()
+                                {
+                                    Id = GetAttrLong(msgNode, "id"),
+                                    TimestampMs = GetAttrLong(msgNode, "ts"),
+                                    Author = GetAttrStr(msgNode, "author"),
+                                    Kind = GetAttrStr(msgNode, "kind"),
+                                    Text = msgNode.InnerText ?? ""
+                                };
+                                if (string.IsNullOrEmpty(msg.Kind))
+                                    msg.Kind = ChatMessageKind.User;
+                                entry.Messages.Add(msg);
+
+                                if (msg.Id > LastMessageId)
+                                    LastMessageId = msg.Id;
+                            }
                         }
+
+                        Entries[id] = entry;
                     }
                 }
 
@@ -71,14 +112,28 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
                 xmlDoc.AppendChild(xmlDecl);
 
                 XmlElement rootElem = xmlDoc.CreateElement("ThermalCameraUserData");
+                rootElem.SetAttribute("lastMessageId", LastMessageId.ToString());
                 xmlDoc.AppendChild(rootElem);
 
                 foreach (KeyValuePair<int, UserDataEntry> kvp in Entries)
                 {
                     XmlElement entryElem = xmlDoc.CreateElement("Entry");
                     entryElem.SetAttribute("id", kvp.Key.ToString());
-                    entryElem.SetAttribute("comment", kvp.Value.Comment);
-                    entryElem.SetAttribute("isCommissioned", kvp.Value.IsCommissioned.ToString().ToLowerInvariant());
+                    entryElem.SetAttribute("comment", kvp.Value.Comment ?? "");
+                    entryElem.SetAttribute("isCommissioned",
+                        kvp.Value.IsCommissioned.ToString().ToLowerInvariant());
+
+                    foreach (ChatMessage msg in kvp.Value.Messages)
+                    {
+                        XmlElement msgElem = xmlDoc.CreateElement("Message");
+                        msgElem.SetAttribute("id", msg.Id.ToString());
+                        msgElem.SetAttribute("ts", msg.TimestampMs.ToString());
+                        msgElem.SetAttribute("author", msg.Author ?? "");
+                        msgElem.SetAttribute("kind", msg.Kind ?? ChatMessageKind.User);
+                        msgElem.AppendChild(xmlDoc.CreateTextNode(msg.Text ?? ""));
+                        entryElem.AppendChild(msgElem);
+                    }
+
                     rootElem.AppendChild(entryElem);
                 }
 
@@ -108,6 +163,12 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
             return int.TryParse(val, out int result) ? result : 0;
         }
 
+        private static long GetAttrLong(XmlNode node, string name)
+        {
+            string val = GetAttrStr(node, name);
+            return long.TryParse(val, out long result) ? result : 0;
+        }
+
         private static bool GetAttrBool(XmlNode node, string name)
         {
             string val = GetAttrStr(node, name);
@@ -122,7 +183,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
     public class UserDataEntry
     {
         /// <summary>
-        /// Gets or sets the comment.
+        /// Legacy single-comment field (still stored for backward compatibility).
         /// </summary>
         public string Comment { get; set; } = "";
 
@@ -130,5 +191,40 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
         /// Gets or sets whether the thermal camera is commissioned (введено в работу).
         /// </summary>
         public bool IsCommissioned { get; set; }
+
+        /// <summary>
+        /// Gets the chat message history for this item.
+        /// </summary>
+        public List<ChatMessage> Messages { get; set; } = [];
+    }
+
+    /// <summary>
+    /// Represents a single chat message.
+    /// <para>Представляет сообщение чата ТК (пользовательское или системное).</para>
+    /// </summary>
+    public class ChatMessage
+    {
+        public long Id { get; set; }
+        public long TimestampMs { get; set; }
+        public string Author { get; set; } = "";
+        public string Text { get; set; } = "";
+
+        /// <summary>
+        /// Message kind — see <see cref="ChatMessageKind"/>.
+        /// </summary>
+        public string Kind { get; set; } = ChatMessageKind.User;
+    }
+
+    /// <summary>
+    /// Chat message kinds used by the plugin UI to style bubbles.
+    /// </summary>
+    public static class ChatMessageKind
+    {
+        /// <summary>Regular user message.</summary>
+        public const string User = "user";
+        /// <summary>System message for 200мм flood event (yellow).</summary>
+        public const string Flood200 = "flood200";
+        /// <summary>System message for 700мм flood event (red).</summary>
+        public const string Flood700 = "flood700";
     }
 }
