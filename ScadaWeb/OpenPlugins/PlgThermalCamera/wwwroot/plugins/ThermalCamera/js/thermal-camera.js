@@ -812,7 +812,7 @@ var thermalCamera = (function () {
             }
         }
         syncChatTriggerHighlights();
-        refreshAllChatTabs();
+        updateChatTabsActive();
     }
 
     function syncChatTriggerHighlights() {
@@ -907,7 +907,9 @@ var thermalCamera = (function () {
                 var oid = openIds[j];
                 var item = findItem(oid);
                 if (!item) continue;
-                var active = (oid === pid) ? " tc-chat-tab-active" : "";
+                // Every tab strip highlights the GLOBAL active chat (not its
+                // own owner), so "selected" is consistent across every panel.
+                var active = (oid === activeChatId) ? " tc-chat-tab-active" : "";
                 html += '<button type="button" class="tc-chat-tab' + active +
                     '" data-target-id="' + oid +
                     '" title="' + escapeHtml(item.name || "") + '">' +
@@ -919,11 +921,38 @@ var thermalCamera = (function () {
 
             var tabBtns = tabsEl.querySelectorAll(".tc-chat-tab");
             for (var k = 0; k < tabBtns.length; k++) {
+                // Stop mousedown from bubbling up to the panel's mousedown
+                // handler — otherwise setActiveChat(owner) fires first and
+                // used to rebuild the tab DOM before `click` could land.
+                tabBtns[k].addEventListener("mousedown", function (e) {
+                    e.stopPropagation();
+                });
                 tabBtns[k].addEventListener("click", function (e) {
                     e.stopPropagation();
                     var tid = parseInt(this.getAttribute("data-target-id"));
                     focusChat(tid);
                 });
+            }
+        }
+    }
+
+    // Lightweight "which tab is active" update — only toggles the active
+    // class on existing tab buttons, NEVER rewrites innerHTML. Called from
+    // setActiveChat so the click target on a tab stays alive between
+    // mousedown and click.
+    function updateChatTabsActive() {
+        for (var id in chatPanels) {
+            if (!chatPanels.hasOwnProperty(id)) continue;
+            var tabsEl = chatPanels[id].el.querySelector(".tc-chat-tabs");
+            if (!tabsEl) continue;
+            var btns = tabsEl.querySelectorAll(".tc-chat-tab");
+            for (var k = 0; k < btns.length; k++) {
+                var tid = parseInt(btns[k].getAttribute("data-target-id"));
+                if (tid === activeChatId) {
+                    btns[k].classList.add("tc-chat-tab-active");
+                } else {
+                    btns[k].classList.remove("tc-chat-tab-active");
+                }
             }
         }
     }

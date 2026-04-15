@@ -466,12 +466,13 @@
     outline: none;
 }
 
-/* Row trigger for the chat panel that currently has focus */
+/* Row trigger for the chat panel that currently has focus — reuses the
+   same pulse as the active chat tab so both indicators blink together. */
 .tc-chat-trigger.tc-chat-trigger-active {
     background: linear-gradient(135deg, #2c5282 0%, #3182ce 100%);
     border-color: #2c5282;
     color: #fff;
-    box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.35);
+    animation: tcChatActivePulse 1.2s ease-in-out infinite;
 }
 
 .tc-chat-trigger.tc-chat-trigger-active .tc-chat-trigger-icon,
@@ -705,7 +706,29 @@
     background: linear-gradient(135deg, #2c5282 0%, #3182ce 100%);
     border-color: #2c5282;
     color: #fff;
-    box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.25);
+    animation: tcChatActivePulse 1.2s ease-in-out infinite;
+}
+
+/* Slow, breathing pulse — cycles the blue glow ring and brightness so
+   the "selected chat" indicator is impossible to miss without being
+   visually aggressive. Used on both the in-chat tab strip and on the
+   corresponding row trigger in the table. */
+@keyframes tcChatActivePulse {
+    0% {
+        box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.25),
+                    0 0 0 0 rgba(49, 130, 206, 0.55);
+        filter: brightness(1);
+    }
+    50% {
+        box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.55),
+                    0 0 12px 4px rgba(49, 130, 206, 0.45);
+        filter: brightness(1.18);
+    }
+    100% {
+        box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.25),
+                    0 0 0 0 rgba(49, 130, 206, 0.55);
+        filter: brightness(1);
+    }
 }
 
 /* Corner resize grip for non-maximized panels */
