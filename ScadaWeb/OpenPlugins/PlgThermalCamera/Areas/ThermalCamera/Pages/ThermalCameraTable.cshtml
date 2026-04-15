@@ -22,7 +22,7 @@
 }
 else
 {
-    <div class="tc-container" data-view-id="@Model.ViewID">
+    <div class="tc-container" data-view-id="@Model.ViewID" data-is-admin="@(Model.IsAdmin ? "1" : "0")">
         <div class="tc-header">
             <div class="tc-header-controls">
                 <span id="spanServerTime" class="tc-server-time">--:--:--</span>

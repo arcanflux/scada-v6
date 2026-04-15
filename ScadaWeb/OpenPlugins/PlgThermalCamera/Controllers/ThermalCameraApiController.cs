@@ -170,11 +170,11 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
                 if (request == null || request.ItemId <= 0 || request.MessageId <= 0)
                     return Dto.Fail("Некорректный запрос");
 
-                string currentUser = userContext.UserEntity?.Name ?? "";
-                bool isAdmin = userContext.UserEntity?.RoleID == RoleID.Administrator;
+                if (userContext.UserEntity?.RoleID != RoleID.Administrator)
+                    return Dto.Fail("Удалять сообщения может только администратор");
 
                 return thermalCameraContext.DeleteMessage(
-                    request.ItemId, request.MessageId, currentUser, isAdmin, out string errMsg)
+                    request.ItemId, request.MessageId, out string errMsg)
                     ? Dto.Success()
                     : Dto.Fail(errMsg);
             }

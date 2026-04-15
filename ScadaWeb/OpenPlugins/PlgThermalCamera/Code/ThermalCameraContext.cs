@@ -150,10 +150,11 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         }
 
         /// <summary>
-        /// Removes a chat message after verifying the caller is allowed to delete it.
-        /// System messages (flood events) cannot be deleted.
+        /// Removes a user chat message. The caller (controller) is responsible for enforcing
+        /// that only administrators reach this method. System messages (flood events) cannot
+        /// be deleted.
         /// </summary>
-        public bool DeleteMessage(int itemId, long messageId, string currentUser, bool isAdmin, out string errMsg)
+        public bool DeleteMessage(int itemId, long messageId, out string errMsg)
         {
             lock (lockObj)
             {
@@ -175,14 +176,6 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                 if (msg.Kind != ChatMessageKind.User)
                 {
                     errMsg = "Системные сообщения нельзя удалять";
-                    return false;
-                }
-
-                bool isAuthor = !string.IsNullOrEmpty(currentUser) &&
-                                string.Equals(msg.Author, currentUser, StringComparison.OrdinalIgnoreCase);
-                if (!isAuthor && !isAdmin)
-                {
-                    errMsg = "Удалять сообщения может только автор или администратор";
                     return false;
                 }
 
