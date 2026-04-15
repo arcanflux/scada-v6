@@ -24,6 +24,7 @@ var thermalCamera = (function () {
     var chatPanelOrder = [];            // itemIds in insertion order
     var maximizedOrder = [];            // itemIds currently maximized, oldest first
     var chatZTop = 2000;
+    var activeChatId = null;            // itemId of the panel currently "in focus"
     var selectedMessageByPanel = {};    // itemId -> selectedMessageId
     var dragState = null;
     var resizeState = null;
@@ -284,6 +285,10 @@ var thermalCamera = (function () {
         if (btnRefresh) {
             btnRefresh.addEventListener("click", function () { requestData(); });
         }
+
+        // tbody was rebuilt — the fresh triggers don't carry highlight state,
+        // so re-apply the "active chat" marker if there is one.
+        syncChatTriggerHighlights();
     }
 
     function requestData() {
@@ -560,6 +565,7 @@ var thermalCamera = (function () {
         panel.style.height = initial.height + "px";
 
         bindPanelEvents(itemId);
+        setActiveChat(itemId);
         refreshAllChatTabs();
 
         if (!chatHistoryLoaded[itemId]) {
@@ -613,16 +619,19 @@ var thermalCamera = (function () {
         var inputEl = panel.querySelector(".tc-chat-input");
         var resizeHandle = panel.querySelector(".tc-chat-resize-handle");
 
-        // Bring this panel to the front on any mousedown inside it.
+        // Bring this panel to the front and mark it as the active one on any
+        // mousedown inside it — gives the user a clear "which chat am I in".
         panel.addEventListener("mousedown", function () {
             panel.style.zIndex = ++chatZTop;
+            setActiveChat(itemId);
         });
 
         // Drag from the header (but not from the action-buttons cluster).
+        // When the panel is maximized, dragging is allowed but constrained to
+        // horizontal movement within the table's left/right bounds.
         if (header) {
             header.addEventListener("mousedown", function (e) {
                 if (e.target.closest(".tc-chat-header-actions")) return;
-                if (chatPanels[itemId] && chatPanels[itemId].isMaximized) return;
                 startDrag(e, itemId);
             });
         }
@@ -670,10 +679,24 @@ var thermalCamera = (function () {
             startX: e.clientX,
             startY: e.clientY,
             startLeft: p.el.offsetLeft,
-            startTop: p.el.offsetTop
+            startTop: p.el.offsetTop,
+            horizontalOnly: !!p.isMaximized
         };
         document.addEventListener("mousemove", onDragMove);
         document.addEventListener("mouseup", onDragEnd);
+    }
+
+    // Returns the viewport-space x-range (left, right) of the data table so
+    // the maximized chat panel can be clamped to the table edges instead of
+    // the full window.
+    function getTableBounds() {
+        var el = document.querySelector(".tc-table-wrapper") ||
+                 document.querySelector(".tc-container");
+        if (!el) {
+            return { left: 0, right: window.innerWidth };
+        }
+        var r = el.getBoundingClientRect();
+        return { left: r.left, right: r.right };
     }
 
     function onDragMove(e) {
@@ -681,6 +704,20 @@ var thermalCamera = (function () {
         var p = chatPanels[dragState.itemId];
         if (!p) return;
         var dx = e.clientX - dragState.startX;
+
+        if (dragState.horizontalOnly) {
+            // Maximized panel: lock Y, clamp X to the table's horizontal range.
+            var bounds = getTableBounds();
+            var newLeft = dragState.startLeft + dx;
+            var minLeft = bounds.left;
+            var maxLeft = bounds.right - p.el.offsetWidth;
+            if (maxLeft < minLeft) maxLeft = minLeft;
+            if (newLeft < minLeft) newLeft = minLeft;
+            if (newLeft > maxLeft) newLeft = maxLeft;
+            p.el.style.left = newLeft + "px";
+            return;
+        }
+
         var dy = e.clientY - dragState.startY;
         var newLeft = dragState.startLeft + dx;
         var newTop = dragState.startTop + dy;
@@ -747,8 +784,38 @@ var thermalCamera = (function () {
         var p = chatPanels[itemId];
         if (!p) return;
         p.el.style.zIndex = ++chatZTop;
+        setActiveChat(itemId);
         var input = p.el.querySelector(".tc-chat-input");
         if (input) input.focus();
+    }
+
+    // Highlights the panel that currently has focus and syncs the row trigger
+    // for that panel so it stands out from the others.
+    function setActiveChat(itemId) {
+        activeChatId = (typeof itemId === "number" && !isNaN(itemId)) ? itemId : null;
+        for (var id in chatPanels) {
+            if (!chatPanels.hasOwnProperty(id)) continue;
+            var pan = chatPanels[id];
+            if (parseInt(id) === activeChatId) {
+                pan.el.classList.add("tc-chat-active");
+            } else {
+                pan.el.classList.remove("tc-chat-active");
+            }
+        }
+        syncChatTriggerHighlights();
+        refreshAllChatTabs();
+    }
+
+    function syncChatTriggerHighlights() {
+        var triggers = document.querySelectorAll(".tc-chat-trigger");
+        for (var t = 0; t < triggers.length; t++) {
+            var tid = parseInt(triggers[t].getAttribute("data-item-id"));
+            if (tid === activeChatId) {
+                triggers[t].classList.add("tc-chat-trigger-active");
+            } else {
+                triggers[t].classList.remove("tc-chat-trigger-active");
+            }
+        }
     }
 
     function toggleMaximize(itemId) {
@@ -879,6 +946,14 @@ var thermalCamera = (function () {
         var orderIdx = chatPanelOrder.indexOf(itemId);
         if (orderIdx >= 0) chatPanelOrder.splice(orderIdx, 1);
         delete selectedMessageByPanel[itemId];
+
+        // If the closed panel was the active one, promote whatever is on top now.
+        if (activeChatId === itemId) {
+            setActiveChat(topmostChatId());
+        } else {
+            syncChatTriggerHighlights();
+        }
+
         retileMaximized();
         refreshAllChatTabs();
     }

@@ -466,6 +466,19 @@
     outline: none;
 }
 
+/* Row trigger for the chat panel that currently has focus */
+.tc-chat-trigger.tc-chat-trigger-active {
+    background: linear-gradient(135deg, #2c5282 0%, #3182ce 100%);
+    border-color: #2c5282;
+    color: #fff;
+    box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.35);
+}
+
+.tc-chat-trigger.tc-chat-trigger-active .tc-chat-trigger-icon,
+.tc-chat-trigger.tc-chat-trigger-active .tc-chat-trigger-text {
+    color: #fff;
+}
+
 .tc-chat-trigger-icon {
     flex: 0 0 auto;
     color: #2c5282;
@@ -524,10 +537,27 @@
     display: flex;
     flex-direction: column;
     background: #f7fafc;
-    border: 1px solid #cbd5e0;
+    border: 2px solid #cbd5e0;
     border-radius: 14px;
     box-shadow: 0 12px 40px rgba(15, 23, 42, 0.35);
     overflow: hidden;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+/* Active panel — the one currently "focused" by the user */
+.tc-chat-panel.tc-chat-active {
+    border-color: #3182ce;
+    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.35),
+                0 0 0 3px rgba(49, 130, 206, 0.35);
+}
+
+/* Maximized panel — header becomes the horizontal drag handle */
+.tc-chat-panel.tc-chat-maximized .tc-chat-header {
+    cursor: ew-resize;
+}
+
+.tc-chat-panel.tc-chat-maximized .tc-chat-resize-handle {
+    display: none;
 }
 
 .tc-chat-header {
@@ -551,8 +581,19 @@
     margin-right: 6px;
 }
 
-/* Inherits the look of .tc-refresh-btn so the close button matches the header bar */
-.tc-chat-close {
+/* Header action cluster — mirrors .tc-header-controls so the chat window
+   button bar matches the rest of the plugin chrome. */
+.tc-chat-header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+}
+
+/* Inherits the look of .tc-refresh-btn so the close/maximize buttons
+   match the header bar. */
+.tc-chat-close,
+.tc-chat-max {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -571,10 +612,75 @@
 }
 
 .tc-chat-close:hover,
-.tc-chat-close:focus {
+.tc-chat-close:focus,
+.tc-chat-max:hover,
+.tc-chat-max:focus {
     background: rgba(255, 255, 255, 0.22);
     border-color: rgba(255, 255, 255, 0.7);
     outline: none;
+}
+
+/* Open-chat tab strip — same pill language as the header bar */
+.tc-chat-tabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: #edf2f7;
+    border-bottom: 1px solid #cbd5e0;
+    overflow-x: auto;
+}
+
+.tc-chat-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 12px;
+    color: #2c5282;
+    background: #fff;
+    border: 1px solid #bee3f8;
+    border-radius: 14px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.tc-chat-tab span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tc-chat-tab:hover,
+.tc-chat-tab:focus {
+    background: #d6eaff;
+    border-color: #63b3ed;
+    outline: none;
+}
+
+.tc-chat-tab.tc-chat-tab-active {
+    background: linear-gradient(135deg, #2c5282 0%, #3182ce 100%);
+    border-color: #2c5282;
+    color: #fff;
+    box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.25);
+}
+
+/* Corner resize grip for non-maximized panels */
+.tc-chat-resize-handle {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 18px;
+    height: 18px;
+    cursor: nwse-resize;
+    background:
+        linear-gradient(135deg, transparent 0 55%, #a0aec0 55% 65%, transparent 65% 75%, #a0aec0 75% 85%, transparent 85% 100%);
 }
 
 .tc-chat-messages {
