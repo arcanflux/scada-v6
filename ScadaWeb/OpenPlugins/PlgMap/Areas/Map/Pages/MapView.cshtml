@@ -222,9 +222,26 @@
             flex: 1;
             text-align: center;
             padding: 6px 4px;
-            border: 1px solid #e0e0e0;
+            border: 2px solid #ccc;
             border-radius: 6px;
             background: #fafafa;
+            transition: border-color 0.2s;
+        }
+
+        .map-tri-zone.zone-off {
+            border-color: #ccc;
+        }
+
+        .map-tri-zone.zone-ok {
+            border-color: #4caf50;
+        }
+
+        .map-tri-zone.flood-200.zone-flood {
+            border-color: #f0ad4e;
+        }
+
+        .map-tri-zone.flood-700.zone-flood {
+            border-color: #d32f2f;
         }
 
         .map-tri-zone-label {
@@ -248,24 +265,28 @@
             border-radius: 3px;
             margin-top: 4px;
             border: 1px solid #ccc;
-        }
-
-        .map-tri-flood-indicator.flood-200 {
             background: #ccc;
+            transition: background 0.2s, border-color 0.2s;
         }
 
-        .map-tri-flood-indicator.flood-200.active {
+        .map-tri-zone.zone-off .map-tri-flood-indicator {
+            background: #ccc;
+            border-color: #ccc;
+        }
+
+        .map-tri-zone.zone-ok .map-tri-flood-indicator {
+            background: #4caf50;
+            border-color: #4caf50;
+        }
+
+        .map-tri-zone.flood-200.zone-flood .map-tri-flood-indicator {
             background: #f0ad4e;
-            border-color: #d4950a;
+            border-color: #f0ad4e;
         }
 
-        .map-tri-flood-indicator.flood-700 {
-            background: #ccc;
-        }
-
-        .map-tri-flood-indicator.flood-700.active {
+        .map-tri-zone.flood-700.zone-flood .map-tri-flood-indicator {
             background: #d32f2f;
-            border-color: #b71c1c;
+            border-color: #d32f2f;
         }
 
         .map-tri-battery {
@@ -2267,23 +2288,23 @@
 
                 let t200Text = t200 ? (t200.text + ' °C') : '--';
                 let t700Text = t700 ? (t700.text + ' °C') : '--';
-                // Flood active when val == 0 (0 = flood)
-                let f200Active = f200 && f200.stat > 0 && f200.val === 0;
-                let f700Active = f700 && f700.stat > 0 && f700.val === 0;
+                // Per-zone state: 'off' (no signal), 'flood' (val===0), 'ok' (no flood)
+                let f200State = (!f200 || f200.stat <= 0) ? 'off' : (f200.val === 0 ? 'flood' : 'ok');
+                let f700State = (!f700 || f700.stat <= 0) ? 'off' : (f700.val === 0 ? 'flood' : 'ok');
                 let battVal = batt && batt.stat > 0 ? Math.round(batt.val) : null;
 
                 html += '<div class="map-tri-zones">';
                 // Left zone: 200mm
-                html += '<div class="map-tri-zone">';
+                html += '<div class="map-tri-zone flood-200 zone-' + f200State + '" data-zone-cnl="' + (ch[2] ? ch[2].cnlNum : 0) + '">';
                 html += '<div class="map-tri-zone-label">200мм</div>';
                 html += '<div class="map-tri-zone-temp" data-cnl="' + (ch[0] ? ch[0].cnlNum : 0) + '">' + this._escapeHtml(t200Text) + '</div>';
-                html += '<div class="map-tri-flood-indicator flood-200' + (f200Active ? ' active' : '') + '" data-flood-cnl="' + (ch[2] ? ch[2].cnlNum : 0) + '"></div>';
+                html += '<div class="map-tri-flood-indicator" data-flood-cnl="' + (ch[2] ? ch[2].cnlNum : 0) + '"></div>';
                 html += '</div>';
                 // Right zone: 700mm
-                html += '<div class="map-tri-zone">';
+                html += '<div class="map-tri-zone flood-700 zone-' + f700State + '" data-zone-cnl="' + (ch[3] ? ch[3].cnlNum : 0) + '">';
                 html += '<div class="map-tri-zone-label">700мм</div>';
                 html += '<div class="map-tri-zone-temp" data-cnl="' + (ch[1] ? ch[1].cnlNum : 0) + '">' + this._escapeHtml(t700Text) + '</div>';
-                html += '<div class="map-tri-flood-indicator flood-700' + (f700Active ? ' active' : '') + '" data-flood-cnl="' + (ch[3] ? ch[3].cnlNum : 0) + '"></div>';
+                html += '<div class="map-tri-flood-indicator" data-flood-cnl="' + (ch[3] ? ch[3].cnlNum : 0) + '"></div>';
                 html += '</div>';
                 html += '</div>';
 
@@ -2313,15 +2334,15 @@
                     let rec = this.curDataMap[ch[i].cnlNum];
                     if (el && rec) el.textContent = rec.text ? (rec.text + ' °C') : '--';
                 }
-                // Flood indicators
+                // Flood zone state (border + indicator color)
                 for (let i = 2; i < 4; i++) {
                     if (!ch[i]) continue;
-                    let el = popupEl.querySelector('.map-tri-flood-indicator[data-flood-cnl="' + ch[i].cnlNum + '"]');
+                    let zoneEl = popupEl.querySelector('.map-tri-zone[data-zone-cnl="' + ch[i].cnlNum + '"]');
+                    if (!zoneEl) continue;
                     let rec = this.curDataMap[ch[i].cnlNum];
-                    if (el && rec) {
-                        let active = rec.stat > 0 && rec.val === 0;
-                        el.classList.toggle('active', active);
-                    }
+                    let state = (!rec || rec.stat <= 0) ? 'off' : (rec.val === 0 ? 'flood' : 'ok');
+                    zoneEl.classList.remove('zone-off', 'zone-ok', 'zone-flood');
+                    zoneEl.classList.add('zone-' + state);
                 }
                 // Battery
                 if (ch[4]) {
