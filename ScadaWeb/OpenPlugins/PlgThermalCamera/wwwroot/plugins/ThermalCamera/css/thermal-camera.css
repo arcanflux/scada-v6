@@ -570,15 +570,52 @@
 }
 
 .tc-chat-header-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 0;
     font-size: 1.05rem;
     font-weight: 600;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .tc-chat-header-title i {
-    margin-right: 6px;
+    flex: 0 0 auto;
+}
+
+/* Район — компактный пилюль-бейдж слева от имени */
+.tc-chat-title-district {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    padding: 2px 8px;
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.tc-chat-title-name {
+    flex: 0 0 auto;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Адрес — вторичная строка, чуть мельче и со ссыханием */
+.tc-chat-title-address {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.85);
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Header action cluster — mirrors .tc-header-controls so the chat window

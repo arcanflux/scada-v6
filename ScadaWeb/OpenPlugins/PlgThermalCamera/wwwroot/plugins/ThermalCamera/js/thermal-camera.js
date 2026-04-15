@@ -509,11 +509,20 @@ var thermalCamera = (function () {
     }
 
     function buildPanelHtml(item) {
-        var title = escapeHtml(item.name || "Объект ТК");
+        // Header title: "<district> <name> <address>" — the same fields the
+        // user sees in the row, so the chat window is unambiguous.
+        var district = escapeHtml(String(item.districtNumber || "—"));
+        var name = escapeHtml(item.name || "Объект ТК");
+        var address = escapeHtml(item.descr || "");
+        var titleParts = '<span class="tc-chat-title-district">' + district + '</span>' +
+                         '<span class="tc-chat-title-name">' + name + '</span>';
+        if (address) {
+            titleParts += '<span class="tc-chat-title-address">' + address + '</span>';
+        }
         return '' +
             '<div class="tc-chat-header">' +
                 '<div class="tc-chat-header-title">' +
-                    '<i class="fa-solid fa-comments"></i> Чат — ' + title +
+                    '<i class="fa-solid fa-comments"></i> ' + titleParts +
                 '</div>' +
                 '<div class="tc-chat-header-actions">' +
                     '<button type="button" class="tc-chat-max" title="Развернуть">' +
