@@ -264,8 +264,8 @@ var thermalCamera = (function () {
             chatTriggers[i].addEventListener("click", function (e) {
                 e.stopPropagation();
                 var itemId = parseInt(this.getAttribute("data-item-id"));
-                if (openChatItemId === itemId) {
-                    closeChat();
+                if (chatPanels[itemId]) {
+                    closeChat(itemId);
                 } else {
                     openChat(itemId);
                 }
