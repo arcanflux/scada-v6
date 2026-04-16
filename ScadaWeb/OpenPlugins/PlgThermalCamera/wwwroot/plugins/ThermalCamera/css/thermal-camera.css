@@ -24,7 +24,6 @@
     display: flex;
     align-items: stretch;
     gap: 12px;
-    width: 795px;
     padding: 0 6px;
     max-width: 100%;
     height: 36px;
@@ -150,31 +149,6 @@
     border: 1px solid rgba(255, 255, 255, 0.35);
     border-radius: 18px;
     white-space: nowrap;
-}
-
-.tc-refresh-btn {
-    flex: 0 0 130px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    color: #fff;
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    border-radius: 18px;
-    padding: 0 14px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.2s, border-color 0.2s;
-    white-space: nowrap;
-}
-
-.tc-refresh-btn:hover,
-.tc-refresh-btn:focus {
-    background: rgba(255, 255, 255, 0.22);
-    border-color: rgba(255, 255, 255, 0.7);
-    outline: none;
 }
 
 /* Table wrapper */
@@ -581,9 +555,9 @@
     display: flex;
     flex-direction: column;
     background: #f7fafc;
-    border: 2px solid #cbd5e0;
-    border-radius: 14px;
-    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.35);
+    border-left: 2px solid #cbd5e0;
+    border-radius: 0;
+    box-shadow: -4px 0 20px rgba(15, 23, 42, 0.15);
     overflow: hidden;
     transition: border-color 0.15s, box-shadow 0.15s;
 }
@@ -593,15 +567,6 @@
     border-color: #3182ce;
     box-shadow: 0 12px 40px rgba(15, 23, 42, 0.35),
                 0 0 0 3px rgba(49, 130, 206, 0.35);
-}
-
-/* Maximized panel — header becomes the horizontal drag handle */
-.tc-chat-panel.tc-chat-maximized .tc-chat-header {
-    cursor: ew-resize;
-}
-
-.tc-chat-panel.tc-chat-maximized .tc-chat-resize-handle {
-    display: none;
 }
 
 .tc-chat-header {
@@ -671,10 +636,7 @@
     flex: 0 0 auto;
 }
 
-/* Inherits the look of .tc-refresh-btn so the close/maximize buttons
-   match the header bar. */
-.tc-chat-close,
-.tc-chat-max {
+.tc-chat-close {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -693,9 +655,7 @@
 }
 
 .tc-chat-close:hover,
-.tc-chat-close:focus,
-.tc-chat-max:hover,
-.tc-chat-max:focus {
+.tc-chat-close:focus {
     background: rgba(255, 255, 255, 0.22);
     border-color: rgba(255, 255, 255, 0.7);
     outline: none;
@@ -720,57 +680,6 @@
     color: #d69e2e;
 }
 
-/* Open-chat tab strip — same pill language as the header bar */
-.tc-chat-tabs {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 12px;
-    background: #edf2f7;
-    border-bottom: 1px solid #cbd5e0;
-    overflow-x: auto;
-}
-
-.tc-chat-tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 28px;
-    padding: 0 12px;
-    color: #2c5282;
-    background: #fff;
-    border: 1px solid #bee3f8;
-    border-radius: 14px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    cursor: pointer;
-    white-space: nowrap;
-    max-width: 180px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
-}
-
-.tc-chat-tab span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.tc-chat-tab:hover,
-.tc-chat-tab:focus {
-    background: #d6eaff;
-    border-color: #63b3ed;
-    outline: none;
-}
-
-.tc-chat-tab.tc-chat-tab-active {
-    background: linear-gradient(135deg, #2c5282 0%, #3182ce 100%);
-    border-color: #2c5282;
-    color: #fff;
-    animation: tcChatActivePulse 1.2s ease-in-out infinite;
-}
-
 /* Slow, breathing pulse — cycles the blue glow ring and brightness so
    the "selected chat" indicator is impossible to miss without being
    visually aggressive. Used on both the in-chat tab strip and on the
@@ -791,18 +700,6 @@
                     0 0 0 0 rgba(49, 130, 206, 0.55);
         filter: brightness(1);
     }
-}
-
-/* Corner resize grip for non-maximized panels */
-.tc-chat-resize-handle {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    width: 18px;
-    height: 18px;
-    cursor: nwse-resize;
-    background:
-        linear-gradient(135deg, transparent 0 55%, #a0aec0 55% 65%, transparent 65% 75%, #a0aec0 75% 85%, transparent 85% 100%);
 }
 
 .tc-chat-messages {
@@ -962,7 +859,6 @@
     box-shadow: 0 0 0 2px rgba(99, 179, 237, 0.25);
 }
 
-/* Inherits the look of .tc-refresh-btn so Send matches the rest of the plugin */
 .tc-chat-send {
     flex: 0 0 auto;
     display: inline-flex;

@@ -20,11 +20,9 @@ var thermalCamera = (function () {
     var chatCursor = 0;
     var chatHistoryLoaded = {};
     // Single chat panel state (only one panel can be open at a time)
-    var chatPanels = {};                // itemId -> { el, isMaximized, savedRect }  (max 1 entry)
+    var chatPanels = {};                // itemId -> { el }  (max 1 entry)
     var activeChatId = null;            // itemId of the open panel (or null)
     var selectedMessageId = null;       // currently selected message for admin delete
-    var dragState = null;
-    var resizeState = null;
     var floodStateByItem = {};          // itemId -> "flood700" | "flood200" | null
 
     function init() {
@@ -51,21 +49,7 @@ var thermalCamera = (function () {
         requestData();
         startAutoUpdate();
         bindChatKeyboard();
-        window.addEventListener("resize", function () {
-            if (!activeChatId || !chatPanels[activeChatId]) return;
-            var p = chatPanels[activeChatId];
-            if (p.isMaximized) {
-                applyMaximizedLayout(p);
-            } else {
-                var el = p.el;
-                var w = el.offsetWidth, h = el.offsetHeight;
-                var l = el.offsetLeft, t = el.offsetTop;
-                if (l + w > window.innerWidth) l = Math.max(0, window.innerWidth - w);
-                if (t + h > window.innerHeight) t = Math.max(0, window.innerHeight - h);
-                el.style.left = l + "px";
-                el.style.top = t + "px";
-            }
-        });
+        window.addEventListener("resize", repositionChat);
     }
 
     function bindSearch() {
@@ -278,11 +262,6 @@ var thermalCamera = (function () {
                 var itemId = parseInt(this.getAttribute("data-item-id"));
                 saveCommissioned(itemId, this.checked);
             });
-        }
-
-        var btnRefresh = document.getElementById("btnRefresh");
-        if (btnRefresh) {
-            btnRefresh.addEventListener("click", function () { requestData(); });
         }
 
         // tbody was rebuilt — the fresh triggers don't carry highlight state,
@@ -540,9 +519,6 @@ var thermalCamera = (function () {
                     '<i class="fa-solid fa-comments"></i> ' + titleParts +
                 '</div>' +
                 '<div class="tc-chat-header-actions">' +
-                    '<button type="button" class="tc-chat-max" title="Развернуть">' +
-                        '<i class="fa-solid fa-up-right-and-down-left-from-center"></i>' +
-                    '</button>' +
                     '<button type="button" class="tc-chat-close" title="Закрыть">' +
                         '<i class="fa-solid fa-xmark"></i>' +
                         '<span>Закрыть</span>' +
@@ -556,15 +532,11 @@ var thermalCamera = (function () {
                 '<button type="button" class="tc-chat-send" title="Отправить">' +
                     '<span>Отправить</span>' +
                 '</button>' +
-            '</div>' +
-            '<div class="tc-chat-resize-handle" title="Изменить размер"></div>';
+            '</div>';
     }
 
     function openChat(itemId) {
-        if (chatPanels[itemId]) {
-            focusChat(itemId);
-            return;
-        }
+        if (chatPanels[itemId]) return;
         // Single-chat mode: close any existing panel first.
         if (activeChatId !== null && chatPanels[activeChatId]) {
             closeChat(activeChatId);
@@ -580,20 +552,18 @@ var thermalCamera = (function () {
         panel.innerHTML = buildPanelHtml(item);
         document.body.appendChild(panel);
 
-        chatPanels[itemId] = { el: panel, isMaximized: false, savedRect: null };
+        chatPanels[itemId] = { el: panel };
         activeChatId = itemId;
         clearChatBadge(itemId);
         selectedMessageId = null;
 
-        var initial = computeInitialPosition(itemId);
-        panel.style.left = initial.left + "px";
-        panel.style.top = initial.top + "px";
-        panel.style.width = initial.width + "px";
-        panel.style.height = initial.height + "px";
-
+        repositionChat();
         bindPanelEvents(itemId);
         syncChatTriggerHighlights();
         updateChatDistrictNotice();
+
+        var wrapper = document.querySelector(".tc-table-wrapper");
+        if (wrapper) wrapper.addEventListener("scroll", repositionChat);
 
         if (!chatHistoryLoaded[itemId]) {
             loadChatHistory(itemId);
@@ -605,29 +575,34 @@ var thermalCamera = (function () {
         }
     }
 
-    function computeInitialPosition(itemId) {
-        var width = 560;
-        var height = 480;
-        if (width > window.innerWidth - 40) width = window.innerWidth - 40;
-        if (height > window.innerHeight - 40) height = window.innerHeight - 40;
-
-        var row = document.querySelector("tr[data-item-id='" + itemId + "']");
-        var top, left;
-        if (row && row.style.display !== "none") {
-            var rect = row.getBoundingClientRect();
-            top = rect.top + rect.height / 2 - height / 2;
-            left = rect.right - width;
-        } else {
-            top = 60;
-            left = window.innerWidth - width - 20;
+    // Computes the viewport rectangle for the chat panel so it covers
+    // the "Чат" and "В работе" columns from just below the sticky
+    // thead to the bottom of the visible table area.
+    function computeChatBounds() {
+        var commentTh = document.querySelector("th.tc-col-comment");
+        var wrapperEl = document.querySelector(".tc-table-wrapper");
+        if (!commentTh || !wrapperEl) {
+            return { left: window.innerWidth - 400, top: 100, width: 400, height: window.innerHeight - 120 };
         }
+        var thRect = commentTh.getBoundingClientRect();
+        var wrapperRect = wrapperEl.getBoundingClientRect();
+        return {
+            left: thRect.left,
+            top: thRect.bottom,
+            width: wrapperRect.right - thRect.left,
+            height: Math.max(300, wrapperRect.bottom - thRect.bottom)
+        };
+    }
 
-        if (top < 20) top = 20;
-        if (left < 20) left = 20;
-        if (top + height > window.innerHeight - 20) top = window.innerHeight - height - 20;
-        if (left + width > window.innerWidth - 20) left = window.innerWidth - width - 20;
-
-        return { left: left, top: top, width: width, height: height };
+    function repositionChat() {
+        if (activeChatId === null) return;
+        var p = chatPanels[activeChatId];
+        if (!p) return;
+        var b = computeChatBounds();
+        p.el.style.left = b.left + "px";
+        p.el.style.top = b.top + "px";
+        p.el.style.width = b.width + "px";
+        p.el.style.height = b.height + "px";
     }
 
     function bindPanelEvents(itemId) {
@@ -635,33 +610,14 @@ var thermalCamera = (function () {
         if (!p) return;
         var panel = p.el;
 
-        var header = panel.querySelector(".tc-chat-header");
         var closeBtn = panel.querySelector(".tc-chat-close");
-        var maxBtn = panel.querySelector(".tc-chat-max");
         var sendBtn = panel.querySelector(".tc-chat-send");
         var inputEl = panel.querySelector(".tc-chat-input");
-        var resizeHandle = panel.querySelector(".tc-chat-resize-handle");
-
-        // Drag from the header (but not from the action-buttons cluster).
-        // When the panel is maximized, dragging is allowed but constrained to
-        // horizontal movement within the table's left/right bounds.
-        if (header) {
-            header.addEventListener("mousedown", function (e) {
-                if (e.target.closest(".tc-chat-header-actions")) return;
-                startDrag(e, itemId);
-            });
-        }
 
         if (closeBtn) {
             closeBtn.addEventListener("click", function (e) {
                 e.stopPropagation();
                 closeChat(itemId);
-            });
-        }
-        if (maxBtn) {
-            maxBtn.addEventListener("click", function (e) {
-                e.stopPropagation();
-                toggleMaximize(itemId);
             });
         }
         if (sendBtn) {
@@ -678,129 +634,6 @@ var thermalCamera = (function () {
                 }
             });
         }
-        if (resizeHandle) {
-            resizeHandle.addEventListener("mousedown", function (e) {
-                if (chatPanels[itemId] && chatPanels[itemId].isMaximized) return;
-                startResize(e, itemId);
-            });
-        }
-    }
-
-    function startDrag(e, itemId) {
-        var p = chatPanels[itemId];
-        if (!p) return;
-        e.preventDefault();
-        dragState = {
-            itemId: itemId,
-            startX: e.clientX,
-            startY: e.clientY,
-            startLeft: p.el.offsetLeft,
-            startTop: p.el.offsetTop,
-            horizontalOnly: !!p.isMaximized
-        };
-        document.addEventListener("mousemove", onDragMove);
-        document.addEventListener("mouseup", onDragEnd);
-    }
-
-    // Returns the viewport-space x-range (left, right) of the data table so
-    // the maximized chat panel can be clamped to the table edges instead of
-    // the full window.
-    function getTableBounds() {
-        var el = document.querySelector(".tc-table-wrapper") ||
-                 document.querySelector(".tc-container");
-        if (!el) {
-            return { left: 0, right: window.innerWidth };
-        }
-        var r = el.getBoundingClientRect();
-        return { left: r.left, right: r.right };
-    }
-
-    function onDragMove(e) {
-        if (!dragState) return;
-        var p = chatPanels[dragState.itemId];
-        if (!p) return;
-        var dx = e.clientX - dragState.startX;
-
-        if (dragState.horizontalOnly) {
-            // Maximized panel: lock Y, clamp X to the table's horizontal range.
-            var bounds = getTableBounds();
-            var newLeft = dragState.startLeft + dx;
-            var minLeft = bounds.left;
-            var maxLeft = bounds.right - p.el.offsetWidth;
-            if (maxLeft < minLeft) maxLeft = minLeft;
-            if (newLeft < minLeft) newLeft = minLeft;
-            if (newLeft > maxLeft) newLeft = maxLeft;
-            p.el.style.left = newLeft + "px";
-            return;
-        }
-
-        var dy = e.clientY - dragState.startY;
-        var newLeft = dragState.startLeft + dx;
-        var newTop = dragState.startTop + dy;
-        if (newLeft < 0) newLeft = 0;
-        if (newTop < 0) newTop = 0;
-        if (newLeft + p.el.offsetWidth > window.innerWidth) {
-            newLeft = window.innerWidth - p.el.offsetWidth;
-        }
-        if (newTop + p.el.offsetHeight > window.innerHeight) {
-            newTop = window.innerHeight - p.el.offsetHeight;
-        }
-        p.el.style.left = newLeft + "px";
-        p.el.style.top = newTop + "px";
-    }
-
-    function onDragEnd() {
-        dragState = null;
-        document.removeEventListener("mousemove", onDragMove);
-        document.removeEventListener("mouseup", onDragEnd);
-    }
-
-    function startResize(e, itemId) {
-        var p = chatPanels[itemId];
-        if (!p) return;
-        e.preventDefault();
-        resizeState = {
-            itemId: itemId,
-            startX: e.clientX,
-            startY: e.clientY,
-            startWidth: p.el.offsetWidth,
-            startHeight: p.el.offsetHeight
-        };
-        document.addEventListener("mousemove", onResizeMove);
-        document.addEventListener("mouseup", onResizeEnd);
-    }
-
-    function onResizeMove(e) {
-        if (!resizeState) return;
-        var p = chatPanels[resizeState.itemId];
-        if (!p) return;
-        var dw = e.clientX - resizeState.startX;
-        var dh = e.clientY - resizeState.startY;
-        var newW = resizeState.startWidth + dw;
-        var newH = resizeState.startHeight + dh;
-        if (newW < 320) newW = 320;
-        if (newH < 240) newH = 240;
-        if (p.el.offsetLeft + newW > window.innerWidth) {
-            newW = window.innerWidth - p.el.offsetLeft;
-        }
-        if (p.el.offsetTop + newH > window.innerHeight) {
-            newH = window.innerHeight - p.el.offsetTop;
-        }
-        p.el.style.width = newW + "px";
-        p.el.style.height = newH + "px";
-    }
-
-    function onResizeEnd() {
-        resizeState = null;
-        document.removeEventListener("mousemove", onResizeMove);
-        document.removeEventListener("mouseup", onResizeEnd);
-    }
-
-    function focusChat(itemId) {
-        var p = chatPanels[itemId];
-        if (!p) return;
-        var input = p.el.querySelector(".tc-chat-input");
-        if (input) input.focus();
     }
 
     function syncChatTriggerHighlights() {
@@ -864,57 +697,6 @@ var thermalCamera = (function () {
         }
     }
 
-    function toggleMaximize(itemId) {
-        var p = chatPanels[itemId];
-        if (!p) return;
-        var iconEl = p.el.querySelector(".tc-chat-max i");
-        var btnEl = p.el.querySelector(".tc-chat-max");
-
-        if (p.isMaximized) {
-            p.isMaximized = false;
-            if (p.savedRect) {
-                p.el.style.left = p.savedRect.left + "px";
-                p.el.style.top = p.savedRect.top + "px";
-                p.el.style.width = p.savedRect.width + "px";
-                p.el.style.height = p.savedRect.height + "px";
-            }
-            if (iconEl) iconEl.className = "fa-solid fa-up-right-and-down-left-from-center";
-            if (btnEl) btnEl.title = "Развернуть";
-            p.el.classList.remove("tc-chat-maximized");
-        } else {
-            p.savedRect = {
-                left: p.el.offsetLeft,
-                top: p.el.offsetTop,
-                width: p.el.offsetWidth,
-                height: p.el.offsetHeight
-            };
-            p.isMaximized = true;
-            if (iconEl) iconEl.className = "fa-solid fa-down-left-and-up-right-to-center";
-            if (btnEl) btnEl.title = "Свернуть";
-            p.el.classList.add("tc-chat-maximized");
-            applyMaximizedLayout(p);
-        }
-    }
-
-    // Positions the maximized panel so it always stays visible regardless of
-    // page scroll: anchored to the viewport (position:fixed) just below the
-    // page header, spanning the full horizontal range of the table.
-    function applyMaximizedLayout(p) {
-        if (!p || !p.isMaximized) return;
-        var bounds = getTableBounds();
-        var headerEl = document.querySelector(".tc-header");
-        var headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : 0;
-        var top = Math.max(8, headerBottom + 8);
-        var height = window.innerHeight - top - 8;
-        if (height < 200) height = 200;
-        var width = bounds.right - bounds.left;
-        if (width < 320) width = 320;
-        p.el.style.top = top + "px";
-        p.el.style.left = bounds.left + "px";
-        p.el.style.width = width + "px";
-        p.el.style.height = height + "px";
-    }
-
     function closeChat(itemId) {
         if (typeof itemId === "undefined" || itemId === null) {
             itemId = activeChatId;
@@ -927,6 +709,8 @@ var thermalCamera = (function () {
         if (activeChatId === itemId) activeChatId = null;
         selectedMessageId = null;
         syncChatTriggerHighlights();
+        var wrapper = document.querySelector(".tc-table-wrapper");
+        if (wrapper) wrapper.removeEventListener("scroll", repositionChat);
     }
 
     function loadChatHistory(itemId) {
@@ -1155,7 +939,6 @@ var thermalCamera = (function () {
     return {
         init: init,
         showPhoto: showPhoto,
-        refresh: requestData,
         openChat: openChat,
         closeChat: closeChat
     };
