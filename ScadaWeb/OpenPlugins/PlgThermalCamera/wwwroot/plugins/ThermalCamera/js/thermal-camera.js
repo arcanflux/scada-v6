@@ -19,15 +19,13 @@ var thermalCamera = (function () {
     var chatByItem = {};
     var chatCursor = 0;
     var chatHistoryLoaded = {};
-    // Multi-panel chat state
-    var chatPanels = {};                // itemId -> { el, isMaximized, savedRect }
-    var chatPanelOrder = [];            // itemIds in insertion order
-    var maximizedOrder = [];            // itemIds currently maximized, oldest first
-    var chatZTop = 2000;
-    var activeChatId = null;            // itemId of the panel currently "in focus"
-    var selectedMessageByPanel = {};    // itemId -> selectedMessageId
+    // Single chat panel state (only one panel can be open at a time)
+    var chatPanels = {};                // itemId -> { el, isMaximized, savedRect }  (max 1 entry)
+    var activeChatId = null;            // itemId of the open panel (or null)
+    var selectedMessageId = null;       // currently selected message for admin delete
     var dragState = null;
     var resizeState = null;
+    var floodStateByItem = {};          // itemId -> "flood700" | "flood200" | null
 
     function init() {
         var itemsEl = document.getElementById("tcItems");
@@ -54,11 +52,11 @@ var thermalCamera = (function () {
         startAutoUpdate();
         bindChatKeyboard();
         window.addEventListener("resize", function () {
-            retileMaximized();
-            for (var id in chatPanels) {
-                if (!chatPanels.hasOwnProperty(id)) continue;
-                var p = chatPanels[id];
-                if (p.isMaximized) continue;
+            if (!activeChatId || !chatPanels[activeChatId]) return;
+            var p = chatPanels[activeChatId];
+            if (p.isMaximized) {
+                applyMaximizedLayout(p);
+            } else {
                 var el = p.el;
                 var w = el.offsetWidth, h = el.offsetHeight;
                 var l = el.offsetLeft, t = el.offsetTop;
@@ -124,6 +122,7 @@ var thermalCamera = (function () {
             var districtOk = selectedDistricts[item.districtNumber || 0] === true;
             row.style.display = (searchOk && districtOk) ? "" : "none";
         }
+        updateChatDistrictNotice();
     }
 
     function sortItemsByDistrict() {
@@ -323,6 +322,11 @@ var thermalCamera = (function () {
             }
         }
 
+        // Reset per-item flood states before this polling cycle.
+        for (var i = 0; i < items.length; i++) {
+            floodStateByItem[items[i].id] = null;
+        }
+
         for (var i = 0; i < items.length; i++) {
             var item = items[i];
 
@@ -338,6 +342,8 @@ var thermalCamera = (function () {
             // Battery
             updateBattery(item, data);
         }
+
+        updateFloodTriggerIndicators();
     }
 
     function updateBattery(item, data) {
@@ -398,6 +404,15 @@ var thermalCamera = (function () {
                 var isUnknown = fd.stat <= 0;
                 signalEl.className = "tc-flooding-signal " +
                     (isUnknown ? "tc-flood-unknown" : isFlooded ? alarmClass : "tc-flood-normal");
+
+                // Track flood state for the trigger-button indicator.
+                // 700mm (red) takes priority over 200mm (yellow).
+                if (isFlooded) {
+                    var cur = floodStateByItem[itemId];
+                    if (size === "700" || !cur) {
+                        floodStateByItem[itemId] = "flood" + size;
+                    }
+                }
             }
         }
 
@@ -534,7 +549,6 @@ var thermalCamera = (function () {
                     '</button>' +
                 '</div>' +
             '</div>' +
-            '<div class="tc-chat-tabs"></div>' +
             '<div class="tc-chat-messages"></div>' +
             '<div class="tc-chat-input-row">' +
                 '<textarea class="tc-chat-input" rows="2" ' +
@@ -551,21 +565,25 @@ var thermalCamera = (function () {
             focusChat(itemId);
             return;
         }
+        // Single-chat mode: close any existing panel first.
+        if (activeChatId !== null && chatPanels[activeChatId]) {
+            closeChat(activeChatId);
+        }
         var item = findItem(itemId);
         if (!item) return;
 
         var panel = document.createElement("div");
         panel.id = "tcChatPanel-" + itemId;
-        panel.className = "tc-chat-panel";
+        panel.className = "tc-chat-panel tc-chat-active";
         panel.setAttribute("data-item-id", itemId);
-        panel.style.zIndex = ++chatZTop;
+        panel.style.zIndex = 2001;
         panel.innerHTML = buildPanelHtml(item);
         document.body.appendChild(panel);
 
         chatPanels[itemId] = { el: panel, isMaximized: false, savedRect: null };
-        chatPanelOrder.push(itemId);
+        activeChatId = itemId;
         clearChatBadge(itemId);
-        selectedMessageByPanel[itemId] = null;
+        selectedMessageId = null;
 
         var initial = computeInitialPosition(itemId);
         panel.style.left = initial.left + "px";
@@ -574,8 +592,8 @@ var thermalCamera = (function () {
         panel.style.height = initial.height + "px";
 
         bindPanelEvents(itemId);
-        setActiveChat(itemId);
-        refreshAllChatTabs();
+        syncChatTriggerHighlights();
+        updateChatDistrictNotice();
 
         if (!chatHistoryLoaded[itemId]) {
             loadChatHistory(itemId);
@@ -593,19 +611,15 @@ var thermalCamera = (function () {
         if (width > window.innerWidth - 40) width = window.innerWidth - 40;
         if (height > window.innerHeight - 40) height = window.innerHeight - 40;
 
-        // Stagger new panels by 30px so they don't completely overlap.
-        var openCount = chatPanelOrder.length - 1; // this panel is already in the order
-        var offset = openCount * 30;
-
         var row = document.querySelector("tr[data-item-id='" + itemId + "']");
         var top, left;
-        if (row) {
+        if (row && row.style.display !== "none") {
             var rect = row.getBoundingClientRect();
-            top = rect.top + rect.height / 2 - height / 2 + offset;
-            left = rect.right - width + offset;
+            top = rect.top + rect.height / 2 - height / 2;
+            left = rect.right - width;
         } else {
-            top = 60 + offset;
-            left = window.innerWidth - width - 20 - offset;
+            top = 60;
+            left = window.innerWidth - width - 20;
         }
 
         if (top < 20) top = 20;
@@ -627,13 +641,6 @@ var thermalCamera = (function () {
         var sendBtn = panel.querySelector(".tc-chat-send");
         var inputEl = panel.querySelector(".tc-chat-input");
         var resizeHandle = panel.querySelector(".tc-chat-resize-handle");
-
-        // Bring this panel to the front and mark it as the active one on any
-        // mousedown inside it — gives the user a clear "which chat am I in".
-        panel.addEventListener("mousedown", function () {
-            panel.style.zIndex = ++chatZTop;
-            setActiveChat(itemId);
-        });
 
         // Drag from the header (but not from the action-buttons cluster).
         // When the panel is maximized, dragging is allowed but constrained to
@@ -792,27 +799,8 @@ var thermalCamera = (function () {
     function focusChat(itemId) {
         var p = chatPanels[itemId];
         if (!p) return;
-        p.el.style.zIndex = ++chatZTop;
-        setActiveChat(itemId);
         var input = p.el.querySelector(".tc-chat-input");
         if (input) input.focus();
-    }
-
-    // Highlights the panel that currently has focus and syncs the row trigger
-    // for that panel so it stands out from the others.
-    function setActiveChat(itemId) {
-        activeChatId = (typeof itemId === "number" && !isNaN(itemId)) ? itemId : null;
-        for (var id in chatPanels) {
-            if (!chatPanels.hasOwnProperty(id)) continue;
-            var pan = chatPanels[id];
-            if (parseInt(id) === activeChatId) {
-                pan.el.classList.add("tc-chat-active");
-            } else {
-                pan.el.classList.remove("tc-chat-active");
-            }
-        }
-        syncChatTriggerHighlights();
-        updateChatTabsActive();
     }
 
     function syncChatTriggerHighlights() {
@@ -827,6 +815,55 @@ var thermalCamera = (function () {
         }
     }
 
+    // Colors the ring around each "Open chat" button based on the last known
+    // flood state for that TK — yellow (200mm) or red (700mm). 700mm wins if
+    // both fire simultaneously. Called after every data poll.
+    function updateFloodTriggerIndicators() {
+        var triggers = document.querySelectorAll(".tc-chat-trigger");
+        for (var i = 0; i < triggers.length; i++) {
+            var tid = parseInt(triggers[i].getAttribute("data-item-id"));
+            triggers[i].classList.remove("tc-chat-trigger-flood200");
+            triggers[i].classList.remove("tc-chat-trigger-flood700");
+            var st = floodStateByItem[tid];
+            if (st === "flood700") {
+                triggers[i].classList.add("tc-chat-trigger-flood700");
+            } else if (st === "flood200") {
+                triggers[i].classList.add("tc-chat-trigger-flood200");
+            }
+        }
+    }
+
+    // Shows/hides a warning strip inside the currently open chat panel when
+    // the owning TK's row is hidden by the district/search filter — so the
+    // user keeps the chat context even though the row itself is no longer
+    // visible in the table.
+    function updateChatDistrictNotice() {
+        if (activeChatId === null) return;
+        var p = chatPanels[activeChatId];
+        if (!p) return;
+
+        var row = document.querySelector("tr[data-item-id='" + activeChatId + "']");
+        var hidden = !row || row.style.display === "none";
+
+        var notice = p.el.querySelector(".tc-chat-notice");
+        if (hidden) {
+            if (!notice) {
+                notice = document.createElement("div");
+                notice.className = "tc-chat-notice";
+                notice.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>' +
+                    '<span>Объект ТК скрыт фильтром и не отображается в таблице.</span>';
+                var header = p.el.querySelector(".tc-chat-header");
+                if (header && header.nextSibling) {
+                    p.el.insertBefore(notice, header.nextSibling);
+                } else {
+                    p.el.appendChild(notice);
+                }
+            }
+        } else if (notice) {
+            notice.remove();
+        }
+    }
+
     function toggleMaximize(itemId) {
         var p = chatPanels[itemId];
         if (!p) return;
@@ -834,8 +871,6 @@ var thermalCamera = (function () {
         var btnEl = p.el.querySelector(".tc-chat-max");
 
         if (p.isMaximized) {
-            var idx = maximizedOrder.indexOf(itemId);
-            if (idx >= 0) maximizedOrder.splice(idx, 1);
             p.isMaximized = false;
             if (p.savedRect) {
                 p.el.style.left = p.savedRect.left + "px";
@@ -853,147 +888,45 @@ var thermalCamera = (function () {
                 width: p.el.offsetWidth,
                 height: p.el.offsetHeight
             };
-            maximizedOrder.push(itemId);
             p.isMaximized = true;
             if (iconEl) iconEl.className = "fa-solid fa-down-left-and-up-right-to-center";
             if (btnEl) btnEl.title = "Свернуть";
             p.el.classList.add("tc-chat-maximized");
+            applyMaximizedLayout(p);
         }
-        retileMaximized();
-        p.el.style.zIndex = ++chatZTop;
     }
 
-    function retileMaximized() {
+    // Positions the maximized panel so it always stays visible regardless of
+    // page scroll: anchored to the viewport (position:fixed) just below the
+    // page header, spanning the full horizontal range of the table.
+    function applyMaximizedLayout(p) {
+        if (!p || !p.isMaximized) return;
+        var bounds = getTableBounds();
         var headerEl = document.querySelector(".tc-header");
-        var headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : 80;
-        var top = headerBottom + 8;
+        var headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : 0;
+        var top = Math.max(8, headerBottom + 8);
         var height = window.innerHeight - top - 8;
         if (height < 200) height = 200;
-        var width = 480;
-        var gap = 8;
-        var rightEdge = window.innerWidth - 12;
-
-        for (var i = 0; i < maximizedOrder.length; i++) {
-            var p = chatPanels[maximizedOrder[i]];
-            if (!p) continue;
-            var right = rightEdge - i * (width + gap);
-            var left = right - width;
-            if (left < 8) left = 8;
-            p.el.style.top = top + "px";
-            p.el.style.height = height + "px";
-            p.el.style.width = width + "px";
-            p.el.style.left = left + "px";
-        }
-    }
-
-    function refreshAllChatTabs() {
-        var openIds = chatPanelOrder.slice();
-        for (var i = 0; i < openIds.length; i++) {
-            var pid = openIds[i];
-            var p = chatPanels[pid];
-            if (!p) continue;
-            var tabsEl = p.el.querySelector(".tc-chat-tabs");
-            if (!tabsEl) continue;
-
-            if (openIds.length <= 1) {
-                tabsEl.style.display = "none";
-                tabsEl.innerHTML = "";
-                continue;
-            }
-            tabsEl.style.display = "flex";
-
-            var html = "";
-            for (var j = 0; j < openIds.length; j++) {
-                var oid = openIds[j];
-                var item = findItem(oid);
-                if (!item) continue;
-                // Every tab strip highlights the GLOBAL active chat (not its
-                // own owner), so "selected" is consistent across every panel.
-                var active = (oid === activeChatId) ? " tc-chat-tab-active" : "";
-                html += '<button type="button" class="tc-chat-tab' + active +
-                    '" data-target-id="' + oid +
-                    '" title="' + escapeHtml(item.name || "") + '">' +
-                    '<i class="fa-solid fa-comment"></i>' +
-                    '<span>' + escapeHtml(item.name || "ТК") + '</span>' +
-                    '</button>';
-            }
-            tabsEl.innerHTML = html;
-
-            var tabBtns = tabsEl.querySelectorAll(".tc-chat-tab");
-            for (var k = 0; k < tabBtns.length; k++) {
-                // Stop mousedown from bubbling up to the panel's mousedown
-                // handler — otherwise setActiveChat(owner) fires first and
-                // used to rebuild the tab DOM before `click` could land.
-                tabBtns[k].addEventListener("mousedown", function (e) {
-                    e.stopPropagation();
-                });
-                tabBtns[k].addEventListener("click", function (e) {
-                    e.stopPropagation();
-                    var tid = parseInt(this.getAttribute("data-target-id"));
-                    focusChat(tid);
-                });
-            }
-        }
-    }
-
-    // Lightweight "which tab is active" update — only toggles the active
-    // class on existing tab buttons, NEVER rewrites innerHTML. Called from
-    // setActiveChat so the click target on a tab stays alive between
-    // mousedown and click.
-    function updateChatTabsActive() {
-        for (var id in chatPanels) {
-            if (!chatPanels.hasOwnProperty(id)) continue;
-            var tabsEl = chatPanels[id].el.querySelector(".tc-chat-tabs");
-            if (!tabsEl) continue;
-            var btns = tabsEl.querySelectorAll(".tc-chat-tab");
-            for (var k = 0; k < btns.length; k++) {
-                var tid = parseInt(btns[k].getAttribute("data-target-id"));
-                if (tid === activeChatId) {
-                    btns[k].classList.add("tc-chat-tab-active");
-                } else {
-                    btns[k].classList.remove("tc-chat-tab-active");
-                }
-            }
-        }
-    }
-
-    function topmostChatId() {
-        var topId = null, topZ = -1;
-        for (var id in chatPanels) {
-            if (!chatPanels.hasOwnProperty(id)) continue;
-            var z = parseInt(chatPanels[id].el.style.zIndex || "0");
-            if (z > topZ) { topZ = z; topId = parseInt(id); }
-        }
-        return topId;
+        var width = bounds.right - bounds.left;
+        if (width < 320) width = 320;
+        p.el.style.top = top + "px";
+        p.el.style.left = bounds.left + "px";
+        p.el.style.width = width + "px";
+        p.el.style.height = height + "px";
     }
 
     function closeChat(itemId) {
         if (typeof itemId === "undefined" || itemId === null) {
-            var topId = topmostChatId();
-            if (topId === null) return;
-            itemId = topId;
+            itemId = activeChatId;
         }
+        if (itemId === null) return;
         var p = chatPanels[itemId];
         if (!p) return;
-        if (p.isMaximized) {
-            var midx = maximizedOrder.indexOf(itemId);
-            if (midx >= 0) maximizedOrder.splice(midx, 1);
-        }
         p.el.remove();
         delete chatPanels[itemId];
-        var orderIdx = chatPanelOrder.indexOf(itemId);
-        if (orderIdx >= 0) chatPanelOrder.splice(orderIdx, 1);
-        delete selectedMessageByPanel[itemId];
-
-        // If the closed panel was the active one, promote whatever is on top now.
-        if (activeChatId === itemId) {
-            setActiveChat(topmostChatId());
-        } else {
-            syncChatTriggerHighlights();
-        }
-
-        retileMaximized();
-        refreshAllChatTabs();
+        if (activeChatId === itemId) activeChatId = null;
+        selectedMessageId = null;
+        syncChatTriggerHighlights();
     }
 
     function loadChatHistory(itemId) {
@@ -1032,7 +965,7 @@ var thermalCamera = (function () {
         }
         msgs.sort(function (a, b) { return a.id - b.id; });
 
-        var selectedId = selectedMessageByPanel[itemId];
+        var selectedId = selectedMessageId;
         var html = "";
         for (var i = 0; i < msgs.length; i++) {
             var m = msgs[i];
@@ -1065,7 +998,7 @@ var thermalCamera = (function () {
                 if (!isAdmin) return;
                 var id = parseInt(this.getAttribute("data-msg-id"));
                 if (this.getAttribute("data-kind") !== "user") return;
-                selectedMessageByPanel[itemId] = (selectedMessageByPanel[itemId] === id) ? null : id;
+                selectedMessageId = (selectedMessageId === id) ? null : id;
                 renderChatMessages(itemId);
             });
         }
@@ -1150,8 +1083,8 @@ var thermalCamera = (function () {
                     for (var i = 0; i < list.length; i++) {
                         if (list[i].id === messageId) { list.splice(i, 1); break; }
                     }
-                    if (selectedMessageByPanel[itemId] === messageId) {
-                        selectedMessageByPanel[itemId] = null;
+                    if (selectedMessageId === messageId) {
+                        selectedMessageId = null;
                     }
                     updateChatPreview(itemId);
                     if (chatPanels[itemId]) {
@@ -1166,20 +1099,18 @@ var thermalCamera = (function () {
 
     function bindChatKeyboard() {
         document.addEventListener("keydown", function (e) {
-            if (chatPanelOrder.length === 0) return;
+            if (activeChatId === null) return;
             if (e.key === "Escape") {
-                var topId = topmostChatId();
-                if (topId !== null) closeChat(topId);
+                closeChat(activeChatId);
                 return;
             }
             if (e.key === "Delete" || e.key === "Backspace") {
                 if (!isAdmin) return;
                 var tag = (e.target && e.target.tagName) || "";
                 if (tag === "TEXTAREA" || tag === "INPUT") return;
-                var topId2 = topmostChatId();
-                if (topId2 !== null && selectedMessageByPanel[topId2]) {
+                if (selectedMessageId !== null) {
                     e.preventDefault();
-                    deleteChatMessage(topId2, selectedMessageByPanel[topId2]);
+                    deleteChatMessage(activeChatId, selectedMessageId);
                 }
             }
         });
