@@ -580,16 +580,18 @@ var thermalCamera = (function () {
     // thead to the bottom of the visible table area.
     function computeChatBounds() {
         var commentTh = document.querySelector("th.tc-col-comment");
+        var statusTh = document.querySelector("th.tc-col-status");
         var wrapperEl = document.querySelector(".tc-table-wrapper");
-        if (!commentTh || !wrapperEl) {
+        if (!commentTh || !statusTh || !wrapperEl) {
             return { left: window.innerWidth - 400, top: 100, width: 400, height: window.innerHeight - 120 };
         }
         var thRect = commentTh.getBoundingClientRect();
+        var statusRect = statusTh.getBoundingClientRect();
         var wrapperRect = wrapperEl.getBoundingClientRect();
         return {
             left: thRect.left,
             top: thRect.bottom,
-            width: wrapperRect.right - thRect.left,
+            width: statusRect.right - thRect.left,
             height: Math.max(300, wrapperRect.bottom - thRect.bottom)
         };
     }
