@@ -196,14 +196,14 @@
 }
 
 /* Column widths */
-.tc-col-district { width: 130px; }
-.tc-col-name { width: 185px; }
-.tc-col-address { width: 350px; }
+.tc-col-status { width: 90px; }
+.tc-col-district { width: 100px; }
+.tc-col-name { width: 220px; }
+.tc-col-address { width: 320px; }
 .tc-col-online { width: 130px; }
-.tc-col-flooding { width: 300px; }
-.tc-col-battery { width: 130px; }
-.tc-col-comment { width: auto; min-width: 200px; }
-.tc-col-status { width: 130px; }
+.tc-col-flooding { width: 280px; }
+.tc-col-battery { width: 110px; }
+.tc-col-journal { width: auto; min-width: 220px; }
 
 /* District badge */
 .tc-col-district .badge {
@@ -213,9 +213,25 @@
     min-width: 42px;
 }
 
-/* Object name */
+/* Object name cell — flex row: name text + chat icon button */
+.tc-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tc-name-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+
 .tc-table tbody td.tc-col-name {
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     font-weight: 600;
 }
 
@@ -423,22 +439,21 @@
     color: #a0aec0;
 }
 
-/* Chat trigger button (replaces the old comment textarea) */
+/* Chat trigger button — compact icon in the name column */
 .tc-chat-trigger {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 10px;
-    width: 100%;
-    min-height: 44px;
-    padding: 8px 14px;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    padding: 0;
     font-size: 1rem;
-    font-weight: 500;
     color: #2c5282;
     background: #ebf4ff;
     border: 1px solid #bee3f8;
-    border-radius: 14px;
+    border-radius: 8px;
     cursor: pointer;
-    text-align: left;
     transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
@@ -507,35 +522,6 @@
     }
 }
 
-.tc-chat-trigger-icon {
-    flex: 0 0 auto;
-    color: #2c5282;
-    font-size: 1.1rem;
-}
-
-.tc-chat-trigger-text {
-    flex: 1 1 auto;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: #2d3748;
-}
-
-.tc-chat-trigger-badge {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 22px;
-    height: 22px;
-    padding: 0 7px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    color: #fff;
-    background: #e53e3e;
-    border-radius: 11px;
-}
-
 /* Commissioned checkbox */
 .tc-commissioned-cb {
     width: 2em;
@@ -557,7 +543,22 @@
     background-color: #ebf8ff;
 }
 
-/* ===================== Chat panel (Telegram-style) ===================== */
+/* ===================== Chat panel (centered modal) ===================== */
+
+.tc-chat-resize-grip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 18px;
+    height: 18px;
+    cursor: nw-resize;
+    z-index: 10;
+    background: linear-gradient(135deg,
+        rgba(255,255,255,0.55) 0%,
+        rgba(255,255,255,0.15) 50%,
+        transparent 50%);
+    border-radius: 10px 0 0 0;
+}
 
 .tc-chat-panel {
     position: fixed;
@@ -565,18 +566,18 @@
     display: flex;
     flex-direction: column;
     background: #f7fafc;
-    border-left: 2px solid #cbd5e0;
-    border-radius: 0;
-    box-shadow: -4px 0 20px rgba(15, 23, 42, 0.15);
+    border: 1px solid #cbd5e0;
+    border-radius: 12px;
+    box-shadow: 0 8px 40px rgba(15, 23, 42, 0.28);
     overflow: hidden;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition: box-shadow 0.15s;
 }
 
 /* Active panel — the one currently "focused" by the user */
 .tc-chat-panel.tc-chat-active {
     border-color: #3182ce;
-    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.35),
-                0 0 0 3px rgba(49, 130, 206, 0.35);
+    box-shadow: 0 12px 48px rgba(15, 23, 42, 0.35),
+                0 0 0 2px rgba(49, 130, 206, 0.3);
 }
 
 .tc-chat-header {

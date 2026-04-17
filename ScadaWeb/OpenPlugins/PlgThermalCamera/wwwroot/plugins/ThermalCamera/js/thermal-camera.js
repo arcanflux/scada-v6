@@ -156,14 +156,27 @@ var thermalCamera = (function () {
 
             html += '<tr data-item-id="' + item.id + '">';
 
-            // 1. District number
+            // 1. Commissioned status (В работе) — first column
+            html += '<td class="tc-col-status text-center">' +
+                '<div class="form-check d-flex justify-content-center">' +
+                '<input class="form-check-input tc-commissioned-cb" type="checkbox" ' +
+                'data-item-id="' + item.id + '"' +
+                (ud.isCommissioned ? ' checked' : '') + '>' +
+                '</div></td>';
+
+            // 2. District number
             html += '<td class="tc-col-district text-center">' +
                 '<span class="badge bg-secondary">' + escapeHtml(String(item.districtNumber || "—")) + '</span></td>';
 
-            // 2. Object name
-            html += '<td class="tc-col-name">' + escapeHtml(item.name) + '</td>';
+            // 3. Object name + chat button (icon only, right of name)
+            html += '<td class="tc-col-name"><div class="tc-name-cell">' +
+                '<span class="tc-name-text">' + escapeHtml(item.name) + '</span>' +
+                '<button type="button" class="tc-chat-trigger tc-name-chat-btn" data-item-id="' + item.id + '" title="Открыть чат">' +
+                '<i class="fa-solid fa-comments"></i>' +
+                '</button>' +
+                '</div></td>';
 
-            // 3. Address (descr) + photo button
+            // 4. Address (descr) + photo button
             html += '<td class="tc-col-address">' +
                 '<span class="tc-address-text">' + escapeHtml(item.descr) + '</span>';
             if (item.photoUrl) {
@@ -174,12 +187,12 @@ var thermalCamera = (function () {
             }
             html += '</td>';
 
-            // 4. Online status
+            // 5. Online status
             html += '<td class="tc-col-online text-center">' +
                 '<span id="online-' + item.id + '" class="tc-online-indicator tc-status-unknown">' +
                 '<i class="fa-solid fa-circle"></i> <span class="tc-online-text">\u2014</span></span></td>';
 
-            // 5. Flooding status: two signal blocks (200mm yellow, 700mm red)
+            // 6. Flooding status: two signal blocks (200mm yellow, 700mm red)
             html += '<td class="tc-col-flooding"><div class="tc-flooding-container">';
 
             // 200mm signal
@@ -205,7 +218,7 @@ var thermalCamera = (function () {
             }
             html += '</div></td>';
 
-            // 6. Battery
+            // 7. Battery
             html += '<td class="tc-col-battery text-center">';
             if (item.batteryCnlNum > 0) {
                 html += '<span id="battery-' + item.id + '" class="tc-battery-value tc-battery-unknown">' +
@@ -215,25 +228,8 @@ var thermalCamera = (function () {
             }
             html += '</td>';
 
-            // 7. Chat trigger — replaces the old single-comment field. Clicking
-            // opens an overlay panel anchored to this row with live multi-user
-            // chat + auto-logged flood events.
-            html += '<td class="tc-col-comment">' +
-                '<button type="button" class="tc-chat-trigger" data-item-id="' + item.id + '">' +
-                '<span class="tc-chat-trigger-icon"><i class="fa-solid fa-comments"></i></span>' +
-                '<span class="tc-chat-trigger-text" id="chatPreview-' + item.id + '">' +
-                'Открыть чат</span>' +
-                '<span class="tc-chat-trigger-badge" id="chatBadge-' + item.id + '" ' +
-                'style="display:none">0</span>' +
-                '</button></td>';
-
-            // 8. Commissioned status
-            html += '<td class="tc-col-status text-center">' +
-                '<div class="form-check d-flex justify-content-center">' +
-                '<input class="form-check-input tc-commissioned-cb" type="checkbox" ' +
-                'data-item-id="' + item.id + '"' +
-                (ud.isCommissioned ? ' checked' : '') + '>' +
-                '</div></td>';
+            // 8. Journal column placeholder (panel overlay added in Part 3)
+            html += '<td class="tc-col-journal"></td>';
 
             html += '</tr>';
         }
@@ -464,8 +460,6 @@ var thermalCamera = (function () {
             if (chatPanels[id]) {
                 renderChatMessages(id);
                 scrollChatToBottom(id);
-            } else {
-                bumpChatBadge(id);
             }
         }
     }
@@ -487,21 +481,6 @@ var thermalCamera = (function () {
         previewEl.textContent = (author ? author + ": " : "") + text;
     }
 
-    function bumpChatBadge(itemId) {
-        var badge = document.getElementById("chatBadge-" + itemId);
-        if (!badge) return;
-        var cur = parseInt(badge.textContent) || 0;
-        badge.textContent = String(cur + 1);
-        badge.style.display = "inline-flex";
-    }
-
-    function clearChatBadge(itemId) {
-        var badge = document.getElementById("chatBadge-" + itemId);
-        if (!badge) return;
-        badge.textContent = "0";
-        badge.style.display = "none";
-    }
-
     function buildPanelHtml(item) {
         // Header title: "<district> <name> <address>" — the same fields the
         // user sees in the row, so the chat window is unambiguous.
@@ -514,6 +493,7 @@ var thermalCamera = (function () {
             titleParts += '<span class="tc-chat-title-address">' + address + '</span>';
         }
         return '' +
+            '<div class="tc-chat-resize-grip" title="Изменить размер"></div>' +
             '<div class="tc-chat-header">' +
                 '<div class="tc-chat-header-title">' +
                     '<i class="fa-solid fa-comments"></i> ' + titleParts +
@@ -554,16 +534,12 @@ var thermalCamera = (function () {
 
         chatPanels[itemId] = { el: panel };
         activeChatId = itemId;
-        clearChatBadge(itemId);
         selectedMessageId = null;
 
         repositionChat();
         bindPanelEvents(itemId);
         syncChatTriggerHighlights();
         updateChatDistrictNotice();
-
-        var wrapper = document.querySelector(".tc-table-wrapper");
-        if (wrapper) wrapper.addEventListener("scroll", repositionChat);
 
         if (!chatHistoryLoaded[itemId]) {
             loadChatHistory(itemId);
@@ -575,36 +551,17 @@ var thermalCamera = (function () {
         }
     }
 
-    // Computes the viewport rectangle for the chat panel so it covers
-    // the "Чат" and "В работе" columns from just below the sticky
-    // thead to the bottom of the visible table area.
-    function computeChatBounds() {
-        var commentTh = document.querySelector("th.tc-col-comment");
-        var statusTh = document.querySelector("th.tc-col-status");
-        var wrapperEl = document.querySelector(".tc-table-wrapper");
-        if (!commentTh || !statusTh || !wrapperEl) {
-            return { left: window.innerWidth - 400, top: 100, width: 400, height: window.innerHeight - 120 };
-        }
-        var thRect = commentTh.getBoundingClientRect();
-        var statusRect = statusTh.getBoundingClientRect();
-        var wrapperRect = wrapperEl.getBoundingClientRect();
-        return {
-            left: thRect.left,
-            top: thRect.bottom,
-            width: statusRect.right - thRect.left,
-            height: Math.max(300, wrapperRect.bottom - thRect.bottom)
-        };
-    }
-
     function repositionChat() {
         if (activeChatId === null) return;
         var p = chatPanels[activeChatId];
-        if (!p) return;
-        var b = computeChatBounds();
-        p.el.style.left = b.left + "px";
-        p.el.style.top = b.top + "px";
-        p.el.style.width = b.width + "px";
-        p.el.style.height = b.height + "px";
+        if (!p || p.dragged) return;
+        var w = 540, h = 480;
+        var left = Math.max(0, Math.round((window.innerWidth - w) / 2));
+        var top = Math.max(60, Math.round((window.innerHeight - h) / 2));
+        p.el.style.left = left + "px";
+        p.el.style.top = top + "px";
+        p.el.style.width = w + "px";
+        p.el.style.height = h + "px";
     }
 
     function bindPanelEvents(itemId) {
@@ -615,6 +572,8 @@ var thermalCamera = (function () {
         var closeBtn = panel.querySelector(".tc-chat-close");
         var sendBtn = panel.querySelector(".tc-chat-send");
         var inputEl = panel.querySelector(".tc-chat-input");
+        var header = panel.querySelector(".tc-chat-header");
+        var grip = panel.querySelector(".tc-chat-resize-grip");
 
         if (closeBtn) {
             closeBtn.addEventListener("click", function (e) {
@@ -634,6 +593,63 @@ var thermalCamera = (function () {
                     e.preventDefault();
                     sendChatMessage(itemId);
                 }
+            });
+        }
+
+        // Drag by header
+        if (header) {
+            var dragging = false, dragStartX, dragStartY, dragLeft, dragTop;
+            header.addEventListener("mousedown", function (e) {
+                if (e.target.closest && e.target.closest(".tc-chat-close")) return;
+                dragging = true;
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+                dragLeft = parseInt(panel.style.left) || 0;
+                dragTop = parseInt(panel.style.top) || 0;
+                e.preventDefault();
+                function onDragMove(ev) {
+                    if (!dragging) return;
+                    p.dragged = true;
+                    panel.style.left = (dragLeft + ev.clientX - dragStartX) + "px";
+                    panel.style.top = (dragTop + ev.clientY - dragStartY) + "px";
+                }
+                function onDragUp() {
+                    dragging = false;
+                    document.removeEventListener("mousemove", onDragMove);
+                    document.removeEventListener("mouseup", onDragUp);
+                }
+                document.addEventListener("mousemove", onDragMove);
+                document.addEventListener("mouseup", onDragUp);
+            });
+        }
+
+        // Resize from upper-left grip
+        if (grip) {
+            grip.addEventListener("mousedown", function (e) {
+                e.stopPropagation();
+                var rStartX = e.clientX, rStartY = e.clientY;
+                var rStartW = panel.offsetWidth || 540;
+                var rStartH = panel.offsetHeight || 480;
+                var rStartLeft = parseInt(panel.style.left) || 0;
+                var rStartTop = parseInt(panel.style.top) || 0;
+                e.preventDefault();
+                function onRMove(ev) {
+                    var dx = ev.clientX - rStartX;
+                    var dy = ev.clientY - rStartY;
+                    var newW = Math.max(320, rStartW - dx);
+                    var newH = Math.max(250, rStartH - dy);
+                    panel.style.width = newW + "px";
+                    panel.style.height = newH + "px";
+                    panel.style.left = (rStartLeft + rStartW - newW) + "px";
+                    panel.style.top = (rStartTop + rStartH - newH) + "px";
+                    p.dragged = true;
+                }
+                function onRUp() {
+                    document.removeEventListener("mousemove", onRMove);
+                    document.removeEventListener("mouseup", onRUp);
+                }
+                document.addEventListener("mousemove", onRMove);
+                document.addEventListener("mouseup", onRUp);
             });
         }
     }
@@ -711,8 +727,6 @@ var thermalCamera = (function () {
         if (activeChatId === itemId) activeChatId = null;
         selectedMessageId = null;
         syncChatTriggerHighlights();
-        var wrapper = document.querySelector(".tc-table-wrapper");
-        if (wrapper) wrapper.removeEventListener("scroll", repositionChat);
     }
 
     function loadChatHistory(itemId) {
