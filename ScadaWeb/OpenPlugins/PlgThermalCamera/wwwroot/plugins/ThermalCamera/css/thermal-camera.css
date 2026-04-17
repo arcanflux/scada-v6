@@ -232,11 +232,15 @@
 
 /* District badge */
 .tc-district-badge {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    box-sizing: border-box;
     font-size: 1.15rem;
     font-weight: 700;
-    padding: 6px 14px;
-    min-width: 42px;
+    padding: 0 14px;
+    min-width: 36px;
     text-align: center;
     color: #1e3a5f;
     background: #ebf4ff;
@@ -257,13 +261,13 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 1.05rem;
-    font-weight: 600;
+    font-size: 1.2rem;
+    font-weight: 400;
 }
 
 .tc-table tbody td.tc-col-name {
-    font-size: 1.05rem;
-    font-weight: 600;
+    font-size: 1.2rem;
+    font-weight: 400;
 }
 
 /* Address and photo */
@@ -273,8 +277,8 @@
 }
 
 .tc-address-text {
-    font-size: 1.1rem;
-    font-weight: 600;
+    font-size: 1.2rem;
+    font-weight: 400;
 }
 
 .tc-photo-btn {
@@ -282,9 +286,15 @@
     right: 8px;
     top: 50%;
     transform: translateY(-50%);
-    padding: 4px 8px;
-    font-size: 0.85rem;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    font-size: 1rem;
     margin: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
 }
 
 .tc-photo-img {
@@ -487,10 +497,11 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    width: 30px;
-    height: 30px;
+    width: 36px;
+    height: 36px;
+    box-sizing: border-box;
     padding: 0;
-    font-size: 1rem;
+    font-size: 1.05rem;
     color: #2c5282;
     background: #ebf4ff;
     border: 1px solid #bee3f8;
@@ -582,8 +593,9 @@
 }
 
 .tc-commissioned-visual {
-    width: 2em;
-    height: 2em;
+    width: 36px;
+    height: 36px;
+    box-sizing: border-box;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -591,7 +603,7 @@
     border-radius: 6px;
     background: #fff;
     color: #a0aec0;
-    font-size: 1.1rem;
+    font-size: 1.15rem;
     font-weight: 700;
     transition: border-color 0.15s, background 0.15s, color 0.15s;
     line-height: 1;
@@ -639,8 +651,8 @@
     position: absolute;
     top: 0;
     left: 0;
-    width: 20px;
-    height: 20px;
+    width: 14px;
+    height: 14px;
     cursor: nw-resize;
     z-index: 10;
     border-radius: 10px 0 0 0;
@@ -648,10 +660,10 @@
     background:
         repeating-linear-gradient(
             -45deg,
-            rgba(255, 255, 255, 0.55) 0px,
-            rgba(255, 255, 255, 0.55) 1.5px,
-            transparent 1.5px,
-            transparent 5px
+            rgba(255, 255, 255, 0.45) 0px,
+            rgba(255, 255, 255, 0.45) 1px,
+            transparent 1px,
+            transparent 4px
         );
 }
 
