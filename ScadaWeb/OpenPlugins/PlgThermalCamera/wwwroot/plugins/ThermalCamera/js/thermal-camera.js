@@ -175,11 +175,12 @@ var thermalCamera = (function () {
 
             // 1. Commissioned status (В работе) — first column
             html += '<td class="tc-col-status text-center">' +
-                '<div class="form-check d-flex justify-content-center">' +
-                '<input class="form-check-input tc-commissioned-cb" type="checkbox" ' +
-                'data-item-id="' + item.id + '"' +
+                '<label class="tc-commissioned-toggle" title="' +
+                (ud.isCommissioned ? 'В работе' : 'Не в работе') + '">' +
+                '<input type="checkbox" class="tc-commissioned-cb" data-item-id="' + item.id + '"' +
                 (ud.isCommissioned ? ' checked' : '') + '>' +
-                '</div></td>';
+                '<span class="tc-commissioned-visual"></span>' +
+                '</label></td>';
 
             // 2. District number
             html += '<td class="tc-col-district text-center">' +
