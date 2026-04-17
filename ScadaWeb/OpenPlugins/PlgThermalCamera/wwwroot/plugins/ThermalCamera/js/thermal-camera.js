@@ -184,7 +184,7 @@ var thermalCamera = (function () {
 
             // 2. District number
             html += '<td class="tc-col-district text-center">' +
-                '<span class="badge bg-secondary">' + escapeHtml(String(item.districtNumber || "—")) + '</span></td>';
+                '<span class="tc-district-badge">' + escapeHtml(String(item.districtNumber || "—")) + '</span></td>';
 
             // 3. Object name + chat button (icon only, right of name)
             html += '<td class="tc-col-name"><div class="tc-name-cell">' +

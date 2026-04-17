@@ -231,11 +231,17 @@
 .tc-col-journal { width: auto; min-width: 220px; }
 
 /* District badge */
-.tc-col-district .badge {
+.tc-district-badge {
+    display: inline-block;
     font-size: 1.15rem;
     font-weight: 700;
-    padding: 8px 14px;
+    padding: 6px 14px;
     min-width: 42px;
+    text-align: center;
+    color: #1e3a5f;
+    background: #ebf4ff;
+    border: 2px solid #2c5282;
+    border-radius: 8px;
 }
 
 /* Object name cell — flex row: name text + chat icon button */
@@ -633,20 +639,19 @@
     position: absolute;
     top: 0;
     left: 0;
-    width: 28px;
-    height: 28px;
+    width: 20px;
+    height: 20px;
     cursor: nw-resize;
     z-index: 10;
     border-radius: 10px 0 0 0;
     overflow: hidden;
-    /* Diagonal white stripes — standard resize-corner visual cue */
     background:
         repeating-linear-gradient(
             -45deg,
-            rgba(255, 255, 255, 0.85) 0px,
-            rgba(255, 255, 255, 0.85) 2px,
-            transparent 2px,
-            transparent 6px
+            rgba(255, 255, 255, 0.55) 0px,
+            rgba(255, 255, 255, 0.55) 1.5px,
+            transparent 1.5px,
+            transparent 5px
         );
 }
 
