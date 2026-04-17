@@ -57,10 +57,15 @@ var thermalCamera = (function () {
         bindSearch();
         bindDistrictFilter();
         applyFilter();
+        initJournal();
+        loadAckHistory();
         requestData();
         startAutoUpdate();
         bindChatKeyboard();
-        window.addEventListener("resize", repositionChat);
+        window.addEventListener("resize", function () {
+            repositionChat();
+            positionJournal();
+        });
     }
 
     function bindSearch() {
@@ -541,6 +546,245 @@ var thermalCamera = (function () {
                 if (!dto || !dto.ok) console.error("ThermalCamera: save status failed");
             }
         });
+    }
+
+    // -------- Journal panel ------------------------------------------------
+
+    function initJournal() {
+        var existing = document.getElementById("tcJournal");
+        if (existing) existing.remove();
+
+        var panel = document.createElement("div");
+        panel.id = "tcJournal";
+        panel.className = "tc-journal-panel";
+        panel.innerHTML =
+            '<div class="tc-journal-top">' +
+                '<div class="tc-journal-section-header">' +
+                    '<span class="tc-journal-section-title">Активные события</span>' +
+                    '<div class="tc-journal-filter">' +
+                        '<label class="tc-journal-filter-label">' +
+                            '<input type="checkbox" id="jflt200" checked> <span class="tc-jflt-200">200мм</span>' +
+                        '</label>' +
+                        '<label class="tc-journal-filter-label">' +
+                            '<input type="checkbox" id="jflt700" checked> <span class="tc-jflt-700">700мм</span>' +
+                        '</label>' +
+                    '</div>' +
+                '</div>' +
+                '<div id="tcJournalEvents" class="tc-journal-events"></div>' +
+            '</div>' +
+            '<div class="tc-journal-divider"></div>' +
+            '<div class="tc-journal-bottom">' +
+                '<div class="tc-journal-section-header">' +
+                    '<span class="tc-journal-section-title">Квитирование</span>' +
+                '</div>' +
+                '<div id="tcJournalAck" class="tc-journal-ack-list"></div>' +
+                '<div class="tc-journal-ack-history-header">История квитирования</div>' +
+                '<div id="tcJournalAckHistory" class="tc-journal-ack-history"></div>' +
+            '</div>';
+
+        document.body.appendChild(panel);
+
+        document.getElementById("jflt200").addEventListener("change", function () {
+            journalFilter.show200 = this.checked;
+            renderJournalEvents();
+        });
+        document.getElementById("jflt700").addEventListener("change", function () {
+            journalFilter.show700 = this.checked;
+            renderJournalEvents();
+        });
+
+        positionJournal();
+    }
+
+    function positionJournal() {
+        var panel = document.getElementById("tcJournal");
+        if (!panel) return;
+        var th = document.querySelector("th.tc-col-journal");
+        if (!th) return;
+        var rect = th.getBoundingClientRect();
+        var h = window.innerHeight - rect.bottom;
+        panel.style.left = rect.left + "px";
+        panel.style.top = rect.bottom + "px";
+        panel.style.width = (window.innerWidth - rect.left) + "px";
+        panel.style.height = Math.max(200, h) + "px";
+    }
+
+    function renderJournalEvents() {
+        var box = document.getElementById("tcJournalEvents");
+        if (!box) return;
+        var now = Date.now();
+        var html = "";
+        var hasItems = false;
+
+        for (var idStr in activeFloodEvents) {
+            if (!activeFloodEvents.hasOwnProperty(idStr)) continue;
+            var ev = activeFloodEvents[idStr];
+            if (ev.kind === "flood200" && !journalFilter.show200) continue;
+            if (ev.kind === "flood700" && !journalFilter.show700) continue;
+            hasItems = true;
+
+            var elapsed = ev.startMs > 0 ? formatDuration(now - ev.startMs) : "";
+            var timeStr = ev.startMs > 0 ? formatChatTime(ev.startMs) : "";
+            var kindLabel = ev.kind === "flood700" ? "700мм" : "200мм";
+            var cls = "tc-je " + (ev.kind === "flood700" ? "tc-je-700" : "tc-je-200");
+
+            html += '<div class="' + cls + '">' +
+                '<div class="tc-je-top">' +
+                    '<span class="tc-je-kind">' + kindLabel + '</span>' +
+                    '<span class="tc-je-name">' + escapeHtml(ev.name) + '</span>' +
+                '</div>' +
+                '<div class="tc-je-bottom">' +
+                    '<span class="tc-je-since">с ' + timeStr + '</span>' +
+                    '<span class="tc-je-elapsed" id="jev-elapsed-' + idStr + '">' + elapsed + '</span>' +
+                '</div>' +
+            '</div>';
+        }
+
+        if (!hasItems) {
+            html = '<div class="tc-journal-empty">Нет активных событий</div>';
+        }
+        box.innerHTML = html;
+    }
+
+    function updateJournalEventTimers() {
+        var now = Date.now();
+        for (var idStr in activeFloodEvents) {
+            if (!activeFloodEvents.hasOwnProperty(idStr)) continue;
+            var ev = activeFloodEvents[idStr];
+            if (!ev.startMs) continue;
+            var el = document.getElementById("jev-elapsed-" + idStr);
+            if (el) el.textContent = formatDuration(now - ev.startMs);
+        }
+        // Also update ack pending timers
+        var ackEls = document.querySelectorAll(".tc-ack-elapsed");
+        for (var i = 0; i < ackEls.length; i++) {
+            var startMs = parseInt(ackEls[i].getAttribute("data-start")) || 0;
+            if (startMs > 0) ackEls[i].textContent = formatDuration(now - startMs);
+        }
+    }
+
+    function renderJournalAck() {
+        var box = document.getElementById("tcJournalAck");
+        if (!box) return;
+        var now = Date.now();
+        var html = "";
+        var count = 0;
+
+        for (var idStr in pendingAckItems) {
+            if (!pendingAckItems.hasOwnProperty(idStr)) continue;
+            var pa = pendingAckItems[idStr];
+            count++;
+            var elapsed = pa.flood700StartMs > 0 ? formatDuration(now - pa.flood700StartMs) : "";
+            var timeStr = pa.flood700StartMs > 0 ? formatChatTime(pa.flood700StartMs) : "";
+
+            html += '<div class="tc-ack-item" data-item-id="' + idStr + '">' +
+                '<div class="tc-ack-header">' +
+                    '<span class="tc-ack-kind">700мм</span>' +
+                    '<span class="tc-ack-name">' + escapeHtml(pa.itemName) + '</span>' +
+                '</div>' +
+                '<div class="tc-ack-info">' +
+                    'с ' + timeStr +
+                    ' <span class="tc-ack-elapsed" data-start="' + pa.flood700StartMs + '">' + elapsed + '</span>' +
+                '</div>' +
+                '<textarea class="tc-ack-comment" placeholder="Комментарий обязателен..." rows="2"></textarea>' +
+                '<button class="tc-ack-submit" data-item-id="' + idStr + '" ' +
+                    'data-item-name="' + escapeAttr(pa.itemName) + '" ' +
+                    'data-flood-start="' + pa.flood700StartMs + '">Квитировать</button>' +
+            '</div>';
+        }
+
+        if (count === 0) {
+            html = '<div class="tc-journal-empty">Нет событий для квитирования</div>';
+        }
+        box.innerHTML = html;
+
+        var btns = box.querySelectorAll(".tc-ack-submit");
+        for (var j = 0; j < btns.length; j++) {
+            btns[j].addEventListener("click", function () {
+                var itemId = parseInt(this.getAttribute("data-item-id"));
+                var itemName = this.getAttribute("data-item-name");
+                var floodStart = parseInt(this.getAttribute("data-flood-start")) || 0;
+                var container = this.closest(".tc-ack-item");
+                var textarea = container ? container.querySelector(".tc-ack-comment") : null;
+                var comment = textarea ? textarea.value.trim() : "";
+                if (!comment) {
+                    textarea && textarea.classList.add("tc-ack-comment-error");
+                    return;
+                }
+                submitAcknowledgment(itemId, itemName, floodStart, comment, this);
+            });
+        }
+    }
+
+    function submitAcknowledgment(itemId, itemName, floodStartMs, comment, btn) {
+        if (btn) btn.disabled = true;
+        $.ajax({
+            url: "/Api/ThermalCamera/PostAcknowledgment",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({
+                itemId: itemId,
+                itemName: itemName,
+                floodStartMs: floodStartMs,
+                comment: comment
+            }),
+            dataType: "json",
+            success: function (dto) {
+                if (dto && dto.ok) {
+                    delete pendingAckItems[itemId];
+                    renderJournalAck();
+                    loadAckHistory();
+                } else {
+                    if (btn) btn.disabled = false;
+                    alert("Ошибка квитирования: " + (dto && dto.msg ? dto.msg : "?"));
+                }
+            },
+            error: function () {
+                if (btn) btn.disabled = false;
+                alert("Ошибка соединения при квитировании");
+            }
+        });
+    }
+
+    function loadAckHistory() {
+        $.ajax({
+            url: "/Api/ThermalCamera/GetAckHistory",
+            type: "GET",
+            dataType: "json",
+            success: function (dto) {
+                if (dto && dto.ok && dto.data) {
+                    ackHistory = dto.data;
+                    renderAckHistory();
+                }
+            }
+        });
+    }
+
+    function renderAckHistory() {
+        var box = document.getElementById("tcJournalAckHistory");
+        if (!box) return;
+        if (!ackHistory || !ackHistory.length) {
+            box.innerHTML = '<div class="tc-journal-empty">История пуста</div>';
+            return;
+        }
+        var html = "";
+        var limit = Math.min(ackHistory.length, 50);
+        for (var i = 0; i < limit; i++) {
+            var rec = ackHistory[i];
+            var ackTime = formatChatTime(rec.ackedAtMs);
+            var floodTime = rec.floodStartMs > 0 ? formatChatTime(rec.floodStartMs) : "—";
+            html += '<div class="tc-ack-hist-item">' +
+                '<div class="tc-ack-hist-header">' +
+                    '<span class="tc-ack-kind">700мм</span>' +
+                    '<span class="tc-ack-name">' + escapeHtml(rec.itemName || "") + '</span>' +
+                    '<span class="tc-ack-hist-time">' + ackTime + '</span>' +
+                '</div>' +
+                '<div class="tc-ack-hist-flood">Затопление с ' + floodTime + '</div>' +
+                '<div class="tc-ack-hist-by">' + escapeHtml(rec.ackedBy || "") + ':</div>' +
+                '<div class="tc-ack-hist-comment">' + escapeHtml(rec.comment || "") + '</div>' +
+            '</div>';
+        }
+        box.innerHTML = html;
     }
 
     // -------- Chat ---------------------------------------------------------
