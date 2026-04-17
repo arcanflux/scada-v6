@@ -605,7 +605,7 @@ var thermalCamera = (function () {
         var h = window.innerHeight - rect.bottom;
         panel.style.left = rect.left + "px";
         panel.style.top = rect.bottom + "px";
-        panel.style.width = (window.innerWidth - rect.left) + "px";
+        panel.style.width = (rect.right - rect.left) + "px";
         panel.style.height = Math.max(200, h) + "px";
     }
 

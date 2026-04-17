@@ -918,11 +918,11 @@
     z-index: 100;
     display: flex;
     flex-direction: column;
-    background: #1a202c;
-    border-left: 2px solid #2d3748;
-    color: #e2e8f0;
+    background: #f7fafc;
+    border-left: 1px solid #cbd5e0;
     overflow: hidden;
-    font-size: 0.82rem;
+    font-size: 0.85rem;
+    box-shadow: -2px 0 12px rgba(15, 23, 42, 0.08);
 }
 
 .tc-journal-top {
@@ -930,11 +930,10 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border-bottom: none;
 }
 
 .tc-journal-bottom {
-    flex: 0 0 50%;
+    flex: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -942,7 +941,7 @@
 
 .tc-journal-divider {
     height: 2px;
-    background: #4a5568;
+    background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
     flex-shrink: 0;
 }
 
@@ -950,18 +949,16 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 6px 10px;
-    background: #2d3748;
-    border-bottom: 1px solid #4a5568;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
+    border-bottom: none;
     flex-shrink: 0;
 }
 
 .tc-journal-section-title {
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     font-weight: 700;
-    color: #a0aec0;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    color: #fff;
 }
 
 .tc-journal-filter {
@@ -974,8 +971,8 @@
     align-items: center;
     gap: 4px;
     cursor: pointer;
-    font-size: 0.78rem;
-    color: #cbd5e0;
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.9);
 }
 
 .tc-journal-filter-label input {
@@ -983,40 +980,41 @@
     margin: 0;
 }
 
-.tc-jflt-200 { color: #f6e05e; font-weight: 700; }
-.tc-jflt-700 { color: #fc8181; font-weight: 700; }
+.tc-jflt-200 { color: #faf089; font-weight: 700; }
+.tc-jflt-700 { color: #fed7d7; font-weight: 700; }
 
 .tc-journal-events {
     flex: 1;
     overflow-y: auto;
-    padding: 6px;
+    padding: 8px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 5px;
+    background: #f7fafc;
 }
 
 .tc-journal-empty {
-    color: #718096;
-    font-size: 0.8rem;
+    color: #a0aec0;
+    font-size: 0.82rem;
     text-align: center;
-    padding: 12px 8px;
+    padding: 14px 8px;
     font-style: italic;
 }
 
-/* Active event card */
+/* Active event card — matches flood signal colors */
 .tc-je {
     border-radius: 6px;
     padding: 7px 10px;
-    border-left: 3px solid;
+    border: 1px solid;
 }
 
 .tc-je-200 {
-    background: #2d2a1a;
+    background: #fefcbf;
     border-color: #d69e2e;
 }
 
 .tc-je-700 {
-    background: #2d1a1a;
+    background: #fff5f5;
     border-color: #e53e3e;
 }
 
@@ -1033,69 +1031,69 @@
     flex-shrink: 0;
 }
 
-.tc-je-200 .tc-je-kind { color: #f6e05e; }
-.tc-je-700 .tc-je-kind { color: #fc8181; }
+.tc-je-200 .tc-je-kind { color: #744210; }
+.tc-je-700 .tc-je-kind { color: #9b2c2c; }
 
 .tc-je-name {
     font-weight: 600;
-    color: #e2e8f0;
+    color: #2d3748;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     flex: 1;
-    font-size: 0.82rem;
+    font-size: 0.85rem;
 }
 
 .tc-je-bottom {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 0.74rem;
-    color: #a0aec0;
+    font-size: 0.75rem;
+    color: #718096;
 }
 
 .tc-je-elapsed {
     font-variant-numeric: tabular-nums;
     font-weight: 700;
-    color: #cbd5e0;
+    color: #2d3748;
 }
 
-/* Acknowledgment section */
+/* Acknowledgment pending list */
 .tc-journal-ack-list {
-    flex: 1;
     overflow-y: auto;
-    padding: 6px;
+    padding: 8px;
     display: flex;
     flex-direction: column;
     gap: 6px;
-    min-height: 0;
+    background: #f7fafc;
     max-height: 45%;
+    flex-shrink: 0;
 }
 
 .tc-journal-ack-history-header {
-    padding: 4px 10px;
-    font-size: 0.72rem;
+    padding: 5px 12px;
+    font-size: 0.78rem;
     font-weight: 700;
     color: #718096;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    background: #242c3a;
-    border-top: 1px solid #4a5568;
+    background: #edf2f7;
+    border-top: 1px solid #cbd5e0;
+    border-bottom: 1px solid #cbd5e0;
     flex-shrink: 0;
 }
 
 .tc-journal-ack-history {
     flex: 1;
     overflow-y: auto;
-    padding: 6px;
+    padding: 8px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 5px;
+    background: #f7fafc;
     min-height: 0;
 }
 
 .tc-ack-item {
-    background: #2d1a1a;
+    background: #fff5f5;
     border: 1px solid #e53e3e;
     border-radius: 6px;
     padding: 8px 10px;
@@ -1113,14 +1111,14 @@
 .tc-ack-kind {
     font-weight: 800;
     font-size: 0.78rem;
-    color: #fc8181;
+    color: #9b2c2c;
     flex-shrink: 0;
 }
 
 .tc-ack-name {
     font-weight: 600;
-    color: #e2e8f0;
-    font-size: 0.82rem;
+    color: #2d3748;
+    font-size: 0.85rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1128,32 +1126,33 @@
 }
 
 .tc-ack-info {
-    font-size: 0.74rem;
-    color: #a0aec0;
+    font-size: 0.75rem;
+    color: #718096;
 }
 
 .tc-ack-elapsed {
     font-variant-numeric: tabular-nums;
     font-weight: 700;
-    color: #fc8181;
+    color: #9b2c2c;
 }
 
 .tc-ack-comment {
     width: 100%;
     padding: 5px 8px;
-    font-size: 0.82rem;
+    font-size: 0.85rem;
     border-radius: 6px;
-    border: 1px solid #4a5568;
-    background: #1a202c;
-    color: #e2e8f0;
+    border: 1px solid #cbd5e0;
+    background: #fff;
+    color: #2d3748;
     resize: none;
     outline: none;
     box-sizing: border-box;
-    transition: border-color 0.15s;
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .tc-ack-comment:focus {
     border-color: #63b3ed;
+    box-shadow: 0 0 0 2px rgba(99,179,237,0.2);
 }
 
 .tc-ack-comment-error {
@@ -1162,24 +1161,28 @@
 
 .tc-ack-submit {
     align-self: flex-end;
-    padding: 4px 14px;
-    font-size: 0.8rem;
+    padding: 4px 16px;
+    font-size: 0.82rem;
     font-weight: 700;
     color: #fff;
-    background: linear-gradient(135deg, #c53030 0%, #e53e3e 100%);
-    border: none;
-    border-radius: 6px;
+    background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
+    border: 1px solid #2c5282;
+    border-radius: 10px;
     cursor: pointer;
-    transition: filter 0.15s;
+    transition: filter 0.15s, box-shadow 0.15s;
 }
 
-.tc-ack-submit:hover { filter: brightness(1.1); }
+.tc-ack-submit:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 2px 6px rgba(44, 82, 130, 0.35);
+}
 .tc-ack-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Acknowledgment history */
 .tc-ack-hist-item {
-    background: #1e2533;
-    border-left: 2px solid #4a5568;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-left: 3px solid #a0aec0;
     border-radius: 4px;
     padding: 6px 8px;
     display: flex;
@@ -1195,24 +1198,25 @@
 
 .tc-ack-hist-time {
     margin-left: auto;
-    color: #718096;
+    color: #a0aec0;
     font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
 }
 
 .tc-ack-hist-flood {
     font-size: 0.72rem;
-    color: #718096;
+    color: #a0aec0;
 }
 
 .tc-ack-hist-by {
-    font-size: 0.74rem;
-    color: #a0aec0;
-    font-weight: 600;
+    font-size: 0.75rem;
+    color: #2c5282;
+    font-weight: 700;
 }
 
 .tc-ack-hist-comment {
-    font-size: 0.78rem;
-    color: #cbd5e0;
+    font-size: 0.8rem;
+    color: #2d3748;
     white-space: pre-wrap;
     word-break: break-word;
 }
