@@ -297,5 +297,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
         public const string Flood200 = "flood200";
         /// <summary>System message for 700мм flood event (red).</summary>
         public const string Flood700 = "flood700";
+        /// <summary>System message confirming a 700мм flood acknowledgment (green).</summary>
+        public const string Ack = "ack";
     }
 }

@@ -57,6 +57,7 @@ var thermalCamera = (function () {
         bindSearch();
         bindDistrictFilter();
         applyFilter();
+        bindNavButtons();
         initJournal();
         loadAckHistory();
         requestData();
@@ -527,12 +528,18 @@ var thermalCamera = (function () {
 
     function updatePendingAcks(result) {
         if (!result.pendingAcks) return;
-        pendingAckItems = {};
+        var newPending = {};
         for (var i = 0; i < result.pendingAcks.length; i++) {
             var pa = result.pendingAcks[i];
-            pendingAckItems[pa.itemId] = { itemName: pa.itemName, flood700StartMs: pa.flood700StartMs };
+            newPending[pa.itemId] = { itemName: pa.itemName, flood700StartMs: pa.flood700StartMs };
         }
-        renderJournalAck();
+        // Only rebuild DOM when the set of pending items changes (avoids clearing typed comments)
+        var newKeys = Object.keys(newPending).sort().join(",");
+        var oldKeys = Object.keys(pendingAckItems).sort().join(",");
+        pendingAckItems = newPending;
+        if (newKeys !== oldKeys) {
+            renderJournalAck();
+        }
     }
 
     function saveCommissioned(itemId, isCommissioned) {
@@ -546,6 +553,41 @@ var thermalCamera = (function () {
                 if (!dto || !dto.ok) console.error("ThermalCamera: save status failed");
             }
         });
+    }
+
+    // -------- Navigation buttons ------------------------------------------
+
+    function bindNavButtons() {
+        var container = document.querySelector(".tc-container");
+        if (!container) return;
+
+        function navigate(viewId, frameUrl, pageUrl) {
+            try {
+                if (window.parent && window.parent.viewPage && typeof window.parent.viewPage.loadView === "function") {
+                    window.parent.viewPage.loadView(viewId, frameUrl, pageUrl);
+                } else if (pageUrl) {
+                    window.top.location.href = pageUrl;
+                }
+            } catch (e) {
+                if (pageUrl) window.top.location.href = pageUrl;
+            }
+        }
+
+        var mainBtn = document.getElementById("btnNavMain");
+        if (mainBtn) {
+            var mainId = parseInt(container.getAttribute("data-main-view-id")) || 0;
+            var mainFrame = container.getAttribute("data-main-view-frame") || "";
+            var mainPage = container.getAttribute("data-main-view-page") || "";
+            mainBtn.addEventListener("click", function () { navigate(mainId, mainFrame, mainPage); });
+        }
+
+        var mapBtn = document.getElementById("btnNavMap");
+        if (mapBtn) {
+            var mapId = parseInt(container.getAttribute("data-map-view-id")) || 0;
+            var mapFrame = container.getAttribute("data-map-view-frame") || "";
+            var mapPage = container.getAttribute("data-map-view-page") || "";
+            mapBtn.addEventListener("click", function () { navigate(mapId, mapFrame, mapPage); });
+        }
     }
 
     // -------- Journal panel ------------------------------------------------
@@ -562,12 +604,12 @@ var thermalCamera = (function () {
                 '<div class="tc-journal-section-header">' +
                     '<span class="tc-journal-section-title">Активные события</span>' +
                     '<div class="tc-journal-filter">' +
-                        '<label class="tc-journal-filter-label">' +
-                            '<input type="checkbox" id="jflt200" checked> <span class="tc-jflt-200">200мм</span>' +
-                        '</label>' +
-                        '<label class="tc-journal-filter-label">' +
-                            '<input type="checkbox" id="jflt700" checked> <span class="tc-jflt-700">700мм</span>' +
-                        '</label>' +
+                        '<button id="jflt200" class="tc-journal-flt-btn tc-journal-flt-btn-active" data-kind="200">' +
+                            '<i class="fa-solid fa-water"></i> 200мм' +
+                        '</button>' +
+                        '<button id="jflt700" class="tc-journal-flt-btn tc-journal-flt-btn-active" data-kind="700">' +
+                            '<i class="fa-solid fa-water"></i> 700мм' +
+                        '</button>' +
                     '</div>' +
                 '</div>' +
                 '<div id="tcJournalEvents" class="tc-journal-events"></div>' +
@@ -584,12 +626,14 @@ var thermalCamera = (function () {
 
         document.body.appendChild(panel);
 
-        document.getElementById("jflt200").addEventListener("change", function () {
-            journalFilter.show200 = this.checked;
+        document.getElementById("jflt200").addEventListener("click", function () {
+            this.classList.toggle("tc-journal-flt-btn-active");
+            journalFilter.show200 = this.classList.contains("tc-journal-flt-btn-active");
             renderJournalEvents();
         });
-        document.getElementById("jflt700").addEventListener("change", function () {
-            journalFilter.show700 = this.checked;
+        document.getElementById("jflt700").addEventListener("click", function () {
+            this.classList.toggle("tc-journal-flt-btn-active");
+            journalFilter.show700 = this.classList.contains("tc-journal-flt-btn-active");
             renderJournalEvents();
         });
 
@@ -666,6 +710,16 @@ var thermalCamera = (function () {
     function renderJournalAck() {
         var box = document.getElementById("tcJournalAck");
         if (!box) return;
+
+        // Preserve any text the user has already typed so the rebuild doesn't clear it
+        var savedComments = {};
+        var existingItems = box.querySelectorAll(".tc-ack-item");
+        for (var si = 0; si < existingItems.length; si++) {
+            var sid = existingItems[si].getAttribute("data-item-id");
+            var sta = existingItems[si].querySelector(".tc-ack-comment");
+            if (sta && sid) savedComments[sid] = sta.value;
+        }
+
         var now = Date.now();
         var html = "";
         var count = 0;
@@ -697,6 +751,16 @@ var thermalCamera = (function () {
             html = '<div class="tc-journal-empty">Нет событий для квитирования</div>';
         }
         box.innerHTML = html;
+
+        // Restore typed comments that existed before the rebuild
+        var newItems = box.querySelectorAll(".tc-ack-item");
+        for (var ri = 0; ri < newItems.length; ri++) {
+            var rid = newItems[ri].getAttribute("data-item-id");
+            if (savedComments[rid]) {
+                var rta = newItems[ri].querySelector(".tc-ack-comment");
+                if (rta) rta.value = savedComments[rid];
+            }
+        }
 
         var btns = box.querySelectorAll(".tc-ack-submit");
         for (var j = 0; j < btns.length; j++) {
@@ -1138,7 +1202,8 @@ var thermalCamera = (function () {
             var m = msgs[i];
             var isSystem = m.kind && m.kind !== "user";
             var kindClass = isSystem
-                ? (m.kind === "flood700" ? "tc-chat-flood700" : "tc-chat-flood200")
+                ? (m.kind === "flood700" ? "tc-chat-flood700" :
+                   m.kind === "ack"     ? "tc-chat-ack"     : "tc-chat-flood200")
                 : "tc-chat-user";
             var timeStr = formatChatTime(m.timestampMs);
             html += '<div class="tc-chat-msg ' + kindClass +

@@ -153,6 +153,31 @@
     white-space: nowrap;
 }
 
+.tc-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 100%;
+    padding: 0 14px;
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    background: rgba(255, 255, 255, 0.12);
+    font-size: 0.9rem;
+    border-radius: 18px;
+    white-space: nowrap;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.tc-nav-btn:hover,
+.tc-nav-btn:focus {
+    background: rgba(255, 255, 255, 0.22);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.7);
+    box-shadow: none;
+    outline: none;
+}
+
 /* Table wrapper */
 .tc-table-wrapper {
     flex: 1;
@@ -852,6 +877,21 @@
     font-weight: 700;
 }
 
+/* Acknowledgment system bubble — green */
+.tc-chat-ack .tc-chat-bubble {
+    background: #f0fff4;
+    border-color: #38a169;
+}
+
+.tc-chat-ack .tc-chat-author {
+    color: #276749;
+}
+
+.tc-chat-ack .tc-chat-text {
+    color: #276749;
+    font-weight: 600;
+}
+
 /* Input row */
 .tc-chat-input-row {
     display: flex;
@@ -963,25 +1003,42 @@
 
 .tc-journal-filter {
     display: flex;
-    gap: 10px;
+    gap: 6px;
 }
 
-.tc-journal-filter-label {
-    display: flex;
+.tc-journal-flt-btn {
+    display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
+    height: 26px;
+    padding: 0 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 16px;
     cursor: pointer;
-    font-size: 0.82rem;
-    color: rgba(255,255,255,0.9);
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    white-space: nowrap;
 }
 
-.tc-journal-filter-label input {
-    cursor: pointer;
-    margin: 0;
+.tc-journal-flt-btn.tc-journal-flt-btn-active {
+    background: rgba(255, 255, 255, 0.9);
+    color: #1e3a5f;
+    border-color: rgba(255, 255, 255, 0.9);
 }
 
-.tc-jflt-200 { color: #faf089; font-weight: 700; }
-.tc-jflt-700 { color: #fed7d7; font-weight: 700; }
+.tc-journal-flt-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.8);
+}
+
+.tc-journal-flt-btn.tc-journal-flt-btn-active:hover {
+    background: #fff;
+    color: #1e3a5f;
+}
 
 .tc-journal-events {
     flex: 1;

@@ -6,6 +6,7 @@ using Scada.Data.Const;
 using Scada.Web.Plugins.PlgThermalCamera.Code;
 using Scada.Web.Plugins.PlgThermalCamera.Models;
 using Scada.Web.Services;
+using Scada.Web.TreeView;
 using System.Text.Json;
 
 namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
@@ -26,11 +27,46 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
         public string ErrorMessage { get; private set; } = "";
         public bool IsAdmin { get; private set; }
 
+        public int MainViewID { get; private set; }
+        public string MainViewFrameUrl { get; private set; } = "";
+        public string MainViewPageUrl { get; private set; } = "";
+        public int MapViewID { get; private set; }
+        public string MapViewFrameUrl { get; private set; } = "";
+        public string MapViewPageUrl { get; private set; } = "";
+
+        private static ViewNode FindViewByFrameFragment(List<ViewNode> nodes, string fragment)
+        {
+            foreach (ViewNode node in nodes)
+            {
+                if (!node.IsEmpty && node.ViewFrameUrl.Contains(fragment, StringComparison.OrdinalIgnoreCase))
+                    return node;
+                ViewNode found = FindViewByFrameFragment(node.ChildNodes, fragment);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
         public void OnGet(int? id)
         {
             int viewID = id ?? userContext.Views.GetFirstViewID() ?? 0;
             ViewID = viewID;
             IsAdmin = userContext.UserEntity?.RoleID == RoleID.Administrator;
+
+            ViewNode mainNode = FindViewByFrameFragment(userContext.Views.ViewNodes, "/Main/");
+            if (mainNode != null)
+            {
+                MainViewID = mainNode.ViewID;
+                MainViewFrameUrl = mainNode.ViewFrameUrl;
+                MainViewPageUrl = mainNode.Url;
+            }
+
+            ViewNode mapNode = FindViewByFrameFragment(userContext.Views.ViewNodes, "/Map/");
+            if (mapNode != null)
+            {
+                MapViewID = mapNode.ViewID;
+                MapViewFrameUrl = mapNode.ViewFrameUrl;
+                MapViewPageUrl = mapNode.Url;
+            }
 
             if (viewLoader.GetView(viewID, true, out ThermalCameraTableView view, out string errMsg))
             {

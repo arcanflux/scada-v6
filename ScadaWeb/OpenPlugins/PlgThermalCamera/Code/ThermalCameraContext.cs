@@ -360,8 +360,18 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
             }
         }
 
+        private static string FormatDuration(long ms)
+        {
+            if (ms <= 0) return "?";
+            var ts = TimeSpan.FromMilliseconds(ms);
+            if (ts.TotalDays >= 1)
+                return $"{(int)ts.TotalDays}д {ts.Hours:D2}:{ts.Minutes:D2}";
+            return $"{(int)ts.TotalHours:D2}:{ts.Minutes:D2}:{ts.Seconds:D2}";
+        }
+
         /// <summary>
         /// Records a 700mm flood acknowledgment with a mandatory comment.
+        /// Also appends a green system message to the TK's chat showing the response time.
         /// </summary>
         public AckRecord AddAcknowledgment(int itemId, string itemName, long floodStartMs,
             string ackedBy, string comment, out string errMsg)
@@ -383,7 +393,15 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                 };
                 entry.AckHistory.Add(rec);
 
-                return SaveUserData(userData, out errMsg) ? rec : null;
+                if (!SaveUserData(userData, out errMsg))
+                    return null;
+
+                // Post a chat message so the TK's chat log shows the acknowledgment
+                string duration = FormatDuration(rec.AckedAtMs - floodStartMs);
+                string sysText = $"Квитировано (время реагирования: {duration})\n{comment}";
+                AddSystemMessage(itemId, sysText, ChatMessageKind.Ack);
+
+                return rec;
             }
         }
 
