@@ -32,6 +32,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         private ThermalCameraUserData cache;
         private readonly Dictionary<int, bool> lastFlood200State = [];
         private readonly Dictionary<int, bool> lastFlood700State = [];
+        private readonly Dictionary<int, bool> lastOnlineState = [];
 
         public string GetUserDataFilePath()
         {
@@ -236,6 +237,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         /// Compares the latest flood-state snapshot against the previous one and appends a
         /// system message for every normal→flooded transition. Only one system message is
         /// emitted per episode (state stays "flooded" until the driver reports normal again).
+        /// Also updates persistent start-time timestamps for Offline / 200mm / 700mm states.
         /// </summary>
         public void DetectFloodTransitions(
             IEnumerable<ThermalCameraItem> items,
@@ -246,10 +248,36 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
 
             lock (lockObj)
             {
+                ThermalCameraUserData userData = LoadUserData();
+                bool dirty = false;
+                long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
                 foreach (ThermalCameraItem item in items)
                 {
                     if (!currentStates.TryGetValue(item.Id, out FloodStateSnapshot cur))
                         continue;
+
+                    UserDataEntry entry = GetOrCreateEntry(userData, item.Id);
+
+                    // Online / Offline timer
+                    bool curOnline = cur.IsOnline;
+                    bool prevOnline = lastOnlineState.TryGetValue(item.Id, out bool po) && po;
+                    if (cur.OnlineHasValue)
+                    {
+                        if (!curOnline && prevOnline)
+                        {
+                            // Went offline
+                            entry.OfflineStartMs = now;
+                            dirty = true;
+                        }
+                        else if (curOnline && !prevOnline && entry.OfflineStartMs > 0)
+                        {
+                            // Came back online
+                            entry.OfflineStartMs = 0;
+                            dirty = true;
+                        }
+                        lastOnlineState[item.Id] = curOnline;
+                    }
 
                     // 200mm transition
                     if (cur.Flood200HasValue)
@@ -261,6 +289,13 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                                 "Зафиксировано затопление 200мм — " +
                                 (string.IsNullOrEmpty(item.Name) ? "объект ТК" : item.Name),
                                 ChatMessageKind.Flood200);
+                            entry.Flood200StartMs = now;
+                            dirty = true;
+                        }
+                        else if (!cur.Flood200 && prev && entry.Flood200StartMs > 0)
+                        {
+                            entry.Flood200StartMs = 0;
+                            dirty = true;
                         }
                         lastFlood200State[item.Id] = cur.Flood200;
                     }
@@ -275,16 +310,102 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                                 "ТРЕВОГА: затопление 700мм — " +
                                 (string.IsNullOrEmpty(item.Name) ? "объект ТК" : item.Name),
                                 ChatMessageKind.Flood700);
+                            entry.Flood700StartMs = now;
+                            dirty = true;
+                        }
+                        else if (!cur.Flood700 && prev && entry.Flood700StartMs > 0)
+                        {
+                            entry.Flood700StartMs = 0;
+                            dirty = true;
                         }
                         lastFlood700State[item.Id] = cur.Flood700;
                     }
                 }
+
+                if (dirty)
+                {
+                    if (!SaveUserData(userData, out string errMsg))
+                        webContext.Log.WriteError("PlgThermalCamera: " + errMsg);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns per-item timer start timestamps (UTC ms) for Offline, 200mm, 700mm.
+        /// Zero means the state is not active.
+        /// </summary>
+        public Dictionary<int, ItemTimers> GetTimers(IEnumerable<int> itemIds)
+        {
+            lock (lockObj)
+            {
+                ThermalCameraUserData userData = LoadUserData();
+                var result = new Dictionary<int, ItemTimers>();
+                foreach (int id in itemIds)
+                {
+                    if (userData.Entries.TryGetValue(id, out UserDataEntry e))
+                    {
+                        result[id] = new ItemTimers
+                        {
+                            OfflineStartMs = e.OfflineStartMs,
+                            Flood200StartMs = e.Flood200StartMs,
+                            Flood700StartMs = e.Flood700StartMs
+                        };
+                    }
+                    else
+                    {
+                        result[id] = new ItemTimers();
+                    }
+                }
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Records a 700mm flood acknowledgment with a mandatory comment.
+        /// </summary>
+        public AckRecord AddAcknowledgment(int itemId, string itemName, long floodStartMs,
+            string ackedBy, string comment, out string errMsg)
+        {
+            lock (lockObj)
+            {
+                ThermalCameraUserData userData = LoadUserData();
+                UserDataEntry entry = GetOrCreateEntry(userData, itemId);
+
+                AckRecord rec = new()
+                {
+                    Id = ++userData.LastMessageId,
+                    ItemId = itemId,
+                    ItemName = itemName ?? "",
+                    FloodStartMs = floodStartMs,
+                    AckedAtMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                    AckedBy = ackedBy ?? "",
+                    Comment = comment ?? ""
+                };
+                entry.AckHistory.Add(rec);
+
+                return SaveUserData(userData, out errMsg) ? rec : null;
+            }
+        }
+
+        /// <summary>
+        /// Returns all acknowledgment records across all items, sorted newest first.
+        /// </summary>
+        public List<AckRecord> GetAllAcks()
+        {
+            lock (lockObj)
+            {
+                ThermalCameraUserData userData = LoadUserData();
+                List<AckRecord> all = [];
+                foreach (UserDataEntry e in userData.Entries.Values)
+                    all.AddRange(e.AckHistory);
+                all.Sort((a, b) => b.AckedAtMs.CompareTo(a.AckedAtMs));
+                return all;
             }
         }
     }
 
     /// <summary>
-    /// Per-item flood flags for the current polling tick.
+    /// Per-item flood and online flags for the current polling tick.
     /// </summary>
     public class FloodStateSnapshot
     {
@@ -292,6 +413,18 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         public bool Flood200HasValue { get; set; }
         public bool Flood700 { get; set; }
         public bool Flood700HasValue { get; set; }
+        public bool IsOnline { get; set; }
+        public bool OnlineHasValue { get; set; }
+    }
+
+    /// <summary>
+    /// Per-item timer start timestamps returned to the client on every poll.
+    /// </summary>
+    public class ItemTimers
+    {
+        public long OfflineStartMs { get; set; }
+        public long Flood200StartMs { get; set; }
+        public long Flood700StartMs { get; set; }
     }
 
     /// <summary>

@@ -62,7 +62,10 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
                         UserDataEntry entry = new()
                         {
                             Comment = GetAttrStr(node, "comment"),
-                            IsCommissioned = GetAttrBool(node, "isCommissioned")
+                            IsCommissioned = GetAttrBool(node, "isCommissioned"),
+                            OfflineStartMs = GetAttrLong(node, "offlineStartMs"),
+                            Flood200StartMs = GetAttrLong(node, "flood200StartMs"),
+                            Flood700StartMs = GetAttrLong(node, "flood700StartMs")
                         };
 
                         if (node.SelectNodes("Message") is XmlNodeList msgNodes)
@@ -83,6 +86,23 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
 
                                 if (msg.Id > LastMessageId)
                                     LastMessageId = msg.Id;
+                            }
+                        }
+
+                        if (node.SelectNodes("Ack") is XmlNodeList ackNodes)
+                        {
+                            foreach (XmlNode ackNode in ackNodes)
+                            {
+                                entry.AckHistory.Add(new AckRecord
+                                {
+                                    Id = GetAttrLong(ackNode, "id"),
+                                    ItemId = GetAttrInt(ackNode, "itemId"),
+                                    ItemName = GetAttrStr(ackNode, "itemName"),
+                                    FloodStartMs = GetAttrLong(ackNode, "floodStartMs"),
+                                    AckedAtMs = GetAttrLong(ackNode, "ackedAtMs"),
+                                    AckedBy = GetAttrStr(ackNode, "ackedBy"),
+                                    Comment = ackNode.InnerText ?? ""
+                                });
                             }
                         }
 
@@ -122,6 +142,9 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
                     entryElem.SetAttribute("comment", kvp.Value.Comment ?? "");
                     entryElem.SetAttribute("isCommissioned",
                         kvp.Value.IsCommissioned.ToString().ToLowerInvariant());
+                    entryElem.SetAttribute("offlineStartMs", kvp.Value.OfflineStartMs.ToString());
+                    entryElem.SetAttribute("flood200StartMs", kvp.Value.Flood200StartMs.ToString());
+                    entryElem.SetAttribute("flood700StartMs", kvp.Value.Flood700StartMs.ToString());
 
                     foreach (ChatMessage msg in kvp.Value.Messages)
                     {
@@ -132,6 +155,19 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
                         msgElem.SetAttribute("kind", msg.Kind ?? ChatMessageKind.User);
                         msgElem.AppendChild(xmlDoc.CreateTextNode(msg.Text ?? ""));
                         entryElem.AppendChild(msgElem);
+                    }
+
+                    foreach (AckRecord ack in kvp.Value.AckHistory)
+                    {
+                        XmlElement ackElem = xmlDoc.CreateElement("Ack");
+                        ackElem.SetAttribute("id", ack.Id.ToString());
+                        ackElem.SetAttribute("itemId", ack.ItemId.ToString());
+                        ackElem.SetAttribute("itemName", ack.ItemName ?? "");
+                        ackElem.SetAttribute("floodStartMs", ack.FloodStartMs.ToString());
+                        ackElem.SetAttribute("ackedAtMs", ack.AckedAtMs.ToString());
+                        ackElem.SetAttribute("ackedBy", ack.AckedBy ?? "");
+                        ackElem.AppendChild(xmlDoc.CreateTextNode(ack.Comment ?? ""));
+                        entryElem.AppendChild(ackElem);
                     }
 
                     rootElem.AppendChild(entryElem);
@@ -193,9 +229,44 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
         public bool IsCommissioned { get; set; }
 
         /// <summary>
+        /// UTC milliseconds when the device went Offline (0 = currently online).
+        /// Persisted so the timer survives page refresh and SCADA restart.
+        /// </summary>
+        public long OfflineStartMs { get; set; }
+
+        /// <summary>
+        /// UTC milliseconds when 200mm flooding started (0 = not flooded).
+        /// </summary>
+        public long Flood200StartMs { get; set; }
+
+        /// <summary>
+        /// UTC milliseconds when 700mm flooding started (0 = not flooded).
+        /// </summary>
+        public long Flood700StartMs { get; set; }
+
+        /// <summary>
         /// Gets the chat message history for this item.
         /// </summary>
         public List<ChatMessage> Messages { get; set; } = [];
+
+        /// <summary>
+        /// Acknowledgment history for 700mm flood events.
+        /// </summary>
+        public List<AckRecord> AckHistory { get; set; } = [];
+    }
+
+    /// <summary>
+    /// Acknowledgment record for a 700mm flood event.
+    /// </summary>
+    public class AckRecord
+    {
+        public long Id { get; set; }
+        public int ItemId { get; set; }
+        public string ItemName { get; set; } = "";
+        public long FloodStartMs { get; set; }
+        public long AckedAtMs { get; set; }
+        public string AckedBy { get; set; } = "";
+        public string Comment { get; set; } = "";
     }
 
     /// <summary>

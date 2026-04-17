@@ -10,6 +10,7 @@ using Scada.Web.Lang;
 using Scada.Web.Plugins.PlgThermalCamera.Code;
 using Scada.Web.Plugins.PlgThermalCamera.Models;
 using Scada.Web.Services;
+using System.Linq;
 
 namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
 {
@@ -88,6 +89,11 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
                         snap.Flood700HasValue = d700.Stat > 0;
                         snap.Flood700 = d700.Stat > 0 && d700.Val == 0;
                     }
+                    if (item.OnlineCnlNum > 0 && rawByCnl.TryGetValue(item.OnlineCnlNum, out CnlData dOnl))
+                    {
+                        snap.OnlineHasValue = true;
+                        snap.IsOnline = dOnl.Stat > 0 && dOnl.Val != 0;
+                    }
                     floodStates[item.Id] = snap;
                 }
                 thermalCameraContext.DetectFloodTransitions(view.Items, floodStates);
@@ -95,12 +101,29 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
                 // Collect any new chat messages so the client can merge them in.
                 ChatSyncResult chatSync = thermalCameraContext.GetChatUpdates(chatCursor);
 
+                // Timer start timestamps (UTC ms) — persisted server-side so they survive restart.
+                Dictionary<int, ItemTimers> timers = thermalCameraContext.GetTimers(
+                    view.Items.Select(i => i.Id));
+
+                // Pending 700mm acks: items currently flooded at 700mm.
+                List<PendingAckItem> pendingAcks = view.Items
+                    .Where(i => floodStates.TryGetValue(i.Id, out FloodStateSnapshot s) && s.Flood700)
+                    .Select(i => new PendingAckItem
+                    {
+                        ItemId = i.Id,
+                        ItemName = i.Name ?? "",
+                        Flood700StartMs = timers.TryGetValue(i.Id, out ItemTimers t) ? t.Flood700StartMs : 0
+                    })
+                    .ToList();
+
                 return Dto<CurDataResult>.Success(new CurDataResult
                 {
                     ServerTime = DateTime.UtcNow.ToString("o"),
                     Data = dataItems,
                     ChatCursor = chatSync.Cursor,
-                    ChatUpdates = chatSync.Messages
+                    ChatUpdates = chatSync.Messages,
+                    Timers = timers,
+                    PendingAcks = pendingAcks
                 });
             }
             catch (Exception ex)
@@ -279,6 +302,48 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
                 return NotFound("Photo not found");
             }
         }
+
+        [HttpPost]
+        public Dto<AckRecord> PostAcknowledgment([FromBody] PostAckRequest request)
+        {
+            try
+            {
+                if (request == null || request.ItemId <= 0)
+                    return Dto<AckRecord>.Fail("Некорректный запрос");
+
+                string comment = (request.Comment ?? "").Trim();
+                if (string.IsNullOrEmpty(comment))
+                    return Dto<AckRecord>.Fail("Комментарий обязателен");
+
+                string author = userContext.UserEntity?.Name ?? "anonymous";
+                AckRecord rec = thermalCameraContext.AddAcknowledgment(
+                    request.ItemId, request.ItemName, request.FloodStartMs,
+                    author, comment, out string errMsg);
+
+                return rec != null
+                    ? Dto<AckRecord>.Success(rec)
+                    : Dto<AckRecord>.Fail(errMsg);
+            }
+            catch (Exception ex)
+            {
+                webContext.Log.WriteError(ex.BuildErrorMessage(WebPhrases.ErrorInWebApi, nameof(PostAcknowledgment)));
+                return Dto<AckRecord>.Fail(ex.Message);
+            }
+        }
+
+        [HttpGet]
+        public Dto<List<AckRecord>> GetAckHistory()
+        {
+            try
+            {
+                return Dto<List<AckRecord>>.Success(thermalCameraContext.GetAllAcks());
+            }
+            catch (Exception ex)
+            {
+                webContext.Log.WriteError(ex.BuildErrorMessage(WebPhrases.ErrorInWebApi, nameof(GetAckHistory)));
+                return Dto<List<AckRecord>>.Fail(ex.Message);
+            }
+        }
     }
 
     public class CurDataResult
@@ -287,6 +352,15 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
         public Dictionary<int, CnlDataItem> Data { get; set; } = [];
         public long ChatCursor { get; set; }
         public List<ChatUpdateItem> ChatUpdates { get; set; } = [];
+        public Dictionary<int, ItemTimers> Timers { get; set; } = [];
+        public List<PendingAckItem> PendingAcks { get; set; } = [];
+    }
+
+    public class PendingAckItem
+    {
+        public int ItemId { get; set; }
+        public string ItemName { get; set; } = "";
+        public long Flood700StartMs { get; set; }
     }
 
     public class CnlDataItem
@@ -320,5 +394,13 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
     {
         public int ItemId { get; set; }
         public bool IsCommissioned { get; set; }
+    }
+
+    public class PostAckRequest
+    {
+        public int ItemId { get; set; }
+        public string ItemName { get; set; } = "";
+        public long FloodStartMs { get; set; }
+        public string Comment { get; set; } = "";
     }
 }

@@ -25,6 +25,17 @@ var thermalCamera = (function () {
     var selectedMessageId = null;       // currently selected message for admin delete
     var floodStateByItem = {};          // itemId -> "flood700" | "flood200" | null
 
+    // Persistent state timers — start timestamps (UTC ms) from the server.
+    // Zero means state is not active. Updated on every 1Hz poll.
+    var timersByItem = {};              // itemId -> { offlineStartMs, flood200StartMs, flood700StartMs }
+    var timerTickInterval = null;       // 1s interval for updating timer displays
+
+    // Active flood events for Journal top panel
+    var activeFloodEvents = {};         // itemId -> { kind, startMs, name }
+    var pendingAckItems = {};           // itemId -> { itemName, flood700StartMs }
+    var journalFilter = { show200: true, show700: true };
+    var ackHistory = [];                // loaded once and updated after each new ack
+
     function init() {
         var itemsEl = document.getElementById("tcItems");
         var userDataEl = document.getElementById("tcUserData");
@@ -278,6 +289,8 @@ var thermalCamera = (function () {
                 if (dto && dto.ok && dto.data) {
                     updateTableData(dto.data);
                     applyChatUpdates(dto.data);
+                    updateTimers(dto.data);
+                    updatePendingAcks(dto.data);
                 }
             },
             error: function () {
@@ -355,15 +368,26 @@ var thermalCamera = (function () {
         var d = data[item.onlineCnlNum];
         if (!d) return;
 
-        // Offline covers both explicit 0 and stale/undefined data (stat<=0):
-        // when the driver loses contact with the device, SCADA marks the channel
-        // as Undefined, which from the user's point of view IS "offline".
         var isOnline = d.stat > 0 && d.val !== 0;
         var textEl = onlineEl.querySelector(".tc-online-text");
         onlineEl.className = "tc-online-indicator " +
             (isOnline ? "tc-status-online" : "tc-status-offline");
         if (textEl) {
             textEl.textContent = isOnline ? "Online" : "Offline";
+        }
+
+        // Show persistent elapsed timer when offline
+        var timerId = "offlineTimer-" + item.id;
+        var existingTimer = document.getElementById(timerId);
+        if (!isOnline) {
+            if (!existingTimer) {
+                var timerSpan = document.createElement("div");
+                timerSpan.id = timerId;
+                timerSpan.className = "tc-state-timer";
+                onlineEl.parentNode.appendChild(timerSpan);
+            }
+        } else if (existingTimer) {
+            existingTimer.remove();
         }
     }
 
@@ -388,6 +412,21 @@ var thermalCamera = (function () {
                         floodStateByItem[itemId] = "flood" + size;
                     }
                 }
+
+                // Show persistent elapsed timer inside the signal block when flooded
+                var fTimerId = "flood" + size + "Timer-" + itemId;
+                var existingFTimer = document.getElementById(fTimerId);
+                var body = signalEl.querySelector(".tc-signal-body");
+                if (isFlooded) {
+                    if (!existingFTimer && body) {
+                        var fTimerEl = document.createElement("div");
+                        fTimerEl.id = fTimerId;
+                        fTimerEl.className = "tc-state-timer";
+                        body.appendChild(fTimerEl);
+                    }
+                } else if (existingFTimer) {
+                    existingFTimer.remove();
+                }
             }
         }
 
@@ -405,6 +444,90 @@ var thermalCamera = (function () {
     function startAutoUpdate() {
         if (updateTimer) clearInterval(updateTimer);
         updateTimer = setInterval(requestData, UPDATE_INTERVAL);
+
+        // 1-second tick to update all elapsed timer displays without hitting the server
+        if (timerTickInterval) clearInterval(timerTickInterval);
+        timerTickInterval = setInterval(timerTick, 1000);
+    }
+
+    function formatDuration(ms) {
+        if (!ms || ms < 0) return "";
+        var sec = Math.floor(ms / 1000);
+        var h = Math.floor(sec / 3600);
+        var m = Math.floor((sec % 3600) / 60);
+        var s = sec % 60;
+        var pad = function (n) { return n < 10 ? "0" + n : "" + n; };
+        if (h >= 24) {
+            var days = Math.floor(h / 24);
+            return days + "д " + pad(h % 24) + ":" + pad(m);
+        }
+        return pad(h) + ":" + pad(m) + ":" + pad(s);
+    }
+
+    function timerTick() {
+        var now = Date.now();
+        for (var i = 0; i < items.length; i++) {
+            var id = items[i].id;
+            var t = timersByItem[id];
+            if (!t) continue;
+
+            // Offline timer
+            if (t.offlineStartMs > 0) {
+                var el = document.getElementById("offlineTimer-" + id);
+                if (el) el.textContent = formatDuration(now - t.offlineStartMs);
+            }
+            // Flood 200mm timer
+            if (t.flood200StartMs > 0) {
+                var el200 = document.getElementById("flood200Timer-" + id);
+                if (el200) el200.textContent = formatDuration(now - t.flood200StartMs);
+            }
+            // Flood 700mm timer
+            if (t.flood700StartMs > 0) {
+                var el700 = document.getElementById("flood700Timer-" + id);
+                if (el700) el700.textContent = formatDuration(now - t.flood700StartMs);
+            }
+        }
+        // Also update journal event elapsed timers
+        updateJournalEventTimers();
+    }
+
+    function updateTimers(result) {
+        if (!result.timers) return;
+        for (var idStr in result.timers) {
+            if (!result.timers.hasOwnProperty(idStr)) continue;
+            timersByItem[parseInt(idStr)] = result.timers[idStr];
+        }
+        // Update active flood events from timer data
+        updateActiveFloodEvents();
+        // Immediately render timer values
+        timerTick();
+    }
+
+    function updateActiveFloodEvents() {
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            var t = timersByItem[item.id];
+            if (!t) continue;
+
+            if (t.flood700StartMs > 0) {
+                activeFloodEvents[item.id] = { kind: "flood700", startMs: t.flood700StartMs, name: item.name };
+            } else if (t.flood200StartMs > 0) {
+                activeFloodEvents[item.id] = { kind: "flood200", startMs: t.flood200StartMs, name: item.name };
+            } else {
+                delete activeFloodEvents[item.id];
+            }
+        }
+        renderJournalEvents();
+    }
+
+    function updatePendingAcks(result) {
+        if (!result.pendingAcks) return;
+        pendingAckItems = {};
+        for (var i = 0; i < result.pendingAcks.length; i++) {
+            var pa = result.pendingAcks[i];
+            pendingAckItems[pa.itemId] = { itemName: pa.itemName, flood700StartMs: pa.flood700StartMs };
+        }
+        renderJournalAck();
     }
 
     function saveCommissioned(itemId, isCommissioned) {

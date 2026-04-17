@@ -416,6 +416,17 @@
     color: #a0aec0;
 }
 
+/* Elapsed state timer shown below Online/Flood indicators */
+.tc-state-timer {
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    color: #9b2c2c;
+    margin-top: 2px;
+    text-align: center;
+}
+
 /* Battery indicator */
 .tc-battery-value {
     font-size: 1.15rem;
