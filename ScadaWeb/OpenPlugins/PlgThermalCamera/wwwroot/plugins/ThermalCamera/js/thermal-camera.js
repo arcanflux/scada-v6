@@ -57,6 +57,7 @@ var thermalCamera = (function () {
 
         sortItemsByDistrict();
         renderTable();
+        updateDistrictCounts();
         bindHeaderSort();
         updateSortIndicator();
         bindSearch();
@@ -81,6 +82,20 @@ var thermalCamera = (function () {
             searchQuery = this.value;
             applyFilter();
         });
+    }
+
+    function updateDistrictCounts() {
+        var counts = {};
+        for (var i = 0; i < items.length; i++) {
+            var d = items[i].districtNumber || 0;
+            counts[d] = (counts[d] || 0) + 1;
+        }
+        var spans = document.querySelectorAll(".tc-district-count");
+        for (var i = 0; i < spans.length; i++) {
+            var d = parseInt(spans[i].getAttribute("data-district"));
+            var n = counts[d] || 0;
+            spans[i].textContent = n > 0 ? n : "";
+        }
     }
 
     function bindDistrictFilter() {
