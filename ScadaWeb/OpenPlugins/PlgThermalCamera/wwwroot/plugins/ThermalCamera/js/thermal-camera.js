@@ -663,16 +663,26 @@ var thermalCamera = (function () {
     }
 
     function positionJournal() {
-        var panel = document.getElementById("tcJournal");
-        if (!panel) return;
         var th = document.querySelector("th.tc-col-journal");
         if (!th) return;
         var rect = th.getBoundingClientRect();
-        var h = window.innerHeight - rect.bottom;
-        panel.style.left = rect.left + "px";
-        panel.style.top = rect.bottom + "px";
-        panel.style.width = (rect.right - rect.left) + "px";
-        panel.style.height = Math.max(200, h) + "px";
+
+        var panel = document.getElementById("tcJournal");
+        if (panel) {
+            var h = window.innerHeight - rect.bottom;
+            panel.style.left = rect.left + "px";
+            panel.style.top = rect.bottom + "px";
+            panel.style.width = (rect.right - rect.left) + "px";
+            panel.style.height = Math.max(200, h) + "px";
+        }
+
+        var timeEl = document.getElementById("spanServerTime");
+        var headerEl = document.querySelector(".tc-header");
+        if (timeEl && headerEl) {
+            var headerRect = headerEl.getBoundingClientRect();
+            var centerX = rect.left + (rect.right - rect.left) / 2 - headerRect.left;
+            timeEl.style.left = centerX + "px";
+        }
     }
 
     function renderJournalEvents() {

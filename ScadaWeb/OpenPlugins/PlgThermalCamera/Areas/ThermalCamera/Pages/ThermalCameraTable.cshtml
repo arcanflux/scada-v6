@@ -26,11 +26,11 @@ else
          data-view-id="@Model.ViewID"
          data-is-admin="@(Model.IsAdmin ? "1" : "0")"
          data-main-view-id="@Model.MainViewID"
-         data-main-view-frame="@Model.MainViewFrameUrl"
-         data-main-view-page="@Model.MainViewPageUrl"
+         data-main-view-frame="@Url.Content(Model.MainViewFrameUrl)"
+         data-main-view-page="@Url.Content(Model.MainViewPageUrl)"
          data-map-view-id="@Model.MapViewID"
-         data-map-view-frame="@Model.MapViewFrameUrl"
-         data-map-view-page="@Model.MapViewPageUrl">
+         data-map-view-frame="@Url.Content(Model.MapViewFrameUrl)"
+         data-map-view-page="@Url.Content(Model.MapViewPageUrl)">
         <div class="tc-header">
             <div class="tc-header-controls">
                 @if (Model.MainViewID > 0)
@@ -45,7 +45,6 @@ else
                         <i class="fa-solid fa-map"></i> Карта
                     </button>
                 }
-                <span id="spanServerTime" class="tc-server-time">--:--:--</span>
                 <div class="tc-district-filter dropdown">
                     <button class="btn btn-sm tc-district-btn dropdown-toggle" type="button"
                             data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
@@ -85,6 +84,7 @@ else
                            placeholder="Поиск" autocomplete="off" />
                 </div>
             </div>
+            <span id="spanServerTime" class="tc-server-time">--:--:--</span>
             <h4 class="tc-title"><i class="fa-solid fa-temperature-half"></i> Тепловые камеры мониторинг</h4>
         </div>
 
