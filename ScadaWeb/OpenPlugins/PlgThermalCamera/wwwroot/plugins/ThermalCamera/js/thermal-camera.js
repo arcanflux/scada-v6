@@ -149,14 +149,16 @@ var thermalCamera = (function () {
 
     function updateHeaderCounters() {
         var rows = document.querySelectorAll("#tbodyThermalCameras tr");
-        var total = 0, cntOnline = 0, cntFlood200 = 0, cntFlood700 = 0;
+        var total = 0, cntOnline = 0, cntNorm200 = 0, cntFlood200 = 0, cntNorm700 = 0, cntFlood700 = 0;
         for (var i = 0; i < rows.length; i++) {
             if (rows[i].style.display === "none") continue;
             total++;
             var id = parseInt(rows[i].getAttribute("data-item-id"));
             if (onlineByItem[id]) cntOnline++;
-            if (flood200ByItem[id]) cntFlood200++;
-            if (flood700ByItem[id]) cntFlood700++;
+            if (flood200ByItem[id] === true)  cntFlood200++;
+            else if (flood200ByItem[id] === false) cntNorm200++;
+            if (flood700ByItem[id] === true)  cntFlood700++;
+            else if (flood700ByItem[id] === false) cntNorm700++;
         }
         var setText = function (elId, val) {
             var el = document.getElementById(elId);
@@ -164,11 +166,11 @@ var thermalCamera = (function () {
         };
         setText("tcHdrTotal", total);
         if (hasLiveData) {
-            setText("tcHdrOnline",    cntOnline);
-            setText("tcHdrOffline",   total - cntOnline);
-            setText("tcHdrNorm200",   total - cntFlood200);
+            setText("tcHdrOnline",      cntOnline);
+            setText("tcHdrOffline",     total - cntOnline);
+            setText("tcHdrNorm200",     cntNorm200);
             setText("tcHdrFlood200cnt", cntFlood200);
-            setText("tcHdrNorm700",   total - cntFlood700);
+            setText("tcHdrNorm700",     cntNorm700);
             setText("tcHdrFlood700cnt", cntFlood700);
         }
     }
@@ -369,8 +371,8 @@ var thermalCamera = (function () {
         for (var i = 0; i < items.length; i++) {
             floodStateByItem[items[i].id] = null;
             onlineByItem[items[i].id] = false;
-            flood200ByItem[items[i].id] = false;
-            flood700ByItem[items[i].id] = false;
+            flood200ByItem[items[i].id] = null;
+            flood700ByItem[items[i].id] = null;
         }
 
         for (var i = 0; i < items.length; i++) {
@@ -461,9 +463,9 @@ var thermalCamera = (function () {
             var fd = data[floodCnlNum];
             if (fd) {
                 var isFlooded = fd.val === 0 && fd.stat > 0;
-                if (size === "200") flood200ByItem[itemId] = isFlooded;
-                if (size === "700") flood700ByItem[itemId] = isFlooded;
                 var isUnknown = fd.stat <= 0;
+                if (size === "200") flood200ByItem[itemId] = isUnknown ? null : isFlooded;
+                if (size === "700") flood700ByItem[itemId] = isUnknown ? null : isFlooded;
                 signalEl.className = "tc-flooding-signal " +
                     (isUnknown ? "tc-flood-unknown" : isFlooded ? alarmClass : "tc-flood-normal");
 
