@@ -34,6 +34,7 @@ var thermalCamera = (function () {
     var activeFloodEvents = {};         // itemId -> { kind, startMs, name }
     var pendingAckItems = {};           // itemId -> { itemName, flood700StartMs }
     var journalFilter = { show200: true, show700: true };
+    var journalBottomView = "pending"; // "pending" | "history"
     var ackHistory = [];                // loaded once and updated after each new ack
 
     function init() {
@@ -619,9 +620,13 @@ var thermalCamera = (function () {
             '<div class="tc-journal-bottom">' +
                 '<div class="tc-journal-section-header">' +
                     '<span class="tc-journal-section-title">Квитирование</span>' +
+                    '<div class="tc-journal-filter">' +
+                        '<button id="jbtnHistory" class="tc-journal-flt-btn">' +
+                            '<i class="fa-solid fa-clock-rotate-left"></i> История' +
+                        '</button>' +
+                    '</div>' +
                 '</div>' +
                 '<div id="tcJournalAck" class="tc-journal-ack-list"></div>' +
-                '<div class="tc-journal-ack-history-header">История квитирования</div>' +
                 '<div id="tcJournalAckHistory" class="tc-journal-ack-history"></div>' +
             '</div>';
 
@@ -638,7 +643,23 @@ var thermalCamera = (function () {
             renderJournalEvents();
         });
 
+        document.getElementById("jbtnHistory").addEventListener("click", function () {
+            switchJournalBottom(journalBottomView === "history" ? "pending" : "history");
+        });
+        switchJournalBottom("pending");
+
         positionJournal();
+    }
+
+    function switchJournalBottom(view) {
+        journalBottomView = view;
+        var ackBox  = document.getElementById("tcJournalAck");
+        var histBox = document.getElementById("tcJournalAckHistory");
+        var btn     = document.getElementById("jbtnHistory");
+        var showHistory = (view === "history");
+        if (ackBox)  ackBox.style.display  = showHistory ? "none" : "";
+        if (histBox) histBox.style.display = showHistory ? ""     : "none";
+        if (btn) btn.classList.toggle("tc-journal-flt-btn-active", showHistory);
     }
 
     function positionJournal() {
