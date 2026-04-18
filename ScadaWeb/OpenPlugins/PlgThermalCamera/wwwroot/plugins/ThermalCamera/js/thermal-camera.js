@@ -35,6 +35,10 @@ var thermalCamera = (function () {
     var pendingAckItems = {};           // itemId -> { itemName, flood700StartMs }
     var journalFilter = { show200: true, show700: true };
     var journalBottomView = "pending"; // "pending" | "history"
+    var onlineByItem = {};             // itemId -> true|false
+    var flood200ByItem = {};           // itemId -> true|false
+    var flood700ByItem = {};           // itemId -> true|false
+    var hasLiveData = false;
     var ackHistory = [];                // loaded once and updated after each new ack
 
     function init() {
@@ -125,6 +129,33 @@ var thermalCamera = (function () {
             row.style.display = (searchOk && districtOk) ? "" : "none";
         }
         updateChatDistrictNotice();
+        updateHeaderCounters();
+    }
+
+    function updateHeaderCounters() {
+        var rows = document.querySelectorAll("#tbodyThermalCameras tr");
+        var total = 0, cntOnline = 0, cntFlood200 = 0, cntFlood700 = 0;
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].style.display === "none") continue;
+            total++;
+            var id = parseInt(rows[i].getAttribute("data-item-id"));
+            if (onlineByItem[id]) cntOnline++;
+            if (flood200ByItem[id]) cntFlood200++;
+            if (flood700ByItem[id]) cntFlood700++;
+        }
+        var setText = function (elId, val) {
+            var el = document.getElementById(elId);
+            if (el) el.textContent = val;
+        };
+        setText("tcHdrTotal", total);
+        if (hasLiveData) {
+            setText("tcHdrOnline",    cntOnline);
+            setText("tcHdrOffline",   total - cntOnline);
+            setText("tcHdrNorm200",   total - cntFlood200);
+            setText("tcHdrFlood200cnt", cntFlood200);
+            setText("tcHdrNorm700",   total - cntFlood700);
+            setText("tcHdrFlood700cnt", cntFlood700);
+        }
     }
 
     function sortItemsByDistrict() {
@@ -145,6 +176,7 @@ var thermalCamera = (function () {
             renderTable();
             updateSortIndicator();
             applyFilter();
+            positionJournal();
             requestData();
         });
     }
@@ -318,9 +350,12 @@ var thermalCamera = (function () {
             }
         }
 
-        // Reset per-item flood states before this polling cycle.
+        // Reset per-item states before this polling cycle.
         for (var i = 0; i < items.length; i++) {
             floodStateByItem[items[i].id] = null;
+            onlineByItem[items[i].id] = false;
+            flood200ByItem[items[i].id] = false;
+            flood700ByItem[items[i].id] = false;
         }
 
         for (var i = 0; i < items.length; i++) {
@@ -340,6 +375,8 @@ var thermalCamera = (function () {
         }
 
         updateFloodTriggerIndicators();
+        hasLiveData = true;
+        updateHeaderCounters();
     }
 
     function updateBattery(item, data) {
@@ -377,6 +414,7 @@ var thermalCamera = (function () {
         if (!d) return;
 
         var isOnline = d.stat > 0 && d.val !== 0;
+        onlineByItem[item.id] = isOnline;
         var textEl = onlineEl.querySelector(".tc-online-text");
         onlineEl.className = "tc-online-indicator " +
             (isOnline ? "tc-status-online" : "tc-status-offline");
@@ -408,6 +446,8 @@ var thermalCamera = (function () {
             var fd = data[floodCnlNum];
             if (fd) {
                 var isFlooded = fd.val === 0 && fd.stat > 0;
+                if (size === "200") flood200ByItem[itemId] = isFlooded;
+                if (size === "700") flood700ByItem[itemId] = isFlooded;
                 var isUnknown = fd.stat <= 0;
                 signalEl.className = "tc-flooding-signal " +
                     (isUnknown ? "tc-flood-unknown" : isFlooded ? alarmClass : "tc-flood-normal");
@@ -663,25 +703,55 @@ var thermalCamera = (function () {
     }
 
     function positionJournal() {
-        var th = document.querySelector("th.tc-col-journal");
-        if (!th) return;
-        var rect = th.getBoundingClientRect();
+        var headerEl = document.querySelector(".tc-header");
+        if (!headerEl) return;
+        var headerRect = headerEl.getBoundingClientRect();
 
-        var panel = document.getElementById("tcJournal");
-        if (panel) {
-            var h = window.innerHeight - rect.bottom;
-            panel.style.left = rect.left + "px";
-            panel.style.top = rect.bottom + "px";
-            panel.style.width = (rect.right - rect.left) + "px";
-            panel.style.height = Math.max(200, h) + "px";
+        // Journal panel
+        var thJournal = document.querySelector("th.tc-col-journal");
+        if (thJournal) {
+            var jRect = thJournal.getBoundingClientRect();
+            var panel = document.getElementById("tcJournal");
+            if (panel) {
+                var h = window.innerHeight - jRect.bottom;
+                panel.style.left  = jRect.left + "px";
+                panel.style.top   = jRect.bottom + "px";
+                panel.style.width = (jRect.right - jRect.left) + "px";
+                panel.style.height = Math.max(200, h) + "px";
+            }
+            // Server time centered over journal column
+            var timeEl = document.getElementById("spanServerTime");
+            if (timeEl) {
+                timeEl.style.left = (jRect.left + (jRect.right - jRect.left) / 2 - headerRect.left) + "px";
+            }
         }
 
-        var timeEl = document.getElementById("spanServerTime");
-        var headerEl = document.querySelector(".tc-header");
-        if (timeEl && headerEl) {
-            var headerRect = headerEl.getBoundingClientRect();
-            var centerX = rect.left + (rect.right - rect.left) / 2 - headerRect.left;
-            timeEl.style.left = centerX + "px";
+        // Search width — end at right edge of Address column
+        var thAddr = document.querySelector("th.tc-col-address");
+        var searchWrap = document.querySelector(".tc-search-wrapper");
+        if (thAddr && searchWrap) {
+            var aRect = thAddr.getBoundingClientRect();
+            var wRect = searchWrap.getBoundingClientRect();
+            var w = aRect.right - wRect.left - 8;
+            if (w > 80) searchWrap.style.width = w + "px";
+        }
+
+        // Online stats block — centered over Связь column
+        var thOnline = document.querySelector("th.tc-col-online");
+        var statOnline = document.getElementById("tcHdrOnlineStats");
+        if (thOnline && statOnline) {
+            var r = thOnline.getBoundingClientRect();
+            statOnline.style.left = (r.left + r.width / 2 - headerRect.left) + "px";
+        }
+
+        // Flood stats — split over Состояние затопления column halves
+        var thFlood = document.querySelector("th.tc-col-flooding");
+        var stat200 = document.getElementById("tcHdrFlood200Stats");
+        var stat700 = document.getElementById("tcHdrFlood700Stats");
+        if (thFlood) {
+            var fr = thFlood.getBoundingClientRect();
+            if (stat200) stat200.style.left = (fr.left + fr.width * 0.25 - headerRect.left) + "px";
+            if (stat700) stat700.style.left = (fr.left + fr.width * 0.75 - headerRect.left) + "px";
         }
     }
 

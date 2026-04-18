@@ -32,16 +32,54 @@
 
 .tc-title {
     position: absolute;
-    left: 50%;
+    left: 10px;
     top: 50%;
-    transform: translate(-50%, -50%);
+    transform: translateY(-50%);
     margin: 0;
     font-size: 1.1rem;
     font-weight: 600;
-    text-align: center;
-    white-space: nowrap;
+    text-align: left;
     pointer-events: none;
+    z-index: 0;
+    white-space: nowrap;
 }
+
+/* Header stat counter blocks (connection / flooding) */
+.tc-hdr-stat-block {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.tc-hdr-stat-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    line-height: 1;
+}
+
+.tc-hdr-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.tc-hdr-dot-total  { background: #e2e8f0; border: 1px solid rgba(0,0,0,0.2); }
+.tc-hdr-dot-online { background: #38a169; }
+.tc-hdr-dot-offline{ background: #e53e3e; }
+.tc-hdr-dot-normal { background: #48bb78; }
+.tc-hdr-dot-flood200 { background: #d69e2e; }
+.tc-hdr-dot-flood700 { background: #e53e3e; }
 
 .tc-district-filter {
     position: relative;
@@ -101,8 +139,8 @@
 
 .tc-search-wrapper {
     position: relative;
-    flex: 0 0 320px;
-    min-width: 0;
+    flex: 0 0 auto;
+    min-width: 80px;
 }
 
 .tc-search-icon {
