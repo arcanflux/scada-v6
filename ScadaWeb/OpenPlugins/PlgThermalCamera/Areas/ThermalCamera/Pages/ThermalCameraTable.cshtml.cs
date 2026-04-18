@@ -52,7 +52,10 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
             ViewID = viewID;
             IsAdmin = userContext.UserEntity?.RoleID == RoleID.Administrator;
 
-            ViewNode mainNode = FindViewByFrameFragment(userContext.Views.ViewNodes, "/Main/");
+            ViewNode mainNode =
+                FindViewByFrameFragment(userContext.Views.ViewNodes, "/Main/") ??
+                FindViewByFrameFragment(userContext.Views.ViewNodes, "/Mimic/") ??
+                FindViewByFrameFragment(userContext.Views.ViewNodes, "/Scheme/");
             if (mainNode != null)
             {
                 MainViewID = mainNode.ViewID;
