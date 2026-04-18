@@ -4268,8 +4268,8 @@
 }
 
 <div class="map-nav-btns">
-    <a href="@Url.Content("~/View/1")">&#8962; @Model.JsDict.MainScreen</a>
-    <a href="@Url.Content("~/View/3")">&#9776; @Model.JsDict.TcTable</a>
+    <a href="@Url.Content("~/View/1")" onclick="try{(window.top||window).location.href=this.href}catch(e){window.location.href=this.href}return false;">&#8962; @Model.JsDict.MainScreen</a>
+    <a href="@Url.Content("~/View/3")" onclick="try{(window.top||window).location.href=this.href}catch(e){window.location.href=this.href}return false;">&#9776; @Model.JsDict.TcTable</a>
 </div>
 
 <div class="map-marker-filter-btn">
