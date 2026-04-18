@@ -46,5 +46,7 @@
     <Phrase key="MarkerFilterAll">All markers</Phrase>
     <Phrase key="MarkerFilterCircles">Circles</Phrase>
     <Phrase key="MarkerFilterTriangles">Triangles</Phrase>
+    <Phrase key="MainScreen">Home</Phrase>
+    <Phrase key="TcTable">Table</Phrase>
   </Dictionary>
 </PlgMapDictionaries>

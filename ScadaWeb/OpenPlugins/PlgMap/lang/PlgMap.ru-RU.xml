@@ -46,5 +46,7 @@
     <Phrase key="MarkerFilterAll">Все маркеры</Phrase>
     <Phrase key="MarkerFilterCircles">Круги</Phrase>
     <Phrase key="MarkerFilterTriangles">Треугольники</Phrase>
+    <Phrase key="MainScreen">Главный экран</Phrase>
+    <Phrase key="TcTable">ТС Таблица</Phrase>
   </Dictionary>
 </PlgMapDictionaries>

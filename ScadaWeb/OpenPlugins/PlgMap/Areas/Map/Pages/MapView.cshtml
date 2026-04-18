@@ -681,6 +681,39 @@
             color: #888;
         }
 
+        /* Navigation buttons (Home / Table) — left side near zoom controls */
+        .map-nav-btns {
+            position: absolute;
+            top: 10px;
+            left: 50px;
+            z-index: 1000;
+            display: flex;
+            gap: 6px;
+        }
+
+        .map-nav-btns a {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            border: 2px solid rgba(0,0,0,0.2);
+            border-radius: 4px;
+            background: #fff;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+            cursor: pointer;
+            text-decoration: none;
+            color: #333;
+            white-space: nowrap;
+        }
+
+        .map-nav-btns a:hover {
+            background: #f5f5f5;
+            color: #333;
+        }
+
         /* Marker type filter */
         .map-marker-filter-btn {
             position: absolute;
@@ -4233,6 +4266,11 @@
         });
     </script>
 }
+
+<div class="map-nav-btns">
+    <a href="/View/1">&#8962; @Model.JsDict.MainScreen</a>
+    <a href="/View/3">&#9776; @Model.JsDict.TcTable</a>
+</div>
 
 <div class="map-marker-filter-btn">
     <button id="mapMarkerFilterBtn">@Model.JsDict.MarkerFilterLabel</button>
