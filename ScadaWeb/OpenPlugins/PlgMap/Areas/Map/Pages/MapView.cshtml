@@ -4267,22 +4267,13 @@
 
         // Navigate to another view using SCADA's native loader so the iframe is swapped
         // without a full page reload — this preserves browser fullscreen state.
-        function _mapNavTo(viewId, pageUrl) {
+        // frameUrl uses /ViewFrame?id=N which SCADA redirects to the correct plugin URL.
+        function _mapNavTo(viewId, pageUrl, frameUrl) {
             try {
                 if (window.parent && window.parent.viewPage &&
                     typeof window.parent.viewPage.loadView === "function") {
-                    // Look up the frame URL from the parent's view explorer tree nodes
-                    let frameUrl = null;
-                    try {
-                        let node = window.parent.document.querySelector(
-                            '.node[data-viewid="' + viewId + '"]');
-                        if (node) frameUrl = node.dataset.viewframeurl || null;
-                    } catch (e) {}
-
-                    if (frameUrl) {
-                        window.parent.viewPage.loadView(viewId, frameUrl, pageUrl);
-                        return;
-                    }
+                    window.parent.viewPage.loadView(viewId, frameUrl, pageUrl);
+                    return;
                 }
             } catch (e) {}
             // Fallback: navigate top window (will exit fullscreen)
@@ -4294,8 +4285,8 @@
 }
 
 <div class="map-nav-btns">
-    <a href="@Url.Content("~/View/1")" onclick="_mapNavTo(1, this.href); return false;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg> @Model.JsDict.MainScreen</a>
-    <a href="@Url.Content("~/View/3")" onclick="_mapNavTo(3, this.href); return false;">&#9776; @Model.JsDict.TcTable</a>
+    <a href="@Url.Content("~/View/1")" onclick="_mapNavTo(1, this.href, '@Url.Content("~/ViewFrame?id=1")'); return false;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg> @Model.JsDict.MainScreen</a>
+    <a href="@Url.Content("~/View/3")" onclick="_mapNavTo(3, this.href, '@Url.Content("~/ViewFrame?id=3")'); return false;">&#9776; @Model.JsDict.TcTable</a>
 </div>
 
 <div class="map-marker-filter-btn">
