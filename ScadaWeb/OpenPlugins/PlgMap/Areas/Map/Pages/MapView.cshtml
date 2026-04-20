@@ -1626,14 +1626,14 @@
                 let half = size / 2;
                 let sw = Math.max(1.5, size * 0.08);
                 let ringColor = hasAlert ? (alertColor || "#d32f2f") : "#fff";
-                let ringClass = hasAlert ? ' class="marker-ring-blink"' : '';
+                let svgClass = hasAlert ? ' class="marker-ring-blink"' : '';
                 // Inset vertices by half the stroke width so stroke stays within SVG viewport
                 let inset = Math.ceil(sw / 2) + 1;
                 // Triangle points: downward — top-left, top-right, bottom-center
                 let pts = inset + ',' + inset + ' ' + (size - inset) + ',' + inset + ' ' + half + ',' + (size - inset);
-                let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" overflow="hidden">' +
+                let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" overflow="hidden"' + svgClass + '>' +
                     '<polygon points="' + pts + '" fill="' + color + '" stroke="none"/>' +
-                    '<polygon points="' + pts + '" fill="none" stroke="' + ringColor + '" stroke-width="' + sw + '" stroke-linejoin="round"' + ringClass + '/>' +
+                    '<polygon points="' + pts + '" fill="none" stroke="' + ringColor + '" stroke-width="' + sw + '" stroke-linejoin="round"/>' +
                     '</svg>';
                 return L.divIcon({
                     html: svg,
@@ -3316,14 +3316,17 @@
                 }
 
                 // For triangle markers: channels 0-1 = temp lines, 2-3 = flood status bands, 4-5 = battery/online (not charted)
+                // Order: T700, T200, Flood700, Flood200
                 // For circle markers: all channels are lines, status channels are separate bands
-                let chartChannels = isTriangle ? def.channels.slice(0, 2) : def.channels;
+                let chartChannels = isTriangle
+                    ? [def.channels[1], def.channels[0]].filter(Boolean)
+                    : def.channels;
                 let allCnlNums = chartChannels.map(c => c.cnlNum);
 
                 if (isTriangle) {
-                    // Add flood channels (2-3) for status bands
-                    if (def.channels[2]) allCnlNums.push(def.channels[2].cnlNum);
+                    // Add flood channels (3=700mm first, 2=200mm second)
                     if (def.channels[3]) allCnlNums.push(def.channels[3].cnlNum);
+                    if (def.channels[2]) allCnlNums.push(def.channels[2].cnlNum);
                 } else if (this._showStatusTimelines && def.statusChannels && def.statusChannels.length > 0) {
                     allCnlNums = allCnlNums.concat(def.statusChannels.map(c => c.cnlNum));
                 }
@@ -3331,7 +3334,7 @@
                 this._chartMarkerDef = def;
 
                 // Temperature/pressure line datasets
-                let TRI_LINE_COLORS = ['#f0ad4e', '#d32f2f']; // 200mm=yellow, 700mm=red
+                let TRI_LINE_COLORS = ['#d32f2f', '#f0ad4e']; // 700mm=red, 200mm=yellow
                 for (let i = 0; i < chartChannels.length; i++) {
                     let ch = chartChannels[i];
                     let alias = ch.alias || (this.t.channel + ch.cnlNum);
@@ -3370,11 +3373,11 @@
                 this._statusLegendItems = [];
 
                 if (isTriangle) {
-                    // Triangle: flood channels 2-3 as status bands
+                    // Triangle: flood channels as status bands (700mm on top, 200mm on bottom)
                     let floodChannels = [];
-                    if (def.channels[2]) floodChannels.push(def.channels[2]);
                     if (def.channels[3]) floodChannels.push(def.channels[3]);
-                    let TRI_STATUS_COLORS = ['#ffcc02', '#ff5252']; // 200mm=bright yellow, 700mm=bright red
+                    if (def.channels[2]) floodChannels.push(def.channels[2]);
+                    let TRI_STATUS_COLORS = ['#ff5252', '#ffcc02']; // 700mm=bright red, 200mm=bright yellow
                     let yMin = -10, yMax = 120, yRange = yMax - yMin;
                     let bandHeight = yRange / Math.max(1, floodChannels.length);
                     for (let i = 0; i < floodChannels.length; i++) {
