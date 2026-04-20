@@ -23,7 +23,7 @@ var thermalCamera = (function () {
     var chatPanels = {};                // itemId -> { el }  (max 1 entry)
     var activeChatId = null;            // itemId of the open panel (or null)
     var selectedMessageId = null;       // currently selected message for admin delete
-    var floodStateByItem = {};          // itemId -> "flood700" | "flood200" | null
+
 
     // Persistent state timers — start timestamps (UTC ms) from the server.
     // Zero means state is not active. Updated on every 1Hz poll.
@@ -248,7 +248,7 @@ var thermalCamera = (function () {
             html += '<td class="tc-col-address">' +
                 '<span class="tc-address-text">' + escapeHtml(item.descr) + '</span>';
             if (item.photoUrl) {
-                html += ' <button class="btn btn-sm btn-outline-primary tc-photo-btn" ' +
+                html += ' <button class="tc-photo-btn" ' +
                     'onclick="thermalCamera.showPhoto(\'' + escapeAttr(item.photoUrl) + '\', \'' +
                     escapeAttr(item.name) + '\')" title="Фото">' +
                     '<i class="fa-solid fa-camera"></i></button>';
@@ -369,7 +369,6 @@ var thermalCamera = (function () {
 
         // Reset per-item states before this polling cycle.
         for (var i = 0; i < items.length; i++) {
-            floodStateByItem[items[i].id] = null;
             onlineByItem[items[i].id] = false;
             flood200ByItem[items[i].id] = null;
             flood700ByItem[items[i].id] = null;
@@ -391,7 +390,6 @@ var thermalCamera = (function () {
             updateBattery(item, data);
         }
 
-        updateFloodTriggerIndicators();
         hasLiveData = true;
         updateHeaderCounters();
     }
@@ -468,15 +466,6 @@ var thermalCamera = (function () {
                 if (size === "700") flood700ByItem[itemId] = isUnknown ? null : isFlooded;
                 signalEl.className = "tc-flooding-signal " +
                     (isUnknown ? "tc-flood-unknown" : isFlooded ? alarmClass : "tc-flood-normal");
-
-                // Track flood state for the trigger-button indicator.
-                // 700mm (red) takes priority over 200mm (yellow).
-                if (isFlooded) {
-                    var cur = floodStateByItem[itemId];
-                    if (size === "700" || !cur) {
-                        floodStateByItem[itemId] = "flood" + size;
-                    }
-                }
 
                 // Show persistent elapsed timer inside the signal block when flooded
                 var fTimerId = "flood" + size + "Timer-" + itemId;
@@ -1212,24 +1201,6 @@ var thermalCamera = (function () {
                 triggers[t].classList.add("tc-chat-trigger-active");
             } else {
                 triggers[t].classList.remove("tc-chat-trigger-active");
-            }
-        }
-    }
-
-    // Colors the ring around each "Open chat" button based on the last known
-    // flood state for that TK — yellow (200mm) or red (700mm). 700mm wins if
-    // both fire simultaneously. Called after every data poll.
-    function updateFloodTriggerIndicators() {
-        var triggers = document.querySelectorAll(".tc-chat-trigger");
-        for (var i = 0; i < triggers.length; i++) {
-            var tid = parseInt(triggers[i].getAttribute("data-item-id"));
-            triggers[i].classList.remove("tc-chat-trigger-flood200");
-            triggers[i].classList.remove("tc-chat-trigger-flood700");
-            var st = floodStateByItem[tid];
-            if (st === "flood700") {
-                triggers[i].classList.add("tc-chat-trigger-flood700");
-            } else if (st === "flood200") {
-                triggers[i].classList.add("tc-chat-trigger-flood200");
             }
         }
     }
