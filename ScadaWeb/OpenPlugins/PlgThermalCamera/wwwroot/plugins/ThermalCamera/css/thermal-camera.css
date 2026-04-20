@@ -1210,6 +1210,45 @@
     color: #2d3748;
 }
 
+/* Acknowledgment banner inside an active event card */
+.tc-je-ack {
+    display: flex;
+    align-items: flex-start;
+    gap: 5px;
+    margin-top: 4px;
+    padding: 3px 6px;
+    background: #f0fff4;
+    border: 1px solid #68d391;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    color: #276749;
+    word-break: break-word;
+}
+
+.tc-je-ack i {
+    color: #38a169;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.tc-je-ack span { flex: 1; }
+
+/* Ack checkmark badge inside 700mm flooding signal cell */
+.tc-flood-ack-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #276749;
+    margin-top: 3px;
+}
+
+.tc-flood-ack-badge i {
+    color: #38a169;
+    font-size: 0.8rem;
+}
+
 /* Acknowledgment pending list */
 .tc-journal-ack-list {
     flex: 1;

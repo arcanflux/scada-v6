@@ -33,6 +33,7 @@ var thermalCamera = (function () {
     // Active flood events for Journal top panel
     var activeFloodEvents = {};         // itemId -> { kind, startMs, name }
     var pendingAckItems = {};           // itemId -> { itemName, flood700StartMs }
+    var ackedByItem = {};               // itemId -> { flood700StartMs, ackedAtMs, ackedBy, comment }
     var journalFilter = { show200: true, show700: true };
     var journalBottomView = "pending"; // "pending" | "history"
     var onlineByItem = {};             // itemId -> true|false
@@ -344,6 +345,7 @@ var thermalCamera = (function () {
             dataType: "json",
             success: function (dto) {
                 if (dto && dto.ok && dto.data) {
+                    updateAckedItems(dto.data);
                     updateTableData(dto.data);
                     applyChatUpdates(dto.data);
                     updateTimers(dto.data);
@@ -481,6 +483,23 @@ var thermalCamera = (function () {
                 } else if (existingFTimer) {
                     existingFTimer.remove();
                 }
+
+                // Show ack checkmark badge in 700mm cell when flooded and acknowledged
+                if (size === "700") {
+                    var ackBadgeId = "flood700AckBadge-" + itemId;
+                    var existingBadge = document.getElementById(ackBadgeId);
+                    if (isFlooded && ackedByItem[itemId]) {
+                        if (!existingBadge && body) {
+                            var badgeEl = document.createElement("div");
+                            badgeEl.id = ackBadgeId;
+                            badgeEl.className = "tc-flood-ack-badge";
+                            badgeEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Квит.';
+                            body.appendChild(badgeEl);
+                        }
+                    } else if (existingBadge) {
+                        existingBadge.remove();
+                    }
+                }
             }
         }
 
@@ -572,6 +591,20 @@ var thermalCamera = (function () {
             }
         }
         renderJournalEvents();
+    }
+
+    function updateAckedItems(result) {
+        ackedByItem = {};
+        if (!result.ackedItems) return;
+        for (var i = 0; i < result.ackedItems.length; i++) {
+            var a = result.ackedItems[i];
+            ackedByItem[a.itemId] = {
+                flood700StartMs: a.flood700StartMs,
+                ackedAtMs: a.ackedAtMs,
+                ackedBy: a.ackedBy || "",
+                comment: a.comment || ""
+            };
+        }
     }
 
     function updatePendingAcks(result) {
@@ -780,6 +813,21 @@ var thermalCamera = (function () {
             var kindLabel = ev.kind === "flood700" ? "700мм" : "200мм";
             var cls = "tc-je " + (ev.kind === "flood700" ? "tc-je-700" : "tc-je-200");
 
+            var ackHtml = "";
+            if (ev.kind === "flood700") {
+                var ack = ackedByItem[parseInt(idStr)];
+                if (ack) {
+                    var responseMs = (ack.ackedAtMs > 0 && ev.startMs > 0) ? ack.ackedAtMs - ev.startMs : 0;
+                    var responseStr = responseMs > 0 ? "за " + formatDuration(responseMs) : "";
+                    var byStr = ack.ackedBy ? " · " + escapeHtml(ack.ackedBy) : "";
+                    var cmtStr = ack.comment ? ": " + escapeHtml(ack.comment) : "";
+                    ackHtml = '<div class="tc-je-ack">' +
+                        '<i class="fa-solid fa-circle-check"></i>' +
+                        '<span>' + responseStr + byStr + cmtStr + '</span>' +
+                    '</div>';
+                }
+            }
+
             html += '<div class="' + cls + '">' +
                 '<div class="tc-je-top">' +
                     '<span class="tc-je-kind">' + kindLabel + '</span>' +
@@ -789,6 +837,7 @@ var thermalCamera = (function () {
                     '<span class="tc-je-since">с ' + timeStr + '</span>' +
                     '<span class="tc-je-elapsed" id="jev-elapsed-' + idStr + '">' + elapsed + '</span>' +
                 '</div>' +
+                ackHtml +
             '</div>';
         }
 
@@ -904,7 +953,16 @@ var thermalCamera = (function () {
             success: function (dto) {
                 if (dto && dto.ok) {
                     delete pendingAckItems[itemId];
+                    // Optimistic update: mark as acked immediately so the active-events
+                    // panel and the 700mm cell reflect the ack before the next server poll.
+                    ackedByItem[itemId] = {
+                        flood700StartMs: floodStartMs,
+                        ackedAtMs: Date.now(),
+                        ackedBy: "",
+                        comment: comment
+                    };
                     renderJournalAck();
+                    renderJournalEvents();
                     loadAckHistory();
                 } else {
                     if (btn) btn.disabled = false;

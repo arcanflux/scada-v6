@@ -105,16 +105,44 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
                 Dictionary<int, ItemTimers> timers = thermalCameraContext.GetTimers(
                     view.Items.Select(i => i.Id));
 
-                // Pending 700mm acks: items currently flooded at 700mm.
-                List<PendingAckItem> pendingAcks = view.Items
-                    .Where(i => floodStates.TryGetValue(i.Id, out FloodStateSnapshot s) && s.Flood700)
-                    .Select(i => new PendingAckItem
+                // Build pending acks (700mm active, not yet acknowledged) and
+                // acked items (700mm active, already acknowledged for this episode).
+                ThermalCameraUserData userData = thermalCameraContext.LoadUserData();
+                List<PendingAckItem> pendingAcks = [];
+                List<AckedItem> ackedItems = [];
+
+                foreach (ThermalCameraItem item in view.Items)
+                {
+                    if (!floodStates.TryGetValue(item.Id, out FloodStateSnapshot s) || !s.Flood700)
+                        continue;
+
+                    long flood700StartMs = timers.TryGetValue(item.Id, out ItemTimers t) ? t.Flood700StartMs : 0;
+
+                    AckRecord existingAck = null;
+                    if (flood700StartMs > 0 && userData.Entries.TryGetValue(item.Id, out UserDataEntry entry))
+                        existingAck = entry.AckHistory.FirstOrDefault(a => a.FloodStartMs == flood700StartMs);
+
+                    if (existingAck == null)
                     {
-                        ItemId = i.Id,
-                        ItemName = i.Name ?? "",
-                        Flood700StartMs = timers.TryGetValue(i.Id, out ItemTimers t) ? t.Flood700StartMs : 0
-                    })
-                    .ToList();
+                        pendingAcks.Add(new PendingAckItem
+                        {
+                            ItemId = item.Id,
+                            ItemName = item.Name ?? "",
+                            Flood700StartMs = flood700StartMs
+                        });
+                    }
+                    else
+                    {
+                        ackedItems.Add(new AckedItem
+                        {
+                            ItemId = item.Id,
+                            Flood700StartMs = flood700StartMs,
+                            AckedAtMs = existingAck.AckedAtMs,
+                            AckedBy = existingAck.AckedBy,
+                            Comment = existingAck.Comment
+                        });
+                    }
+                }
 
                 return Dto<CurDataResult>.Success(new CurDataResult
                 {
@@ -123,7 +151,8 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
                     ChatCursor = chatSync.Cursor,
                     ChatUpdates = chatSync.Messages,
                     Timers = timers,
-                    PendingAcks = pendingAcks
+                    PendingAcks = pendingAcks,
+                    AckedItems = ackedItems
                 });
             }
             catch (Exception ex)
@@ -354,6 +383,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
         public List<ChatUpdateItem> ChatUpdates { get; set; } = [];
         public Dictionary<int, ItemTimers> Timers { get; set; } = [];
         public List<PendingAckItem> PendingAcks { get; set; } = [];
+        public List<AckedItem> AckedItems { get; set; } = [];
     }
 
     public class PendingAckItem
@@ -361,6 +391,15 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
         public int ItemId { get; set; }
         public string ItemName { get; set; } = "";
         public long Flood700StartMs { get; set; }
+    }
+
+    public class AckedItem
+    {
+        public int ItemId { get; set; }
+        public long Flood700StartMs { get; set; }
+        public long AckedAtMs { get; set; }
+        public string AckedBy { get; set; } = "";
+        public string Comment { get; set; } = "";
     }
 
     public class CnlDataItem
