@@ -34,26 +34,13 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
         public string MapViewFrameUrl { get; private set; } = "";
         public string MapViewPageUrl { get; private set; } = "";
 
-        private static ViewNode FindViewByFrameFragment(List<ViewNode> nodes, string fragment)
+        private static ViewNode FindViewByID(List<ViewNode> nodes, int viewID)
         {
             foreach (ViewNode node in nodes)
             {
-                if (!node.IsEmpty && node.ViewFrameUrl.Contains(fragment, StringComparison.OrdinalIgnoreCase))
+                if (!node.IsEmpty && node.ViewID == viewID)
                     return node;
-                ViewNode found = FindViewByFrameFragment(node.ChildNodes, fragment);
-                if (found != null) return found;
-            }
-            return null;
-        }
-
-        private static ViewNode FindViewByTextFragment(List<ViewNode> nodes, string textFragment)
-        {
-            foreach (ViewNode node in nodes)
-            {
-                if (!node.IsEmpty && node.Text != null &&
-                    node.Text.Contains(textFragment, StringComparison.OrdinalIgnoreCase))
-                    return node;
-                ViewNode found = FindViewByTextFragment(node.ChildNodes, textFragment);
+                ViewNode found = FindViewByID(node.ChildNodes, viewID);
                 if (found != null) return found;
             }
             return null;
@@ -65,11 +52,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
             ViewID = viewID;
             IsAdmin = userContext.UserEntity?.RoleID == RoleID.Administrator;
 
-            ViewNode mainNode =
-                FindViewByFrameFragment(userContext.Views.ViewNodes, "/Main/") ??
-                FindViewByTextFragment(userContext.Views.ViewNodes, "главн") ??
-                FindViewByFrameFragment(userContext.Views.ViewNodes, "/Mimic/") ??
-                FindViewByFrameFragment(userContext.Views.ViewNodes, "/Scheme/");
+            ViewNode mainNode = FindViewByID(userContext.Views.ViewNodes, 1);
             if (mainNode != null)
             {
                 MainViewID = mainNode.ViewID;
@@ -77,7 +60,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
                 MainViewPageUrl = mainNode.Url;
             }
 
-            ViewNode mapNode = FindViewByFrameFragment(userContext.Views.ViewNodes, "/Map/");
+            ViewNode mapNode = FindViewByID(userContext.Views.ViewNodes, 2);
             if (mapNode != null)
             {
                 MapViewID = mapNode.ViewID;
