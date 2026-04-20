@@ -259,20 +259,21 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
 
                     UserDataEntry entry = GetOrCreateEntry(userData, item.Id);
 
-                    // Online / Offline timer
+                    // Online / Offline timer — state-based so already-offline devices
+                    // get a start timestamp even on the first poll cycle after plugin startup.
                     bool curOnline = cur.IsOnline;
-                    bool prevOnline = lastOnlineState.TryGetValue(item.Id, out bool po) && po;
                     if (cur.OnlineHasValue)
                     {
-                        if (!curOnline && prevOnline)
+                        if (!curOnline)
                         {
-                            // Went offline
-                            entry.OfflineStartMs = now;
-                            dirty = true;
+                            if (entry.OfflineStartMs == 0)
+                            {
+                                entry.OfflineStartMs = now;
+                                dirty = true;
+                            }
                         }
-                        else if (curOnline && !prevOnline && entry.OfflineStartMs > 0)
+                        else if (entry.OfflineStartMs > 0)
                         {
-                            // Came back online
                             entry.OfflineStartMs = 0;
                             dirty = true;
                         }
@@ -282,17 +283,24 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                     // 200mm transition
                     if (cur.Flood200HasValue)
                     {
-                        bool prev = lastFlood200State.TryGetValue(item.Id, out bool p200) && p200;
-                        if (cur.Flood200 && !prev)
+                        bool prevKnown200 = lastFlood200State.TryGetValue(item.Id, out bool p200);
+                        bool prev200 = prevKnown200 ? p200 : false;
+                        if (cur.Flood200)
                         {
-                            AddSystemMessage(item.Id,
-                                "Зафиксировано затопление 200мм — " +
-                                (string.IsNullOrEmpty(item.Name) ? "объект ТК" : item.Name),
-                                ChatMessageKind.Flood200);
-                            entry.Flood200StartMs = now;
-                            dirty = true;
+                            if (!prev200 && prevKnown200) // Real transition — notify once
+                            {
+                                AddSystemMessage(item.Id,
+                                    "Зафиксировано затопление 200мм — " +
+                                    (string.IsNullOrEmpty(item.Name) ? "объект ТК" : item.Name),
+                                    ChatMessageKind.Flood200);
+                            }
+                            if (entry.Flood200StartMs == 0)
+                            {
+                                entry.Flood200StartMs = now;
+                                dirty = true;
+                            }
                         }
-                        else if (!cur.Flood200 && prev && entry.Flood200StartMs > 0)
+                        else if (entry.Flood200StartMs > 0)
                         {
                             entry.Flood200StartMs = 0;
                             dirty = true;
@@ -303,17 +311,24 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                     // 700mm transition
                     if (cur.Flood700HasValue)
                     {
-                        bool prev = lastFlood700State.TryGetValue(item.Id, out bool p700) && p700;
-                        if (cur.Flood700 && !prev)
+                        bool prevKnown700 = lastFlood700State.TryGetValue(item.Id, out bool p700);
+                        bool prev700 = prevKnown700 ? p700 : false;
+                        if (cur.Flood700)
                         {
-                            AddSystemMessage(item.Id,
-                                "ТРЕВОГА: затопление 700мм — " +
-                                (string.IsNullOrEmpty(item.Name) ? "объект ТК" : item.Name),
-                                ChatMessageKind.Flood700);
-                            entry.Flood700StartMs = now;
-                            dirty = true;
+                            if (!prev700 && prevKnown700) // Real transition — notify once
+                            {
+                                AddSystemMessage(item.Id,
+                                    "ТРЕВОГА: затопление 700мм — " +
+                                    (string.IsNullOrEmpty(item.Name) ? "объект ТК" : item.Name),
+                                    ChatMessageKind.Flood700);
+                            }
+                            if (entry.Flood700StartMs == 0)
+                            {
+                                entry.Flood700StartMs = now;
+                                dirty = true;
+                            }
                         }
-                        else if (!cur.Flood700 && prev && entry.Flood700StartMs > 0)
+                        else if (entry.Flood700StartMs > 0)
                         {
                             entry.Flood700StartMs = 0;
                             dirty = true;

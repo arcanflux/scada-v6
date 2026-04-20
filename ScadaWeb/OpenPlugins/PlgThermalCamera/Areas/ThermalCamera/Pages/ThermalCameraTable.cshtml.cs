@@ -46,6 +46,19 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
             return null;
         }
 
+        private static ViewNode FindViewByTextFragment(List<ViewNode> nodes, string textFragment)
+        {
+            foreach (ViewNode node in nodes)
+            {
+                if (!node.IsEmpty && node.Text != null &&
+                    node.Text.Contains(textFragment, StringComparison.OrdinalIgnoreCase))
+                    return node;
+                ViewNode found = FindViewByTextFragment(node.ChildNodes, textFragment);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
         public void OnGet(int? id)
         {
             int viewID = id ?? userContext.Views.GetFirstViewID() ?? 0;
@@ -54,6 +67,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
 
             ViewNode mainNode =
                 FindViewByFrameFragment(userContext.Views.ViewNodes, "/Main/") ??
+                FindViewByTextFragment(userContext.Views.ViewNodes, "главн") ??
                 FindViewByFrameFragment(userContext.Views.ViewNodes, "/Mimic/") ??
                 FindViewByFrameFragment(userContext.Views.ViewNodes, "/Scheme/");
             if (mainNode != null)
