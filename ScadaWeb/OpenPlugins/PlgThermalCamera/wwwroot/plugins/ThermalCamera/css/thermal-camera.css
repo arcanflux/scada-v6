@@ -1213,7 +1213,7 @@
 /* Acknowledgment banner inside an active event card */
 .tc-je-ack {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 5px;
     margin-top: 4px;
     padding: 3px 6px;
@@ -1228,7 +1228,6 @@
 .tc-je-ack i {
     color: #38a169;
     flex-shrink: 0;
-    margin-top: 1px;
 }
 
 .tc-je-ack span { flex: 1; }
