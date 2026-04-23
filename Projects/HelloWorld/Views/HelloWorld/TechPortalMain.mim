@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Mimic editorVersion="6.4.6.0">
+  <Document>
+    <size>
+      <width>1600</width>
+      <height>900</height>
+    </size>
+    <backColor>#0A1F3D</backColor>
+    <foreColor>#FFFFFF</foreColor>
+    <tooltip>Главная страница технологического портала</tooltip>
+    <stylesheet>.portal-root{background:linear-gradient(160deg,#0A1F3D 0%,#123E7A 52%,#0B2A52 100%);} .portal-header{font-weight:700;letter-spacing:1px;text-transform:uppercase;} .portal-subtitle{opacity:0.9;} .portal-card{box-shadow:0 12px 28px rgba(0,0,0,.35);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;} .portal-card:hover{transform:translateY(-3px);box-shadow:0 18px 34px rgba(0,0,0,.42);border-color:#F36F21;} .portal-footer{font-size:13px;opacity:.8;}</stylesheet>
+    <script>document.body.classList.add("portal-root");</script>
+  </Document>
+
+  <Components>
+    <Text>
+      <id>1</id>
+      <name>PortalTitle</name>
+      <enabled>true</enabled>
+      <visible>true</visible>
+      <location><x>90</x><y>44</y></location>
+      <size><width>1420</width><height>70</height></size>
+      <text>ТЕХНОЛОГИЧЕСКИЙ ПОРТАЛ • СГК НТСК</text>
+      <cssClass>portal-header</cssClass>
+      <foreColor>#FFFFFF</foreColor>
+      <font><name>Segoe UI</name><size>34</size><bold>true</bold></font>
+      <textAlign>MiddleCenter</textAlign>
+    </Text>
+
+    <Text>
+      <id>2</id>
+      <name>PortalSubtitle</name>
+      <enabled>true</enabled>
+      <visible>true</visible>
+      <location><x>90</x><y>118</y></location>
+      <size><width>1420</width><height>34</height></size>
+      <text>Быстрый доступ к ключевым разделам: Карта, параметры ЦТП, таблица ТК и ИТП Энергетиков</text>
+      <cssClass>portal-subtitle</cssClass>
+      <foreColor>#D8E7FF</foreColor>
+      <font><name>Segoe UI</name><size>18</size></font>
+      <textAlign>MiddleCenter</textAlign>
+    </Text>
+
+    <Panel>
+      <id>10</id>
+      <name>CardMap</name>
+      <enabled>true</enabled>
+      <visible>true</visible>
+      <location><x>130</x><y>220</y></location>
+      <size><width>660</width><height>220</height></size>
+      <cssClass>portal-card</cssClass>
+      <backColor>#153E74</backColor>
+      <border><width>2</width><color>#2E65A8</color></border>
+      <cornerRadius><topLeft>18</topLeft><topRight>18</topRight><bottomRight>18</bottomRight><bottomLeft>18</bottomLeft></cornerRadius>
+      <tooltip>Открыть раздел Карта</tooltip>
+      <clickAction>
+        <actionType>OpenLink</actionType>
+        <linkArgs>
+          <url>/Map</url>
+          <target>Self</target>
+        </linkArgs>
+      </clickAction>
+      <Components>
+        <Text>
+          <id>11</id>
+          <enabled>true</enabled>
+          <visible>true</visible>
+          <location><x>34</x><y>40</y></location>
+          <size><width>590</width><height>56</height></size>
+          <text>КАРТА</text>
+          <foreColor>#F36F21</foreColor>
+          <font><name>Segoe UI</name><size>36</size><bold>true</bold></font>
+        </Text>
+        <Text>
+          <id>12</id>
+          <enabled>true</enabled>
+          <visible>true</visible>
+          <location><x>34</x><y>110</y></location>
+          <size><width>590</width><height>74</height></size>
+          <text>Географическая и технологическая навигация по объектам.</text>
+          <foreColor>#E7F0FF</foreColor>
+          <font><name>Segoe UI</name><size>20</size></font>
+          <wordWrap>true</wordWrap>
+        </Text>
+      </Components>
+    </Panel>
+
+    <Panel>
+      <id>20</id>
+      <name>CardCTP</name>
+      <enabled>true</enabled>
+      <visible>true</visible>
+      <location><x>810</x><y>220</y></location>
+      <size><width>660</width><height>220</height></size>
+      <cssClass>portal-card</cssClass>
+      <backColor>#153E74</backColor>
+      <border><width>2</width><color>#2E65A8</color></border>
+      <cornerRadius><topLeft>18</topLeft><topRight>18</topRight><bottomRight>18</bottomRight><bottomLeft>18</bottomLeft></cornerRadius>
+      <tooltip>Открыть таблицу параметров ЦТП</tooltip>
+      <clickAction>
+        <actionType>OpenLink</actionType>
+        <linkArgs>
+          <url>/Main/TableView?viewID=4</url>
+          <target>Self</target>
+        </linkArgs>
+      </clickAction>
+      <Components>
+        <Text>
+          <id>21</id>
+          <enabled>true</enabled>
+          <visible>true</visible>
+          <location><x>34</x><y>40</y></location>
+          <size><width>590</width><height>56</height></size>
+          <text>ТАБЛИЦА ПАРАМЕТРОВ ЦТП</text>
+          <foreColor>#F36F21</foreColor>
+          <font><name>Segoe UI</name><size>32</size><bold>true</bold></font>
+        </Text>
+        <Text>
+          <id>22</id>
+          <enabled>true</enabled>
+          <visible>true</visible>
+          <location><x>34</x><y>110</y></location>
+          <size><width>590</width><height>74</height></size>
+          <text>Оперативный мониторинг каналов и уставок по ЦТП.</text>
+          <foreColor>#E7F0FF</foreColor>
+          <font><name>Segoe UI</name><size>20</size></font>
+          <wordWrap>true</wordWrap>
+        </Text>
+      </Components>
+    </Panel>
+
+    <Panel>
+      <id>30</id>
+      <name>CardTK</name>
+      <enabled>true</enabled>
+      <visible>true</visible>
+      <location><x>130</x><y>490</y></location>
+      <size><width>660</width><height>220</height></size>
+      <cssClass>portal-card</cssClass>
+      <backColor>#153E74</backColor>
+      <border><width>2</width><color>#2E65A8</color></border>
+      <cornerRadius><topLeft>18</topLeft><topRight>18</topRight><bottomRight>18</bottomRight><bottomLeft>18</bottomLeft></cornerRadius>
+      <tooltip>Открыть таблицу ТК</tooltip>
+      <clickAction>
+        <actionType>OpenLink</actionType>
+        <linkArgs>
+          <url>/Main/TableView?viewID=5</url>
+          <target>Self</target>
+        </linkArgs>
+      </clickAction>
+      <Components>
+        <Text>
+          <id>31</id>
+          <enabled>true</enabled>
+          <visible>true</visible>
+          <location><x>34</x><y>40</y></location>
+          <size><width>590</width><height>56</height></size>
+          <text>ТАБЛИЦА ТК</text>
+          <foreColor>#F36F21</foreColor>
+          <font><name>Segoe UI</name><size>36</size><bold>true</bold></font>
+        </Text>
+        <Text>
+          <id>32</id>
+          <enabled>true</enabled>
+          <visible>true</visible>
+          <location><x>34</x><y>110</y></location>
+          <size><width>590</width><height>74</height></size>
+          <text>Сводные и детальные данные по технологическим каналам.</text>
+          <foreColor>#E7F0FF</foreColor>
+          <font><name>Segoe UI</name><size>20</size></font>
+          <wordWrap>true</wordWrap>
+        </Text>
+      </Components>
+    </Panel>
+
+    <Panel>
+      <id>40</id>
+      <name>CardITP</name>
+      <enabled>true</enabled>
+      <visible>true</visible>
+      <location><x>810</x><y>490</y></location>
+      <size><width>660</width><height>220</height></size>
+      <cssClass>portal-card</cssClass>
+      <backColor>#153E74</backColor>
+      <border><width>2</width><color>#2E65A8</color></border>
+      <cornerRadius><topLeft>18</topLeft><topRight>18</topRight><bottomRight>18</bottomRight><bottomLeft>18</bottomLeft></cornerRadius>
+      <tooltip>Открыть страницу ИТП Энергетиков</tooltip>
+      <clickAction>
+        <actionType>OpenLink</actionType>
+        <linkArgs>
+          <url>/Main/TableView?viewID=6</url>
+          <target>Self</target>
+        </linkArgs>
+      </clickAction>
+      <Components>
+        <Text>
+          <id>41</id>
+          <enabled>true</enabled>
+          <visible>true</visible>
+          <location><x>34</x><y>40</y></location>
+          <size><width>590</width><height>56</height></size>
+          <text>ИТП ЭНЕРГЕТИКОВ</text>
+          <foreColor>#F36F21</foreColor>
+          <font><name>Segoe UI</name><size>34</size><bold>true</bold></font>
+        </Text>
+        <Text>
+          <id>42</id>
+          <enabled>true</enabled>
+          <visible>true</visible>
+          <location><x>34</x><y>110</y></location>
+          <size><width>590</width><height>74</height></size>
+          <text>Переход к страницам узлов учета и параметров ИТП энергетиков.</text>
+          <foreColor>#E7F0FF</foreColor>
+          <font><name>Segoe UI</name><size>20</size></font>
+          <wordWrap>true</wordWrap>
+        </Text>
+      </Components>
+    </Panel>
+
+    <Text>
+      <id>50</id>
+      <enabled>true</enabled>
+      <visible>true</visible>
+      <location><x>90</x><y>812</y></location>
+      <size><width>1420</width><height>28</height></size>
+      <text>Навигационный хаб v6.4.6 • Цветовая схема: СГК НТСК (сине-оранжевый)</text>
+      <cssClass>portal-footer</cssClass>
+      <foreColor>#B7C9E5</foreColor>
+      <textAlign>MiddleCenter</textAlign>
+    </Text>
+  </Components>
+
+  <Images />
+</Mimic>

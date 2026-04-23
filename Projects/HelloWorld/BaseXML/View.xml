@@ -1,20 +1,56 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <ArrayOfView xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <View>
     <ViewID>1</ViewID>
-    <Path>HelloWorld\</Path>
-    <ViewTypeID xsi:nil="true" />
-    <Title>Hello World</Title>
-    <Ord xsi:nil="true" />
+    <Path>HelloWorld\TechPortalMain.mim</Path>
+    <ViewTypeID>7</ViewTypeID>
+    <Title>Технологический портал</Title>
+    <Ord>1.0000</Ord>
     <Hidden>false</Hidden>
     <ObjNum>1</ObjNum>
   </View>
   <View>
     <ViewID>2</ViewID>
     <Path>HelloWorld\Simulator.tbl</Path>
-    <ViewTypeID xsi:nil="true" />
+    <ViewTypeID>1</ViewTypeID>
     <Title>Simulator</Title>
-    <Ord xsi:nil="true" />
+    <Ord>2.0000</Ord>
+    <Hidden>false</Hidden>
+    <ObjNum>1</ObjNum>
+  </View>
+  <View>
+    <ViewID>3</ViewID>
+    <Path>HelloWorld\</Path>
+    <ViewTypeID xsi:nil="true" />
+    <Title>Hello World</Title>
+    <Ord>3.0000</Ord>
+    <Hidden>false</Hidden>
+    <ObjNum>1</ObjNum>
+  </View>
+  <View>
+    <ViewID>4</ViewID>
+    <Path>HelloWorld\CtpParameters.tbl</Path>
+    <ViewTypeID>1</ViewTypeID>
+    <Title>Таблица параметров ЦТП</Title>
+    <Ord>4.0000</Ord>
+    <Hidden>false</Hidden>
+    <ObjNum>1</ObjNum>
+  </View>
+  <View>
+    <ViewID>5</ViewID>
+    <Path>HelloWorld\TkTable.tbl</Path>
+    <ViewTypeID>1</ViewTypeID>
+    <Title>Таблица ТК</Title>
+    <Ord>5.0000</Ord>
+    <Hidden>false</Hidden>
+    <ObjNum>1</ObjNum>
+  </View>
+  <View>
+    <ViewID>6</ViewID>
+    <Path>HelloWorld\ItpEnergetics.tbl</Path>
+    <ViewTypeID>1</ViewTypeID>
+    <Title>ИТП Энергетиков</Title>
+    <Ord>6.0000</Ord>
     <Hidden>false</Hidden>
     <ObjNum>1</ObjNum>
   </View>
