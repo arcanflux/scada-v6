@@ -28,8 +28,6 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         /// </summary>
         public const bool EnableMessageLimit = true;
 
-        private const long StaleTimerThresholdMs = 30L * 24 * 60 * 60 * 1000; // 30 days
-
         private readonly object lockObj = new();
         private ThermalCameraUserData cache;
         private readonly Dictionary<int, bool> lastFlood200State = [];
@@ -281,12 +279,6 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                         }
                         lastOnlineState[item.Id] = curOnline;
                     }
-                    else if (entry.OfflineStartMs > 0 && (now - entry.OfflineStartMs) > StaleTimerThresholdMs)
-                    {
-                        // Channel lost its value — clear stale timer after 30 days
-                        entry.OfflineStartMs = 0;
-                        dirty = true;
-                    }
 
                     // 200mm transition
                     if (cur.Flood200HasValue)
@@ -315,11 +307,6 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                         }
                         lastFlood200State[item.Id] = cur.Flood200;
                     }
-                    else if (entry.Flood200StartMs > 0 && (now - entry.Flood200StartMs) > StaleTimerThresholdMs)
-                    {
-                        entry.Flood200StartMs = 0;
-                        dirty = true;
-                    }
 
                     // 700mm transition
                     if (cur.Flood700HasValue)
@@ -347,11 +334,6 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                             dirty = true;
                         }
                         lastFlood700State[item.Id] = cur.Flood700;
-                    }
-                    else if (entry.Flood700StartMs > 0 && (now - entry.Flood700StartMs) > StaleTimerThresholdMs)
-                    {
-                        entry.Flood700StartMs = 0;
-                        dirty = true;
                     }
                 }
 
