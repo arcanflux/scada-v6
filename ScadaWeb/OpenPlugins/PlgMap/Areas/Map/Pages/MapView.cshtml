@@ -256,6 +256,7 @@
             font-weight: 600;
             color: #222;
             margin: 4px 0;
+            white-space: nowrap;
         }
 
         .map-tri-flood-indicator {
@@ -1657,19 +1658,22 @@
                 return { active: false, color: null };
             }
 
-            // Triangle marker color: gray (#999), yellow (#f0ad4e), blue (#3388ff)
+            // Triangle marker color based on flood state:
+            // gray=no signal, blue=ok, yellow=200mm flood, red=700mm flood
             _getTriangleMarkerColor(def) {
                 let channels = def.channels || [];
                 if (channels.length === 0) return "#999";
-                let total = channels.length;
                 let working = 0;
                 for (let ch of channels) {
                     let rec = this.curDataMap[ch.cnlNum];
                     if (rec && rec.stat > 0) working++;
                 }
                 if (working === 0) return "#999";
-                if (working < total) return "#f0ad4e";
-                return "#3388ff";
+                let f700 = channels[3] ? this.curDataMap[channels[3].cnlNum] : null;
+                let f200 = channels[2] ? this.curDataMap[channels[2].cnlNum] : null;
+                if (f700 && f700.stat > 0 && f700.val === 0) return "#d32f2f"; // red
+                if (f200 && f200.stat > 0 && f200.val === 0) return "#f0ad4e"; // yellow
+                return "#3388ff"; // blue — no flood
             }
 
             // Check if at least one parameter channel has valid signal
@@ -1715,8 +1719,7 @@
                         : this._getGradientMarkerColor(entry.def);
                     let icon;
                     if (isTriangle) {
-                        let flood = this._getTriangleFloodAlert(entry.def);
-                        icon = this._createTriangleMarkerIcon(color, flood.active, flood.color);
+                        icon = this._createTriangleMarkerIcon(color, false, null);
                     } else {
                         let alert = this._hasActiveStatus(entry.def);
                         icon = this._createMarkerIcon(color, alert);
@@ -2317,14 +2320,11 @@
                 let t700 = ch[1] ? this.curDataMap[ch[1].cnlNum] : null;
                 let f200 = ch[2] ? this.curDataMap[ch[2].cnlNum] : null;
                 let f700 = ch[3] ? this.curDataMap[ch[3].cnlNum] : null;
-                let batt = ch[4] ? this.curDataMap[ch[4].cnlNum] : null;
-
                 let t200Text = t200 ? (t200.text + ' °C') : '--';
                 let t700Text = t700 ? (t700.text + ' °C') : '--';
                 // Per-zone state: 'off' (no signal), 'flood' (val===0), 'ok' (no flood)
                 let f200State = (!f200 || f200.stat <= 0) ? 'off' : (f200.val === 0 ? 'flood' : 'ok');
                 let f700State = (!f700 || f700.stat <= 0) ? 'off' : (f700.val === 0 ? 'flood' : 'ok');
-                let battVal = batt && batt.stat > 0 ? Math.round(batt.val) : null;
 
                 html += '<div class="map-tri-zones">';
                 // Left zone: 200mm
@@ -2339,14 +2339,6 @@
                 html += '<div class="map-tri-zone-temp" data-cnl="' + (ch[1] ? ch[1].cnlNum : 0) + '">' + this._escapeHtml(t700Text) + '</div>';
                 html += '<div class="map-tri-flood-indicator" data-flood-cnl="' + (ch[3] ? ch[3].cnlNum : 0) + '"></div>';
                 html += '</div>';
-                html += '</div>';
-
-                // Battery bar
-                html += '<div class="map-tri-battery">';
-                let battPct = battVal !== null ? Math.max(0, Math.min(100, battVal)) : 0;
-                let battColor = battPct > 50 ? '#4caf50' : (battPct > 20 ? '#f0ad4e' : '#d32f2f');
-                html += '<div class="map-tri-battery-bar"><div class="map-tri-battery-fill" style="width:' + battPct + '%;background:' + battColor + '"></div>' +
-                    '<span class="map-tri-battery-text" data-cnl="' + (ch[4] ? ch[4].cnlNum : 0) + '">' + (battVal !== null ? battVal + '%' : '--') + '</span></div>';
                 html += '</div>';
 
                 // Combined chart button
@@ -2376,21 +2368,6 @@
                     let state = (!rec || rec.stat <= 0) ? 'off' : (rec.val === 0 ? 'flood' : 'ok');
                     zoneEl.classList.remove('zone-off', 'zone-ok', 'zone-flood');
                     zoneEl.classList.add('zone-' + state);
-                }
-                // Battery
-                if (ch[4]) {
-                    let rec = this.curDataMap[ch[4].cnlNum];
-                    let textEl = popupEl.querySelector('.map-tri-battery-text[data-cnl="' + ch[4].cnlNum + '"]');
-                    let fillEl = popupEl.querySelector('.map-tri-battery-fill');
-                    if (rec && rec.stat > 0) {
-                        let pct = Math.max(0, Math.min(100, Math.round(rec.val)));
-                        let color = pct > 50 ? '#4caf50' : (pct > 20 ? '#f0ad4e' : '#d32f2f');
-                        if (textEl) textEl.textContent = pct + '%';
-                        if (fillEl) { fillEl.style.width = pct + '%'; fillEl.style.background = color; }
-                    } else {
-                        if (textEl) textEl.textContent = '--';
-                        if (fillEl) fillEl.style.width = '0%';
-                    }
                 }
             }
 
@@ -4171,8 +4148,7 @@
                         : this._getGradientMarkerColor(entry.def);
                     let icon;
                     if (isTriangle) {
-                        let flood = this._getTriangleFloodAlert(entry.def);
-                        icon = this._createTriangleMarkerIcon(color, flood.active, flood.color);
+                        icon = this._createTriangleMarkerIcon(color, false, null);
                     } else {
                         let alert = this._hasActiveStatus(entry.def);
                         icon = this._createMarkerIcon(color, alert);
