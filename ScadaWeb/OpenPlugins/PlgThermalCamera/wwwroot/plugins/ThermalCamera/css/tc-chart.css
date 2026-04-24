@@ -665,3 +665,18 @@
     padding: 20px 0;
     font-size: 0.85em;
 }
+
+/* Monthly flood count badge in chart toolbar */
+.tc-chart-month-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 16px;
+    color: #e2e8f0;
+    font-size: 13px;
+    margin-right: 8px;
+    white-space: nowrap;
+}

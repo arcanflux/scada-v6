@@ -1026,7 +1026,7 @@ class TcChartManager {
         try {
             let def = (this._combinedMarkerIdx === -1) ? this._chartMarkerDef : this.markers[this._combinedMarkerIdx];
             if (!def) return;
-            let cnlNums = def.channels.map(c => c.cnlNum);
+            let cnlNums = def.channels.filter(Boolean).map(c => c.cnlNum);
             if (this._showStatusTimelines && def.statusChannels && def.statusChannels.length > 0) {
                 cnlNums = cnlNums.concat(def.statusChannels.map(c => c.cnlNum));
             }
@@ -1098,9 +1098,12 @@ class TcChartManager {
                 let rec = trend[idx];
                 let point;
                 if (ds._isStatus) {
+                    let isActive = ds._isFloodBand
+                        ? (rec && rec.d && rec.d.stat > 0 && rec.d.val === 0)
+                        : (rec && rec.d && rec.d.stat > 0 && rec.d.val >= 1);
                     point = {
                         x: ts,
-                        y: (rec && rec.d && rec.d.stat > 0 && rec.d.val >= 1) ? ds._bandTop : ds._bandBase
+                        y: isActive ? ds._bandTop : ds._bandBase
                     };
                 } else {
                     point = {
@@ -1114,6 +1117,46 @@ class TcChartManager {
 
         chart.update('none');
     }
+
+    // Counts flood-start events (val: 1→0) for the current calendar month.
+    // Returns { count200, count700 } or null if no flood channels found.
+    async _fetchMonthlyFloodCount(def) {
+        let floodChannels = [];
+        if (def.type === 'triangle') {
+            if (def.channels[3]) floodChannels.push({ cnlNum: def.channels[3].cnlNum, kind: '700' });
+            if (def.channels[2]) floodChannels.push({ cnlNum: def.channels[2].cnlNum, kind: '200' });
+        } else {
+            for (let sc of (def.statusChannels || [])) {
+                if (sc.alias && /затоплен/i.test(sc.alias)) {
+                    floodChannels.push({ cnlNum: sc.cnlNum, kind: /700/i.test(sc.alias) ? '700' : '200' });
+                }
+            }
+        }
+        if (!floodChannels.length) return null;
+        let now = new Date();
+        let monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+        let histData = await this._fetchHistDataRange(floodChannels.map(c => c.cnlNum), monthStart, now);
+        if (!histData) return null;
+        let cnlIdx = {};
+        histData.cnlNums.forEach((n, i) => { cnlIdx[n] = i; });
+        let result = { count200: 0, count700: 0 };
+        for (let ch of floodChannels) {
+            let idx = cnlIdx[ch.cnlNum];
+            if (idx === undefined) continue;
+            let trend = histData.trends[idx];
+            let prevVal = null, count = 0;
+            for (let rec of trend) {
+                if (!rec || !rec.d || rec.d.stat <= 0) { prevVal = null; continue; }
+                if (prevVal !== null && prevVal >= 1 && rec.d.val === 0) count++;
+                prevVal = rec.d.val;
+            }
+            result['count' + ch.kind] = count;
+        }
+        return result;
+    }
+
+    // Public wrapper used by thermal-camera.js for cell hover tooltip
+    fetchMonthlyFloodCount(def) { return this._fetchMonthlyFloodCount(def); }
 
     // Public entry-point for ThermalCamera: accepts a marker definition object
     // ({name, channels, statusChannels}) without requiring it to be pre-stashed
@@ -1193,7 +1236,7 @@ class TcChartManager {
 
         try {
             await this._loadChartJs();
-            let cnlNums = def.channels.map(c => c.cnlNum);
+            let cnlNums = def.channels.filter(Boolean).map(c => c.cnlNum);
             if (this._showStatusTimelines && def.statusChannels && def.statusChannels.length > 0) {
                 cnlNums = cnlNums.concat(def.statusChannels.map(c => c.cnlNum));
             }
@@ -1224,6 +1267,24 @@ class TcChartManager {
             if (!this._chartRealtimePaused) {
                 this._startChartRealtime();
             }
+
+            // Async: fetch monthly flood count and show badge at left of toolbar
+            let capturedDef = def;
+            this._fetchMonthlyFloodCount(capturedDef).then(counts => {
+                if (!counts) return;
+                let tb = document.getElementById("tcChartToolbar");
+                if (!tb) return;
+                let monthNames = ['Январь','Февраль','Март','Апрель','Май','Июнь',
+                                  'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+                let now = new Date();
+                let total = (counts.count700 || 0) + (counts.count200 || 0);
+                let badge = document.createElement('div');
+                badge.id = 'tcChartMonthCount';
+                badge.className = 'tc-chart-month-count';
+                badge.innerHTML = '<i class="fa-solid fa-water" style="color:#63b3ed"></i> ' +
+                    total + '&nbsp;затоплений за ' + monthNames[now.getMonth()];
+                tb.insertBefore(badge, tb.firstChild);
+            }).catch(() => {});
         } catch (err) {
             console.error("Chart loading error:", err);
             body.innerHTML = '<div class="tc-chart-loading">' + this._escapeHtml(this.t.errorChart) + '</div>';
@@ -1965,6 +2026,7 @@ class TcChartManager {
                     yAxisID: 'yTemp',
                     _cnlNum: sch.cnlNum,
                     _isStatus: true,
+                    _isFloodBand: true,
                     _bandBase: bandBase,
                     _bandTop: bandTop
                 });

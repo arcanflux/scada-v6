@@ -1443,3 +1443,19 @@ td.tc-col-flooding:hover {
     white-space: pre-wrap;
     word-break: break-word;
 }
+
+/* Flood cell hover tooltip — monthly flood count */
+.tc-flood-count-tooltip {
+    position: fixed;
+    background: rgba(26, 32, 44, 0.95);
+    color: #e2e8f0;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    pointer-events: none;
+    z-index: 9999;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    line-height: 1.6;
+}
+

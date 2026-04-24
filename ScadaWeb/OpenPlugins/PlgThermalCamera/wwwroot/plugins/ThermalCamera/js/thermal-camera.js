@@ -56,6 +56,10 @@ var thermalCamera = (function () {
     var hasLiveData = false;
     var ackHistory = [];                // loaded once and updated after each new ack
 
+    // Flood cell hover tooltip: cached monthly counts to avoid redundant API calls
+    var floodMonthCountCache = {};  // "itemId_year_month" -> { count200, count700 }
+    var floodHoverTooltipEl = null;
+
     function init() {
         var itemsEl = document.getElementById("tcItems");
         var userDataEl = document.getElementById("tcUserData");
@@ -81,6 +85,7 @@ var thermalCamera = (function () {
         bindNavButtons();
         initJournal();
         loadAckHistory();
+        initFloodHoverTooltip();
         requestData();
         startAutoUpdate();
         bindChatKeyboard();
@@ -371,26 +376,95 @@ var thermalCamera = (function () {
         syncChatTriggerHighlights();
     }
 
-    // Builds the def structure expected by TcChartManager.openCombinedChart()
-    // from a ThermalCameraItem. Temperature + battery go to `channels` (line
-    // series); flood/online flags go to `statusChannels` (binary timelines
-    // shown on demand via the Statuses toggle in the chart toolbar).
+    // ---- Flood cell hover tooltip (monthly flood count) ----
+
+    function initFloodHoverTooltip() {
+        floodHoverTooltipEl = document.createElement("div");
+        floodHoverTooltipEl.id = "tcFloodCountTooltip";
+        floodHoverTooltipEl.className = "tc-flood-count-tooltip";
+        floodHoverTooltipEl.style.display = "none";
+        document.body.appendChild(floodHoverTooltipEl);
+
+        document.addEventListener("mouseover", function (e) {
+            var td = e.target.closest("td.tc-col-flooding");
+            if (!td) return;
+            var tr = td.closest("tr");
+            if (!tr) return;
+            var itemId = parseInt(tr.getAttribute("data-item-id"), 10);
+            var item = items.find(function (x) { return x.id === itemId; });
+            if (!item) return;
+            showFloodCountTooltip(e, item);
+        });
+
+        document.addEventListener("mousemove", function (e) {
+            if (floodHoverTooltipEl && floodHoverTooltipEl.style.display !== "none") {
+                floodHoverTooltipEl.style.left = (e.clientX + 14) + "px";
+                floodHoverTooltipEl.style.top = (e.clientY - 40) + "px";
+            }
+        });
+
+        document.addEventListener("mouseout", function (e) {
+            if (!floodHoverTooltipEl) return;
+            var td = e.target.closest("td.tc-col-flooding");
+            if (td && !td.contains(e.relatedTarget)) {
+                floodHoverTooltipEl.style.display = "none";
+            }
+        });
+    }
+
+    function showFloodCountTooltip(e, item) {
+        var now = new Date();
+        var cacheKey = item.id + "_" + now.getFullYear() + "_" + now.getMonth();
+        if (floodMonthCountCache[cacheKey]) {
+            renderFloodCountTooltip(floodMonthCountCache[cacheKey], now, e);
+            return;
+        }
+        if (!floodHoverTooltipEl) return;
+        floodHoverTooltipEl.innerHTML = "Загрузка...";
+        floodHoverTooltipEl.style.display = "block";
+        floodHoverTooltipEl.style.left = (e.clientX + 14) + "px";
+        floodHoverTooltipEl.style.top = (e.clientY - 40) + "px";
+        if (typeof tcChart === "undefined" || !tcChart) return;
+        var def = buildChartDef(item);
+        tcChart.fetchMonthlyFloodCount(def).then(function (counts) {
+            var c = counts || { count200: 0, count700: 0 };
+            floodMonthCountCache[cacheKey] = c;
+            renderFloodCountTooltip(c, now, null);
+        }).catch(function () {
+            if (floodHoverTooltipEl) floodHoverTooltipEl.style.display = "none";
+        });
+    }
+
+    function renderFloodCountTooltip(counts, now, posEvent) {
+        var el = floodHoverTooltipEl;
+        if (!el) return;
+        var monthNames = ['Январь','Февраль','Март','Апрель','Май','Июнь',
+                          'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+        var total = (counts.count700 || 0) + (counts.count200 || 0);
+        var rows = '<b>' + total + '</b> затоплений за ' + monthNames[now.getMonth()];
+        if (counts.count700) rows += '<br>700мм: ' + counts.count700;
+        if (counts.count200) rows += '<br>200мм: ' + counts.count200;
+        el.innerHTML = rows;
+        el.style.display = "block";
+        if (posEvent) {
+            el.style.left = (posEvent.clientX + 14) + "px";
+            el.style.top = (posEvent.clientY - 40) + "px";
+        }
+    }
+
+    // Builds the def structure expected by TcChartManager.openCombinedChart().
+    // Uses the triangle-marker layout so _renderCombinedChart picks the correct
+    // red/yellow color scheme, val===0 flood detection, and no pressure axis.
+    // channels[0]=temp200, [1]=temp700, [2]=flood200, [3]=flood700 (nulls allowed).
     function buildChartDef(item) {
-        var channels = [];
-        var statusChannels = [];
-        if (item.temp200CnlNum > 0) channels.push({ cnlNum: item.temp200CnlNum, alias: "Температура 200мм" });
-        if (item.temp700CnlNum > 0) channels.push({ cnlNum: item.temp700CnlNum, alias: "Температура 700мм" });
-        if (item.batteryCnlNum > 0) channels.push({ cnlNum: item.batteryCnlNum, alias: "Заряд" });
-        if (item.flood200CnlNum > 0) statusChannels.push({ cnlNum: item.flood200CnlNum, alias: "Затопление 200мм" });
-        if (item.flood700CnlNum > 0) statusChannels.push({ cnlNum: item.flood700CnlNum, alias: "Затопление 700мм" });
-        if (item.onlineCnlNum > 0) statusChannels.push({ cnlNum: item.onlineCnlNum, alias: "Связь" });
+        var channels = new Array(4);
+        channels[0] = item.temp200CnlNum > 0 ? { cnlNum: item.temp200CnlNum, alias: "Температура 200мм" } : null;
+        channels[1] = item.temp700CnlNum > 0 ? { cnlNum: item.temp700CnlNum, alias: "Температура 700мм" } : null;
+        channels[2] = item.flood200CnlNum > 0 ? { cnlNum: item.flood200CnlNum, alias: "Затопление 200мм" } : null;
+        channels[3] = item.flood700CnlNum > 0 ? { cnlNum: item.flood700CnlNum, alias: "Затопление 700мм" } : null;
         var displayName = item.name || ("ТК " + item.id);
         if (item.descr) displayName += " — " + item.descr;
-        return {
-            name: displayName,
-            channels: channels,
-            statusChannels: statusChannels
-        };
+        return { name: displayName, type: 'triangle', channels: channels };
     }
 
     function requestData() {
