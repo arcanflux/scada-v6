@@ -1315,6 +1315,44 @@
     color: #9b2c2c;
 }
 
+/* Predefined reason pill buttons */
+.tc-ack-reasons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 2px;
+    border-radius: 6px;
+}
+
+.tc-ack-reasons.tc-ack-reasons-error {
+    outline: 2px solid #e53e3e;
+}
+
+.tc-ack-reason-btn {
+    padding: 3px 9px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #4a5568;
+    background: #edf2f7;
+    border: 1px solid #cbd5e0;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+    white-space: nowrap;
+    line-height: 1.4;
+}
+
+.tc-ack-reason-btn:hover {
+    background: #e2e8f0;
+    border-color: #a0aec0;
+}
+
+.tc-ack-reason-btn.tc-ack-reason-btn-active {
+    background: #2c5282;
+    color: #fff;
+    border-color: #2c5282;
+}
+
 .tc-ack-comment {
     width: 100%;
     padding: 5px 8px;

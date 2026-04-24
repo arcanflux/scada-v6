@@ -34,6 +34,20 @@ var thermalCamera = (function () {
     var activeFloodEvents = {};         // itemId -> { kind, startMs, name }
     var pendingAckItems = {};           // itemId -> { itemName, flood700StartMs }
     var ackedByItem = {};               // itemId -> { flood700StartMs, ackedAtMs, ackedBy, comment }
+
+    var ACK_REASONS = [
+        "Дефект",
+        "Парение/Конденсат",
+        "Гидравлические испытания",
+        "Ремонт ТС",
+        "Талые/Дождевые воды",
+        "Затопление ХВС",
+        "Затопление канализационными водами",
+        "Затопление грунтовыми водами",
+        "Дренирование",
+        "Остаточная вода после дефекта",
+        "Обследованное ТК сухое"
+    ];
     var journalFilter = { show200: true, show700: true };
     var journalBottomView = "pending"; // "pending" | "history"
     var onlineByItem = {};             // itemId -> true|false
@@ -868,18 +882,30 @@ var thermalCamera = (function () {
         var box = document.getElementById("tcJournalAck");
         if (!box) return;
 
-        // Preserve any text the user has already typed so the rebuild doesn't clear it
-        var savedComments = {};
+        // Preserve selected reason and typed comment across rebuilds
+        var savedStates = {};
         var existingItems = box.querySelectorAll(".tc-ack-item");
         for (var si = 0; si < existingItems.length; si++) {
             var sid = existingItems[si].getAttribute("data-item-id");
+            var activeBtn = existingItems[si].querySelector(".tc-ack-reason-btn-active");
             var sta = existingItems[si].querySelector(".tc-ack-comment");
-            if (sta && sid) savedComments[sid] = sta.value;
+            savedStates[sid] = {
+                reason: activeBtn ? activeBtn.getAttribute("data-reason") : "",
+                comment: sta ? sta.value : ""
+            };
         }
 
         var now = Date.now();
         var html = "";
         var count = 0;
+
+        // Build reason pill buttons HTML (shared for all items)
+        var reasonBtnsHtml = '<div class="tc-ack-reasons">';
+        for (var ri = 0; ri < ACK_REASONS.length; ri++) {
+            reasonBtnsHtml += '<button class="tc-ack-reason-btn" data-reason="' +
+                escapeAttr(ACK_REASONS[ri]) + '">' + escapeHtml(ACK_REASONS[ri]) + '</button>';
+        }
+        reasonBtnsHtml += '</div>';
 
         for (var idStr in pendingAckItems) {
             if (!pendingAckItems.hasOwnProperty(idStr)) continue;
@@ -897,7 +923,8 @@ var thermalCamera = (function () {
                     'с ' + timeStr +
                     ' <span class="tc-ack-elapsed" data-start="' + pa.flood700StartMs + '">' + elapsed + '</span>' +
                 '</div>' +
-                '<textarea class="tc-ack-comment" placeholder="Комментарий обязателен..." rows="2"></textarea>' +
+                reasonBtnsHtml +
+                '<textarea class="tc-ack-comment" placeholder="Дополнительный комментарий..." rows="2"></textarea>' +
                 '<button class="tc-ack-submit" data-item-id="' + idStr + '" ' +
                     'data-item-name="' + escapeAttr(pa.itemName) + '" ' +
                     'data-flood-start="' + pa.flood700StartMs + '">Квитировать</button>' +
@@ -909,16 +936,40 @@ var thermalCamera = (function () {
         }
         box.innerHTML = html;
 
-        // Restore typed comments that existed before the rebuild
+        // Restore previously selected reason and typed comment
         var newItems = box.querySelectorAll(".tc-ack-item");
-        for (var ri = 0; ri < newItems.length; ri++) {
-            var rid = newItems[ri].getAttribute("data-item-id");
-            if (savedComments[rid]) {
-                var rta = newItems[ri].querySelector(".tc-ack-comment");
-                if (rta) rta.value = savedComments[rid];
+        for (var ni = 0; ni < newItems.length; ni++) {
+            var nid = newItems[ni].getAttribute("data-item-id");
+            var state = savedStates[nid];
+            if (!state) continue;
+            if (state.reason) {
+                var rBtns = newItems[ni].querySelectorAll(".tc-ack-reason-btn");
+                for (var rb = 0; rb < rBtns.length; rb++) {
+                    if (rBtns[rb].getAttribute("data-reason") === state.reason) {
+                        rBtns[rb].classList.add("tc-ack-reason-btn-active");
+                        break;
+                    }
+                }
+            }
+            if (state.comment) {
+                var rta = newItems[ni].querySelector(".tc-ack-comment");
+                if (rta) rta.value = state.comment;
             }
         }
 
+        // Bind reason button toggles (radio-style: one active per item)
+        var reasonBtns = box.querySelectorAll(".tc-ack-reason-btn");
+        for (var b = 0; b < reasonBtns.length; b++) {
+            reasonBtns[b].addEventListener("click", function () {
+                var item = this.closest(".tc-ack-item");
+                var siblings = item.querySelectorAll(".tc-ack-reason-btn");
+                for (var s = 0; s < siblings.length; s++) siblings[s].classList.remove("tc-ack-reason-btn-active");
+                this.classList.add("tc-ack-reason-btn-active");
+                item.querySelector(".tc-ack-reasons").classList.remove("tc-ack-reasons-error");
+            });
+        }
+
+        // Bind submit buttons
         var btns = box.querySelectorAll(".tc-ack-submit");
         for (var j = 0; j < btns.length; j++) {
             btns[j].addEventListener("click", function () {
@@ -926,13 +977,17 @@ var thermalCamera = (function () {
                 var itemName = this.getAttribute("data-item-name");
                 var floodStart = parseInt(this.getAttribute("data-flood-start")) || 0;
                 var container = this.closest(".tc-ack-item");
-                var textarea = container ? container.querySelector(".tc-ack-comment") : null;
-                var comment = textarea ? textarea.value.trim() : "";
-                if (!comment) {
-                    textarea && textarea.classList.add("tc-ack-comment-error");
+                var activeReason = container ? container.querySelector(".tc-ack-reason-btn-active") : null;
+                var reason = activeReason ? activeReason.getAttribute("data-reason") : "";
+                if (!reason) {
+                    var reasonsBox = container && container.querySelector(".tc-ack-reasons");
+                    if (reasonsBox) reasonsBox.classList.add("tc-ack-reasons-error");
                     return;
                 }
-                submitAcknowledgment(itemId, itemName, floodStart, comment, this);
+                var textarea = container ? container.querySelector(".tc-ack-comment") : null;
+                var extra = textarea ? textarea.value.trim() : "";
+                var fullComment = reason + (extra ? "\n" + extra : "");
+                submitAcknowledgment(itemId, itemName, floodStart, fullComment, this);
             });
         }
     }
