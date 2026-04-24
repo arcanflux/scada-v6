@@ -273,7 +273,7 @@ var thermalCamera = (function () {
             // 5. Online status
             html += '<td class="tc-col-online text-center">' +
                 '<span id="online-' + item.id + '" class="tc-online-indicator tc-status-unknown">' +
-                '<i class="fa-solid fa-circle"></i> <span class="tc-online-text">\u2014</span></span></td>';
+                '<i class="fa-solid fa-circle"></i></span></td>';
 
             // 6. Flooding status: two signal blocks (200mm yellow, 700mm red)
             html += '<td class="tc-col-flooding"><div class="tc-flooding-container">';
@@ -446,12 +446,8 @@ var thermalCamera = (function () {
 
         var isOnline = d.stat > 0 && d.val !== 0;
         onlineByItem[item.id] = isOnline;
-        var textEl = onlineEl.querySelector(".tc-online-text");
         onlineEl.className = "tc-online-indicator " +
             (isOnline ? "tc-status-online" : "tc-status-offline");
-        if (textEl) {
-            textEl.textContent = isOnline ? "Online" : "Offline";
-        }
 
         // Show persistent elapsed timer when offline
         var timerId = "offlineTimer-" + item.id;
