@@ -6,9 +6,11 @@
 
 @section Styles {
     <link href="~/plugins/ThermalCamera/css/thermal-camera.css" rel="stylesheet" asp-append-version="true" />
+    <link href="~/plugins/ThermalCamera/css/tc-chart.css" rel="stylesheet" asp-append-version="true" />
 }
 
 @section Scripts {
+    <script src="~/plugins/ThermalCamera/js/tc-chart.js" asp-append-version="true"></script>
     <script src="~/plugins/ThermalCamera/js/thermal-camera.js" asp-append-version="true"></script>
     <script id="tcItems" type="application/json">@Html.Raw(Model.ItemsJson)</script>
     <script id="tcUserData" type="application/json">@Html.Raw(Model.UserDataJson)</script>
@@ -152,5 +154,29 @@ else
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Combined Chart Overlay (cloned from PlgMap) -->
+    <div id="tcChartOverlay" class="tc-chart-overlay">
+        <div class="tc-chart-panel">
+            <div class="tc-chart-header">
+                <span id="tcChartTitle">Графики</span>
+            </div>
+            <div id="tcChartToolbar" class="tc-chart-toolbar"></div>
+            <div id="tcChartBody" class="tc-chart-body">
+                <div class="tc-chart-loading">Загрузка...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mini Chart Tooltip (hover) -->
+    <div id="tcMiniChartTooltip" class="tc-minichart-tooltip">
+        <div id="tcMiniChartTitle" class="tc-minichart-title"></div>
+        <div id="tcMiniChartBody"></div>
+    </div>
+
+    <!-- Extra Channels Popup (secondary popup from "more" button — unused in TC, kept for code parity) -->
+    <div id="tcExtraPopup" class="tc-extra-popup">
+        <div id="tcExtraPopupBody" class="tc-extra-popup-body"></div>
     </div>
 }

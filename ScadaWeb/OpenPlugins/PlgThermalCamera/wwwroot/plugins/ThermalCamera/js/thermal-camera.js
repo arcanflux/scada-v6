@@ -343,9 +343,54 @@ var thermalCamera = (function () {
             });
         }
 
+        // Single delegated click on the flooding cell — opens the combined
+        // Chart.js overlay (lifted from PlgMap). Stops propagation guards
+        // already cover chat/photo/checkbox interactive children.
+        var tbody = document.getElementById("tbodyThermalCameras");
+        if (tbody && !tbody._tcChartBound) {
+            tbody._tcChartBound = true;
+            tbody.addEventListener("click", function (e) {
+                if (e.target.closest(".tc-photo-btn, .tc-chat-trigger, .tc-commissioned-toggle, input")) return;
+                var td = e.target.closest("td.tc-col-flooding");
+                if (!td) return;
+                var tr = td.closest("tr");
+                if (!tr) return;
+                var itemId = parseInt(tr.getAttribute("data-item-id"));
+                var item = items.find(function (x) { return x.id === itemId; });
+                if (!item) return;
+                if (typeof tcChart !== "undefined" && tcChart) {
+                    tcChart.openCombinedChart(buildChartDef(item));
+                } else {
+                    console.warn("tcChart is not loaded yet");
+                }
+            });
+        }
+
         // tbody was rebuilt — the fresh triggers don't carry highlight state,
         // so re-apply the "active chat" marker if there is one.
         syncChatTriggerHighlights();
+    }
+
+    // Builds the def structure expected by TcChartManager.openCombinedChart()
+    // from a ThermalCameraItem. Temperature + battery go to `channels` (line
+    // series); flood/online flags go to `statusChannels` (binary timelines
+    // shown on demand via the Statuses toggle in the chart toolbar).
+    function buildChartDef(item) {
+        var channels = [];
+        var statusChannels = [];
+        if (item.temp200CnlNum > 0) channels.push({ cnlNum: item.temp200CnlNum, alias: "Температура 200мм" });
+        if (item.temp700CnlNum > 0) channels.push({ cnlNum: item.temp700CnlNum, alias: "Температура 700мм" });
+        if (item.batteryCnlNum > 0) channels.push({ cnlNum: item.batteryCnlNum, alias: "Заряд" });
+        if (item.flood200CnlNum > 0) statusChannels.push({ cnlNum: item.flood200CnlNum, alias: "Затопление 200мм" });
+        if (item.flood700CnlNum > 0) statusChannels.push({ cnlNum: item.flood700CnlNum, alias: "Затопление 700мм" });
+        if (item.onlineCnlNum > 0) statusChannels.push({ cnlNum: item.onlineCnlNum, alias: "Связь" });
+        var displayName = item.name || ("ТК " + item.id);
+        if (item.descr) displayName += " — " + item.descr;
+        return {
+            name: displayName,
+            channels: channels,
+            statusChannels: statusChannels
+        };
     }
 
     function requestData() {
