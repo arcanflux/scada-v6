@@ -348,12 +348,11 @@ var thermalCamera = (function () {
             });
         }
 
-        // Single delegated click on the flooding cell — opens the combined
-        // Chart.js overlay (lifted from PlgMap). Stops propagation guards
-        // already cover chat/photo/checkbox interactive children.
+        // Delegated click on the flooding cell — opens the flood history modal
+        // (year-by-year monthly breakdown of 200мм/700мм flooding events).
         var tbody = document.getElementById("tbodyThermalCameras");
-        if (tbody && !tbody._tcChartBound) {
-            tbody._tcChartBound = true;
+        if (tbody && !tbody._tcFloodHistoryBound) {
+            tbody._tcFloodHistoryBound = true;
             tbody.addEventListener("click", function (e) {
                 if (e.target.closest(".tc-photo-btn, .tc-chat-trigger, .tc-commissioned-toggle, input")) return;
                 var td = e.target.closest("td.tc-col-flooding");
@@ -363,10 +362,8 @@ var thermalCamera = (function () {
                 var itemId = parseInt(tr.getAttribute("data-item-id"));
                 var item = items.find(function (x) { return x.id === itemId; });
                 if (!item) return;
-                if (typeof tcChart !== "undefined" && tcChart) {
-                    tcChart.openCombinedChart(buildChartDef(item));
-                } else {
-                    console.warn("tcChart is not loaded yet");
+                if (typeof tcFloodHistory !== "undefined" && tcFloodHistory) {
+                    tcFloodHistory.openHistoryModal(item);
                 }
             });
         }
@@ -424,9 +421,8 @@ var thermalCamera = (function () {
         floodHoverTooltipEl.style.display = "block";
         floodHoverTooltipEl.style.left = (e.clientX + 14) + "px";
         floodHoverTooltipEl.style.top = (e.clientY - 40) + "px";
-        if (typeof tcChart === "undefined" || !tcChart) return;
-        var def = buildChartDef(item);
-        tcChart.fetchMonthlyFloodCount(def).then(function (counts) {
+        if (typeof tcFloodHistory === "undefined" || !tcFloodHistory) return;
+        tcFloodHistory.fetchCurrentMonthCount(item).then(function (counts) {
             var c = counts || { count200: 0, count700: 0 };
             floodMonthCountCache[cacheKey] = c;
             renderFloodCountTooltip(c, now, null);
@@ -450,21 +446,6 @@ var thermalCamera = (function () {
             el.style.left = (posEvent.clientX + 14) + "px";
             el.style.top = (posEvent.clientY - 40) + "px";
         }
-    }
-
-    // Builds the def structure expected by TcChartManager.openCombinedChart().
-    // Uses the triangle-marker layout so _renderCombinedChart picks the correct
-    // red/yellow color scheme, val===0 flood detection, and no pressure axis.
-    // channels[0]=temp200, [1]=temp700, [2]=flood200, [3]=flood700 (nulls allowed).
-    function buildChartDef(item) {
-        var channels = new Array(4);
-        channels[0] = item.temp200CnlNum > 0 ? { cnlNum: item.temp200CnlNum, alias: "Температура 200мм" } : null;
-        channels[1] = item.temp700CnlNum > 0 ? { cnlNum: item.temp700CnlNum, alias: "Температура 700мм" } : null;
-        channels[2] = item.flood200CnlNum > 0 ? { cnlNum: item.flood200CnlNum, alias: "Затопление 200мм" } : null;
-        channels[3] = item.flood700CnlNum > 0 ? { cnlNum: item.flood700CnlNum, alias: "Затопление 700мм" } : null;
-        var displayName = item.name || ("ТК " + item.id);
-        if (item.descr) displayName += " — " + item.descr;
-        return { name: displayName, type: 'triangle', channels: channels };
     }
 
     function requestData() {
