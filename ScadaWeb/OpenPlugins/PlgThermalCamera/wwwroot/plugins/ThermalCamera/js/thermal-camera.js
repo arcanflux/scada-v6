@@ -819,11 +819,11 @@ var thermalCamera = (function () {
             switchJournalView("events");
         });
         document.getElementById("jswAck").addEventListener("click", function () {
-            switchJournalView("ack");
+            if (journalView !== "history") switchJournalView("ack");
         });
         document.getElementById("jbtnHistory").addEventListener("click", function (e) {
             e.stopPropagation();
-            switchJournalView("history");
+            switchJournalView(journalView === "history" ? "ack" : "history");
         });
 
         switchJournalView("events");
