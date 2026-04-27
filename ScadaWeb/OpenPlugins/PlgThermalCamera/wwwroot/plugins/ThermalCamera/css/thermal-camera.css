@@ -43,10 +43,6 @@
     z-index: 1;
 }
 
-#tcHdrOnlineStats   { top: 25%; }
-#tcHdrFlood200Stats { top: 50%; }
-#tcHdrFlood700Stats { top: 75%; }
-
 .tc-hdr-stat-row {
     display: flex;
     align-items: center;
