@@ -620,7 +620,7 @@ var thermalCamera = (function () {
         var pad = function (n) { return n < 10 ? "0" + n : "" + n; };
         if (h >= 24) {
             var days = Math.floor(h / 24);
-            return days + "д " + pad(h % 24) + ":" + pad(m);
+            return days + "д " + pad(h % 24) + ":" + pad(m) + ":" + pad(s);
         }
         return pad(h) + ":" + pad(m) + ":" + pad(s);
     }
