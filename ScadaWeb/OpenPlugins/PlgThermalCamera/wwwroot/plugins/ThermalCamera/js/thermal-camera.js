@@ -378,7 +378,7 @@ var thermalCamera = (function () {
         floodHoverTooltipEl.id = "tcFloodCountTooltip";
         floodHoverTooltipEl.className = "tc-flood-count-tooltip";
         floodHoverTooltipEl.style.display = "none";
-        floodHoverTooltipEl.innerHTML = "Нажмите для просмотра<br>статистики затоплений (200мм / 700мм)";
+        floodHoverTooltipEl.innerHTML = "Нажмите для просмотра статистики затоплений";
         document.body.appendChild(floodHoverTooltipEl);
 
         document.addEventListener("mouseover", function (e) {

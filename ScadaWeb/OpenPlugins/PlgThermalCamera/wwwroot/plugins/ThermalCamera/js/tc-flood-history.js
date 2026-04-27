@@ -6,6 +6,7 @@
 var tcFloodHistory = (function () {
     var MONTH_NAMES = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
                        'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+    var DATA_BASELINE_YEAR = 2026;
 
     function rootPath() {
         var base = document.querySelector("base");
@@ -190,16 +191,19 @@ var tcFloodHistory = (function () {
         var titleEl = document.getElementById("tcFloodHistoryTitle");
         if (titleEl) {
             var name = item.name || ("ТК " + item.id);
-            if (item.descr) name += " — " + item.descr;
+            if (item.descr) name += ", " + item.descr;
             titleEl.textContent = "История затоплений: " + name;
         }
 
-        // Populate year selector: current year .. current - 4
+        // Populate year selector: DATA_BASELINE_YEAR .. current year (newest first).
+        // Past years are hidden because the install has no archive older than 2026;
+        // future years appear automatically as the calendar moves forward.
         var yearSel = document.getElementById("tcFloodHistoryYear");
         if (yearSel) {
             var curYear = new Date().getFullYear();
+            var startYear = Math.min(DATA_BASELINE_YEAR, curYear);
             yearSel.innerHTML = '';
-            for (var y = curYear; y >= curYear - 4; y--) {
+            for (var y = curYear; y >= startYear; y--) {
                 var opt = document.createElement('option');
                 opt.value = y;
                 opt.textContent = y;

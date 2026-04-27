@@ -17,9 +17,9 @@
 .tc-fh-panel {
     background: #ffffff;
     color: #1a202c;
-    width: 520px;
-    max-width: 92vw;
-    max-height: 88vh;
+    width: 720px;
+    max-width: 94vw;
+    max-height: 90vh;
     border-radius: 10px;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
     display: flex;

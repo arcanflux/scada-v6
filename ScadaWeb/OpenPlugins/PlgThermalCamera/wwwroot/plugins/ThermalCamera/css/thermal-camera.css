@@ -410,15 +410,13 @@
     color: #a0aec0;
 }
 
-/* Flooding cell — clickable, opens combined chart on click */
+/* Flooding cell — clickable, opens flood history modal on click */
 td.tc-col-flooding {
     cursor: pointer;
-    transition: box-shadow 0.15s, background 0.15s;
 }
 
 td.tc-col-flooding:hover {
     box-shadow: inset 0 0 0 2px #3182ce;
-    background: #ebf8ff;
 }
 
 /* Flooding signals container */
