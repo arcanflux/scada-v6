@@ -1173,6 +1173,17 @@ td.tc-col-flooding:hover {
     color: #fff;
 }
 
+.tc-journal-hist-btn.tc-hist-active {
+    background: rgba(255, 255, 255, 0.9);
+    color: #1e3a5f;
+    border-color: rgba(255, 255, 255, 0.9);
+}
+
+.tc-journal-hist-btn.tc-hist-active:hover {
+    background: #fff;
+    color: #1e3a5f;
+}
+
 .tc-journal-view {
     flex: 1;
     display: flex;

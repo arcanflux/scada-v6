@@ -845,6 +845,8 @@ var thermalCamera = (function () {
         var ackItem = document.getElementById("jswAck");
         if (evItem)  evItem.classList.toggle("tc-sw-active",  view === "events");
         if (ackItem) ackItem.classList.toggle("tc-sw-active", view === "ack" || view === "history");
+        var histBtn = document.getElementById("jbtnHistory");
+        if (histBtn) histBtn.classList.toggle("tc-hist-active", view === "history");
         if (view === "history") loadAckHistory();
     }
 
