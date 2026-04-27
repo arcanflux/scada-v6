@@ -70,6 +70,7 @@
 
 .tc-hdr-stat-row[data-tc-hint] {
     cursor: help;
+    pointer-events: auto;
 }
 
 .tc-hdr-dot {
