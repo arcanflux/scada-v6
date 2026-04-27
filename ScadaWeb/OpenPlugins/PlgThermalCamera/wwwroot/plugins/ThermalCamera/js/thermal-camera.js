@@ -388,6 +388,18 @@ var thermalCamera = (function () {
         return null;
     }
 
+    function positionHintTooltip(e) {
+        if (!floodHoverTooltipEl || floodHoverTooltipEl.style.display === "none") return;
+        var tipH = floodHoverTooltipEl.offsetHeight || 44;
+        var tipW = floodHoverTooltipEl.offsetWidth || 220;
+        var below = e.clientY + 16;
+        var above = e.clientY - tipH - 8;
+        var top = (below + tipH <= window.innerHeight) ? below : above;
+        var left = Math.min(Math.max(e.clientX + 14, 8), window.innerWidth - tipW - 8);
+        floodHoverTooltipEl.style.left = left + "px";
+        floodHoverTooltipEl.style.top = Math.max(top, 4) + "px";
+    }
+
     function initFloodHoverTooltip() {
         floodHoverTooltipEl = document.createElement("div");
         floodHoverTooltipEl.id = "tcFloodCountTooltip";
@@ -400,17 +412,10 @@ var thermalCamera = (function () {
             if (!t || !floodHoverTooltipEl) return;
             floodHoverTooltipEl.textContent = t.text;
             floodHoverTooltipEl.style.display = "block";
+            positionHintTooltip(e);
         });
 
-        document.addEventListener("mousemove", function (e) {
-            if (floodHoverTooltipEl && floodHoverTooltipEl.style.display !== "none") {
-                var tipH = floodHoverTooltipEl.offsetHeight || 44;
-                var below = e.clientY + 16;
-                var above = e.clientY - tipH - 8;
-                floodHoverTooltipEl.style.left = (e.clientX + 14) + "px";
-                floodHoverTooltipEl.style.top = (below + tipH <= window.innerHeight ? below : above) + "px";
-            }
-        });
+        document.addEventListener("mousemove", positionHintTooltip);
 
         document.addEventListener("mouseout", function (e) {
             if (!floodHoverTooltipEl) return;
