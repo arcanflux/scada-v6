@@ -56,11 +56,7 @@ var thermalCamera = (function () {
     var hasLiveData = false;
     var ackHistory = [];                // loaded once and updated after each new ack
 
-    // Flood cell hover tooltip: cached monthly counts to avoid redundant API calls
-    var floodMonthCountCache = {};  // "itemId_year_month" -> { count200, count700 }
     var floodHoverTooltipEl = null;
-    var floodHoverDebounceTimer = null;
-    var floodHoverPendingItemId = null;
 
     function init() {
         var itemsEl = document.getElementById("tcItems");
@@ -375,24 +371,21 @@ var thermalCamera = (function () {
         syncChatTriggerHighlights();
     }
 
-    // ---- Flood cell hover tooltip (monthly flood count) ----
+    // ---- Flood cell hover tooltip (static hint — no network requests) ----
 
     function initFloodHoverTooltip() {
         floodHoverTooltipEl = document.createElement("div");
         floodHoverTooltipEl.id = "tcFloodCountTooltip";
         floodHoverTooltipEl.className = "tc-flood-count-tooltip";
         floodHoverTooltipEl.style.display = "none";
+        floodHoverTooltipEl.innerHTML = "Нажмите для просмотра<br>статистики затоплений (200мм / 700мм)";
         document.body.appendChild(floodHoverTooltipEl);
 
         document.addEventListener("mouseover", function (e) {
             var td = e.target.closest("td.tc-col-flooding");
             if (!td) return;
-            var tr = td.closest("tr");
-            if (!tr) return;
-            var itemId = parseInt(tr.getAttribute("data-item-id"), 10);
-            var item = items.find(function (x) { return x.id === itemId; });
-            if (!item) return;
-            showFloodCountTooltip(e, item);
+            if (!floodHoverTooltipEl) return;
+            floodHoverTooltipEl.style.display = "block";
         });
 
         document.addEventListener("mousemove", function (e) {
@@ -407,74 +400,8 @@ var thermalCamera = (function () {
             var td = e.target.closest("td.tc-col-flooding");
             if (td && !td.contains(e.relatedTarget)) {
                 floodHoverTooltipEl.style.display = "none";
-                if (floodHoverDebounceTimer) {
-                    clearTimeout(floodHoverDebounceTimer);
-                    floodHoverDebounceTimer = null;
-                    floodHoverPendingItemId = null;
-                }
             }
         });
-    }
-
-    function showFloodCountTooltip(e, item) {
-        var now = new Date();
-        var cacheKey = item.id + "_" + now.getFullYear() + "_" + now.getMonth();
-
-        // Cache hit — instant display, no network
-        if (floodMonthCountCache[cacheKey]) {
-            renderFloodCountTooltip(floodMonthCountCache[cacheKey], now, e);
-            return;
-        }
-
-        // Same item already pending — let existing debounce timer finish
-        if (floodHoverPendingItemId === item.id && floodHoverDebounceTimer) {
-            return;
-        }
-
-        // Different item or first hover — cancel any prior pending fetch
-        if (floodHoverDebounceTimer) {
-            clearTimeout(floodHoverDebounceTimer);
-            floodHoverDebounceTimer = null;
-        }
-        floodHoverPendingItemId = item.id;
-
-        if (!floodHoverTooltipEl) return;
-        floodHoverTooltipEl.innerHTML = "Загрузка...";
-        floodHoverTooltipEl.style.display = "block";
-        floodHoverTooltipEl.style.left = (e.clientX + 14) + "px";
-        floodHoverTooltipEl.style.top = (e.clientY - 40) + "px";
-
-        // Wait for cursor to settle (350ms) before triggering the fetch.
-        // Avoids saturating the SCADA server when the user sweeps over rows.
-        floodHoverDebounceTimer = setTimeout(function () {
-            floodHoverDebounceTimer = null;
-            floodHoverPendingItemId = null;
-            if (typeof tcFloodHistory === "undefined" || !tcFloodHistory) return;
-            tcFloodHistory.fetchCurrentMonthCount(item).then(function (counts) {
-                var c = counts || { count200: 0, count700: 0 };
-                floodMonthCountCache[cacheKey] = c;
-                renderFloodCountTooltip(c, now, null);
-            }).catch(function () {
-                if (floodHoverTooltipEl) floodHoverTooltipEl.style.display = "none";
-            });
-        }, 350);
-    }
-
-    function renderFloodCountTooltip(counts, now, posEvent) {
-        var el = floodHoverTooltipEl;
-        if (!el) return;
-        var monthNames = ['Январь','Февраль','Март','Апрель','Май','Июнь',
-                          'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
-        var total = (counts.count700 || 0) + (counts.count200 || 0);
-        var rows = '<b>' + total + '</b> затоплений за ' + monthNames[now.getMonth()];
-        if (counts.count700) rows += '<br>700мм: ' + counts.count700;
-        if (counts.count200) rows += '<br>200мм: ' + counts.count200;
-        el.innerHTML = rows;
-        el.style.display = "block";
-        if (posEvent) {
-            el.style.left = (posEvent.clientX + 14) + "px";
-            el.style.top = (posEvent.clientY - 40) + "px";
-        }
     }
 
     function requestData() {
