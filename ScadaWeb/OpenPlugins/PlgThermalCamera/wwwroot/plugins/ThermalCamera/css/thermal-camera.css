@@ -1159,18 +1159,19 @@ td.tc-col-flooding:hover {
     padding: 3px 9px;
     font-size: 0.75rem;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.9);
-    background: rgba(255, 255, 255, 0.18);
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.55);
+    background: transparent;
+    border: 1px solid transparent;
     border-radius: 12px;
     cursor: pointer;
     white-space: nowrap;
-    transition: background 0.15s;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
 }
 
 .tc-journal-hist-btn:hover {
-    background: rgba(255, 255, 255, 0.32);
-    color: #fff;
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.35);
 }
 
 .tc-journal-hist-btn.tc-hist-active {
