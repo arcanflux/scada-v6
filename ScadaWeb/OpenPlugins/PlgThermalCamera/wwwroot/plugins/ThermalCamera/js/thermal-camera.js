@@ -771,19 +771,9 @@ var thermalCamera = (function () {
         panel.id = "tcJournal";
         panel.className = "tc-journal-panel";
         panel.innerHTML =
-            '<div class="tc-journal-tabs">' +
-                '<button id="jtabEvents" class="tc-journal-tab tc-journal-tab-active" data-view="events">' +
-                    '<i class="fa-solid fa-bell"></i> Активные события' +
-                '</button>' +
-                '<button id="jtabAck" class="tc-journal-tab" data-view="ack">' +
-                    '<i class="fa-solid fa-clipboard-check"></i> Квитирование' +
-                '</button>' +
-                '<button id="jtabHistory" class="tc-journal-tab" data-view="history">' +
-                    '<i class="fa-solid fa-clock-rotate-left"></i> История' +
-                '</button>' +
-            '</div>' +
-            '<div id="tcJournalEventsWrap" class="tc-journal-view">' +
-                '<div class="tc-journal-filter tc-journal-filter-inline">' +
+            '<div class="tc-journal-sec-hdr tc-journal-sec-active" id="jsecEvents">' +
+                '<span class="tc-journal-sec-title"><i class="fa-solid fa-bell"></i> Активные события</span>' +
+                '<div class="tc-journal-filter">' +
                     '<button id="jflt200" class="tc-journal-flt-btn tc-journal-flt-btn-active" data-kind="200">' +
                         '<i class="fa-solid fa-water"></i> 200мм' +
                     '</button>' +
@@ -791,7 +781,15 @@ var thermalCamera = (function () {
                         '<i class="fa-solid fa-water"></i> 700мм' +
                     '</button>' +
                 '</div>' +
+            '</div>' +
+            '<div id="tcJournalEventsWrap" class="tc-journal-view">' +
                 '<div id="tcJournalEvents" class="tc-journal-events"></div>' +
+            '</div>' +
+            '<div class="tc-journal-sec-hdr" id="jsecAck">' +
+                '<span class="tc-journal-sec-title"><i class="fa-solid fa-clipboard-check"></i> Квитирование</span>' +
+                '<button id="jbtnHistory" class="tc-journal-hist-btn">' +
+                    '<i class="fa-solid fa-clock-rotate-left"></i> История' +
+                '</button>' +
             '</div>' +
             '<div id="tcJournalAckWrap" class="tc-journal-view" style="display:none;">' +
                 '<div id="tcJournalAck" class="tc-journal-ack-list"></div>' +
@@ -802,23 +800,30 @@ var thermalCamera = (function () {
 
         document.body.appendChild(panel);
 
-        document.getElementById("jflt200").addEventListener("click", function () {
+        document.getElementById("jflt200").addEventListener("click", function (e) {
+            e.stopPropagation();
             this.classList.toggle("tc-journal-flt-btn-active");
             journalFilter.show200 = this.classList.contains("tc-journal-flt-btn-active");
             renderJournalEvents();
         });
-        document.getElementById("jflt700").addEventListener("click", function () {
+        document.getElementById("jflt700").addEventListener("click", function (e) {
+            e.stopPropagation();
             this.classList.toggle("tc-journal-flt-btn-active");
             journalFilter.show700 = this.classList.contains("tc-journal-flt-btn-active");
             renderJournalEvents();
         });
 
-        var tabBtns = panel.querySelectorAll(".tc-journal-tab");
-        for (var t = 0; t < tabBtns.length; t++) {
-            tabBtns[t].addEventListener("click", function () {
-                switchJournalView(this.getAttribute("data-view"));
-            });
-        }
+        document.getElementById("jsecEvents").addEventListener("click", function () {
+            switchJournalView("events");
+        });
+        document.getElementById("jsecAck").addEventListener("click", function () {
+            switchJournalView("ack");
+        });
+        document.getElementById("jbtnHistory").addEventListener("click", function (e) {
+            e.stopPropagation();
+            switchJournalView("history");
+        });
+
         switchJournalView("events");
 
         positionJournal();
@@ -834,11 +839,10 @@ var thermalCamera = (function () {
         for (var key in wraps) {
             if (wraps[key]) wraps[key].style.display = (key === view) ? "" : "none";
         }
-        var tabs = document.querySelectorAll(".tc-journal-tab");
-        for (var i = 0; i < tabs.length; i++) {
-            tabs[i].classList.toggle("tc-journal-tab-active",
-                tabs[i].getAttribute("data-view") === view);
-        }
+        var secEvents = document.getElementById("jsecEvents");
+        var secAck = document.getElementById("jsecAck");
+        if (secEvents) secEvents.classList.toggle("tc-journal-sec-active", view === "events");
+        if (secAck) secAck.classList.toggle("tc-journal-sec-active", view === "ack" || view === "history");
         if (view === "history") loadAckHistory();
     }
 

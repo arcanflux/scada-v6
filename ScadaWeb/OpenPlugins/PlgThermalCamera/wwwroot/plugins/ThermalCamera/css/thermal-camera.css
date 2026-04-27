@@ -262,13 +262,13 @@
 }
 
 /* Column widths — percentage-based so the table scales with any screen width */
-.tc-col-status   { width: 6%;   min-width: 80px; }
-.tc-col-district { width: 7%;   min-width: 90px; }
-.tc-col-name     { width: 14%;  min-width: 150px; }
-.tc-col-address  { width: 22%;  min-width: 180px; }
+.tc-col-status   { width: 5%;   min-width: 80px; }
+.tc-col-district { width: 5%;   min-width: 90px; }
+.tc-col-name     { width: 12%;  min-width: 150px; }
+.tc-col-address  { width: 14%;  min-width: 180px; }
 .tc-col-online   { width: 6%;   min-width: 80px; }
-.tc-col-flooding { width: 20%;  min-width: 220px; }
-.tc-col-battery  { width: 7%;   min-width: 90px; }
+.tc-col-flooding { width: 18%;  min-width: 220px; }
+.tc-col-battery  { width: 6%;   min-width: 90px; }
 .tc-col-journal  { width: auto; min-width: 200px; }
 
 /* District badge */
@@ -1099,39 +1099,58 @@ td.tc-col-flooding:hover {
     box-shadow: -2px 0 12px rgba(15, 23, 42, 0.08);
 }
 
-.tc-journal-tabs {
+.tc-journal-sec-hdr {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #26436e;
+    color: rgba(255, 255, 255, 0.72);
+    cursor: pointer;
     flex-shrink: 0;
-    background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
+    user-select: none;
+    gap: 8px;
+    transition: background 0.15s, color 0.15s;
 }
 
-.tc-journal-tab {
-    flex: 1;
-    padding: 9px 6px;
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid transparent;
-    color: rgba(255, 255, 255, 0.78);
-    font-size: 0.78rem;
+.tc-journal-sec-hdr:hover {
+    background: #2c5282;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.tc-journal-sec-hdr.tc-journal-sec-active {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
+    color: #fff;
+}
+
+.tc-journal-sec-title {
+    font-size: 0.82rem;
     font-weight: 600;
-    cursor: pointer;
     white-space: nowrap;
     display: inline-flex;
     align-items: center;
-    justify-content: center;
     gap: 5px;
-    transition: color 0.15s, background 0.15s, border-color 0.15s;
 }
 
-.tc-journal-tab:hover {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.08);
+.tc-journal-hist-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
 }
 
-.tc-journal-tab.tc-journal-tab-active {
+.tc-journal-hist-btn:hover {
+    background: rgba(255, 255, 255, 0.32);
     color: #fff;
-    background: rgba(255, 255, 255, 0.16);
-    border-bottom-color: #fff;
 }
 
 .tc-journal-view {
@@ -1144,12 +1163,6 @@ td.tc-col-flooding:hover {
 .tc-journal-filter {
     display: flex;
     gap: 6px;
-}
-
-.tc-journal-filter-inline {
-    padding: 8px 12px;
-    background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
-    flex-shrink: 0;
 }
 
 .tc-journal-flt-btn {
