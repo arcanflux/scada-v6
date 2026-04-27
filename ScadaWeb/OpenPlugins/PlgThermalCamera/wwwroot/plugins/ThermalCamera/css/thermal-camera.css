@@ -30,21 +30,6 @@
     height: 36px;
 }
 
-.tc-title {
-    position: absolute;
-    right: 10px;
-    left: auto;
-    top: 50%;
-    transform: translateY(-50%);
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 600;
-    text-align: right;
-    pointer-events: none;
-    z-index: 0;
-    white-space: nowrap;
-}
-
 /* Header stat counter blocks (connection / flooding) */
 .tc-hdr-stat-block {
     position: absolute;
@@ -53,9 +38,14 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    pointer-events: none;
+    pointer-events: auto;
+    cursor: help;
     z-index: 1;
 }
+
+#tcHdrOnlineStats   { top: 25%; }
+#tcHdrFlood200Stats { top: 50%; }
+#tcHdrFlood700Stats { top: 75%; }
 
 .tc-hdr-stat-row {
     display: flex;
@@ -68,14 +58,9 @@
     line-height: 1;
 }
 
-.tc-hdr-stat-row[data-tc-hint] {
-    cursor: help;
-    pointer-events: auto;
-}
-
 .tc-hdr-dot {
-    width: 8px;
-    height: 8px;
+    width: 11px;
+    height: 11px;
     border-radius: 50%;
     flex-shrink: 0;
 }
@@ -1506,7 +1491,7 @@ td.tc-col-flooding:hover {
     font-size: 13px;
     pointer-events: none;
     z-index: 9999;
-    white-space: nowrap;
+    white-space: pre-line;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
     line-height: 1.6;
 }
