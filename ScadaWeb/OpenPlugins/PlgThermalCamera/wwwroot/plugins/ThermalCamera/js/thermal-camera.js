@@ -404,8 +404,11 @@ var thermalCamera = (function () {
 
         document.addEventListener("mousemove", function (e) {
             if (floodHoverTooltipEl && floodHoverTooltipEl.style.display !== "none") {
+                var tipH = floodHoverTooltipEl.offsetHeight || 44;
+                var below = e.clientY + 16;
+                var above = e.clientY - tipH - 8;
                 floodHoverTooltipEl.style.left = (e.clientX + 14) + "px";
-                floodHoverTooltipEl.style.top = (e.clientY - 40) + "px";
+                floodHoverTooltipEl.style.top = (below + tipH <= window.innerHeight ? below : above) + "px";
             }
         });
 
