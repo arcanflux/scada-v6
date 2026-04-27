@@ -14,6 +14,34 @@ var tcFloodHistory = (function () {
 
     function apiUrl(path) { return rootPath() + "Api/Main/" + path; }
 
+    // ---- Single-flight queue + per-key dedup ----
+    // Prevents a wave of parallel GetHistData requests when the user hovers
+    // over many TKs in quick succession (which previously saturated the
+    // SCADA server's network and CPU).
+    var inFlightPromises = {};   // key -> Promise (dedup identical requests)
+    var fetchQueue = [];          // queue of { run, resolve, reject }
+    var fetchInProgress = false;
+
+    function enqueueFetch(taskFn) {
+        return new Promise(function (resolve, reject) {
+            fetchQueue.push({ run: taskFn, resolve: resolve, reject: reject });
+            processQueue();
+        });
+    }
+
+    function processQueue() {
+        if (fetchInProgress || !fetchQueue.length) return;
+        fetchInProgress = true;
+        var task = fetchQueue.shift();
+        Promise.resolve()
+            .then(function () { return task.run(); })
+            .then(task.resolve, task.reject)
+            .finally(function () {
+                fetchInProgress = false;
+                processQueue();
+            });
+    }
+
     // GET /Api/Main/GetHistData — standard PlgMain endpoint
     async function fetchHistData(cnlNums, startTime, endTime) {
         if (!cnlNums || !cnlNums.length) return null;
@@ -63,33 +91,89 @@ var tcFloodHistory = (function () {
         return channels.length ? { name: item.name, itemId: item.id, channels: channels } : null;
     }
 
-    // Monthly count for current calendar month (used by cell hover tooltip)
-    async function fetchCurrentMonthCount(item) {
+    // Monthly count for current calendar month (used by cell hover tooltip).
+    // Goes through the global single-flight queue and dedups concurrent
+    // hovers on the same item to a single in-flight Promise.
+    function fetchCurrentMonthCount(item) {
         var def = buildFloodDef(item);
-        if (!def) return null;
+        if (!def) return Promise.resolve(null);
         var now = new Date();
-        var monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-        var histData = await fetchHistData(def.channels.map(function (c) { return c.cnlNum; }),
-                                           monthStart, now);
-        return countTransitions(histData, def.channels);
+        var key = "m_" + item.id + "_" + now.getFullYear() + "_" + now.getMonth();
+        if (inFlightPromises[key]) return inFlightPromises[key];
+
+        var promise = enqueueFetch(function () {
+            var monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+            return fetchHistData(def.channels.map(function (c) { return c.cnlNum; }),
+                                 monthStart, now)
+                .then(function (histData) { return countTransitions(histData, def.channels); });
+        });
+        promise = promise.finally(function () { delete inFlightPromises[key]; });
+        inFlightPromises[key] = promise;
+        return promise;
     }
 
-    // Counts per month for a whole year (up to current month if year = this year)
-    async function fetchYearlyCounts(item, year) {
+    // Counts per month for a whole year. Single GetHistData request for the
+    // entire year range, then bucketed client-side — replaces 12 sequential
+    // requests to ease pressure on the SCADA server.
+    function fetchYearlyCounts(item, year) {
         var def = buildFloodDef(item);
-        if (!def) return null;
+        if (!def) return Promise.resolve(null);
+        var key = "y_" + item.id + "_" + year;
+        if (inFlightPromises[key]) return inFlightPromises[key];
+
         var now = new Date();
         var lastMonthIdx = (year === now.getFullYear()) ? now.getMonth() : 11;
+        var yearStart = new Date(year, 0, 1, 0, 0, 0, 0);
+        var yearEnd = (year === now.getFullYear()) ? now :
+                      new Date(year, 11, 31, 23, 59, 59, 999);
         var cnls = def.channels.map(function (c) { return c.cnlNum; });
+
+        var promise = enqueueFetch(function () {
+            return fetchHistData(cnls, yearStart, yearEnd).then(function (histData) {
+                return bucketByMonth(histData, def.channels, year, lastMonthIdx);
+            });
+        });
+        promise = promise.finally(function () { delete inFlightPromises[key]; });
+        inFlightPromises[key] = promise;
+        return promise;
+    }
+
+    // Splits 1→0 (normal→flooded) transitions across the months of `year`.
+    // histData.timestamps[j].ms — ms-since-epoch (same shape as PlgMap chart).
+    function bucketByMonth(histData, floodChannels, year, lastMonthIdx) {
         var months = [];
         for (var m = 0; m <= lastMonthIdx; m++) {
-            var monthStart = new Date(year, m, 1, 0, 0, 0, 0);
-            var monthEnd = new Date(year, m + 1, 1, 0, 0, 0, 0);
-            monthEnd = new Date(monthEnd.getTime() - 1);
-            if (monthEnd > now) monthEnd = now;
-            var histData = await fetchHistData(cnls, monthStart, monthEnd);
-            var counts = countTransitions(histData, def.channels);
-            months.push({ month: m, count200: counts.count200, count700: counts.count700 });
+            months.push({ month: m, count200: 0, count700: 0 });
+        }
+        if (!histData || !histData.cnlNums || !histData.trends || !histData.timestamps) {
+            return months;
+        }
+        var cnlIdx = {};
+        histData.cnlNums.forEach(function (n, i) { cnlIdx[n] = i; });
+        var ts = histData.timestamps;
+        for (var c = 0; c < floodChannels.length; c++) {
+            var ch = floodChannels[c];
+            var idx = cnlIdx[ch.cnlNum];
+            if (idx === undefined) continue;
+            var trend = histData.trends[idx];
+            var prevVal = null;
+            for (var j = 0; j < trend.length; j++) {
+                var rec = trend[j];
+                if (!rec || !rec.d || rec.d.stat <= 0) { prevVal = null; continue; }
+                if (prevVal !== null && prevVal >= 1 && rec.d.val === 0) {
+                    var msRec = ts[j];
+                    var msVal = msRec && typeof msRec.ms === 'number' ? msRec.ms :
+                                (typeof msRec === 'number' ? msRec : null);
+                    if (msVal !== null) {
+                        var t = new Date(msVal);
+                        if (t.getFullYear() === year) {
+                            var bucket = months[t.getMonth()];
+                            if (bucket) bucket['count' + ch.kind]++;
+                        }
+                    }
+                }
+                prevVal = rec.d.val;
+            }
         }
         return months;
     }

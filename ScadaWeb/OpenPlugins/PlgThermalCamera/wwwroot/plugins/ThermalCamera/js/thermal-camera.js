@@ -59,6 +59,8 @@ var thermalCamera = (function () {
     // Flood cell hover tooltip: cached monthly counts to avoid redundant API calls
     var floodMonthCountCache = {};  // "itemId_year_month" -> { count200, count700 }
     var floodHoverTooltipEl = null;
+    var floodHoverDebounceTimer = null;
+    var floodHoverPendingItemId = null;
 
     function init() {
         var itemsEl = document.getElementById("tcItems");
@@ -405,6 +407,11 @@ var thermalCamera = (function () {
             var td = e.target.closest("td.tc-col-flooding");
             if (td && !td.contains(e.relatedTarget)) {
                 floodHoverTooltipEl.style.display = "none";
+                if (floodHoverDebounceTimer) {
+                    clearTimeout(floodHoverDebounceTimer);
+                    floodHoverDebounceTimer = null;
+                    floodHoverPendingItemId = null;
+                }
             }
         });
     }
@@ -412,23 +419,45 @@ var thermalCamera = (function () {
     function showFloodCountTooltip(e, item) {
         var now = new Date();
         var cacheKey = item.id + "_" + now.getFullYear() + "_" + now.getMonth();
+
+        // Cache hit — instant display, no network
         if (floodMonthCountCache[cacheKey]) {
             renderFloodCountTooltip(floodMonthCountCache[cacheKey], now, e);
             return;
         }
+
+        // Same item already pending — let existing debounce timer finish
+        if (floodHoverPendingItemId === item.id && floodHoverDebounceTimer) {
+            return;
+        }
+
+        // Different item or first hover — cancel any prior pending fetch
+        if (floodHoverDebounceTimer) {
+            clearTimeout(floodHoverDebounceTimer);
+            floodHoverDebounceTimer = null;
+        }
+        floodHoverPendingItemId = item.id;
+
         if (!floodHoverTooltipEl) return;
         floodHoverTooltipEl.innerHTML = "Загрузка...";
         floodHoverTooltipEl.style.display = "block";
         floodHoverTooltipEl.style.left = (e.clientX + 14) + "px";
         floodHoverTooltipEl.style.top = (e.clientY - 40) + "px";
-        if (typeof tcFloodHistory === "undefined" || !tcFloodHistory) return;
-        tcFloodHistory.fetchCurrentMonthCount(item).then(function (counts) {
-            var c = counts || { count200: 0, count700: 0 };
-            floodMonthCountCache[cacheKey] = c;
-            renderFloodCountTooltip(c, now, null);
-        }).catch(function () {
-            if (floodHoverTooltipEl) floodHoverTooltipEl.style.display = "none";
-        });
+
+        // Wait for cursor to settle (350ms) before triggering the fetch.
+        // Avoids saturating the SCADA server when the user sweeps over rows.
+        floodHoverDebounceTimer = setTimeout(function () {
+            floodHoverDebounceTimer = null;
+            floodHoverPendingItemId = null;
+            if (typeof tcFloodHistory === "undefined" || !tcFloodHistory) return;
+            tcFloodHistory.fetchCurrentMonthCount(item).then(function (counts) {
+                var c = counts || { count200: 0, count700: 0 };
+                floodMonthCountCache[cacheKey] = c;
+                renderFloodCountTooltip(c, now, null);
+            }).catch(function () {
+                if (floodHoverTooltipEl) floodHoverTooltipEl.style.display = "none";
+            });
+        }, 350);
     }
 
     function renderFloodCountTooltip(counts, now, posEvent) {
