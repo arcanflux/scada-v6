@@ -84,6 +84,7 @@ var thermalCamera = (function () {
         initJournal();
         loadAckHistory();
         initFloodHoverTooltip();
+        initPhotoModal();
         requestData();
         startAutoUpdate();
         bindChatKeyboard();
@@ -1203,9 +1204,8 @@ var thermalCamera = (function () {
                     '<i class="fa-solid fa-comments"></i> ' + titleParts +
                 '</div>' +
                 '<div class="tc-chat-header-actions">' +
-                    '<button type="button" class="tc-chat-close" title="Закрыть">' +
+                    '<button type="button" class="tc-menu-close tc-chat-close" title="Закрыть">' +
                         '<i class="fa-solid fa-xmark"></i>' +
-                        '<span>Закрыть</span>' +
                     '</button>' +
                 '</div>' +
             '</div>' +
@@ -1603,17 +1603,32 @@ var thermalCamera = (function () {
         });
     }
 
+    function initPhotoModal() {
+        var overlay = document.getElementById("tcPhotoModal");
+        if (!overlay) return;
+        overlay.addEventListener("click", function (e) {
+            if (e.target === overlay) closePhotoModal();
+        });
+        var closeBtn = overlay.querySelector(".tc-menu-close");
+        if (closeBtn) closeBtn.addEventListener("click", closePhotoModal);
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape" && overlay.classList.contains("show")) closePhotoModal();
+        });
+    }
+
     function showPhoto(photoPath, name) {
-        var img = document.getElementById("imgPhoto");
+        var overlay  = document.getElementById("tcPhotoModal");
+        var img      = document.getElementById("imgPhoto");
         var errorDiv = document.getElementById("divPhotoError");
-        var label = document.getElementById("photoModalLabel");
+        var titleEl  = document.getElementById("tcPhotoTitle");
+        if (!overlay) return;
 
-        // Build URL through plugin API endpoint
         var url = "/Api/ThermalCamera/GetPhoto?path=" + encodeURIComponent(photoPath);
-
-        if (label) label.textContent = "Фото: " + name;
+        if (titleEl) titleEl.textContent = "Фото: " + (name || "объекта");
+        if (errorDiv) errorDiv.classList.add("d-none");
         if (img) {
             img.classList.remove("d-none");
+            img.src = "";
             img.src = url;
             img.onerror = function () {
                 img.classList.add("d-none");
@@ -1623,10 +1638,12 @@ var thermalCamera = (function () {
                 if (errorDiv) errorDiv.classList.add("d-none");
             };
         }
-        if (errorDiv) errorDiv.classList.add("d-none");
+        overlay.classList.add("show");
+    }
 
-        var modal = new bootstrap.Modal(document.getElementById("photoModal"));
-        modal.show();
+    function closePhotoModal() {
+        var overlay = document.getElementById("tcPhotoModal");
+        if (overlay) overlay.classList.remove("show");
     }
 
     function escapeHtml(text) {

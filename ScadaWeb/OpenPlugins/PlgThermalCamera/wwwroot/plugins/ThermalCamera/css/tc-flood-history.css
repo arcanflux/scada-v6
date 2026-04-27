@@ -3,15 +3,19 @@
 .tc-flood-history-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.55);
-    display: none;
+    background: rgba(10, 22, 47, 0.72);
+    display: flex;
     align-items: center;
     justify-content: center;
     z-index: 10000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
 }
 
 .tc-flood-history-overlay.show {
-    display: flex;
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .tc-fh-panel {
@@ -46,20 +50,7 @@
     flex: 1;
 }
 
-.tc-fh-close {
-    background: transparent;
-    border: none;
-    color: #fff;
-    font-size: 22px;
-    line-height: 1;
-    cursor: pointer;
-    padding: 0 4px;
-    opacity: 0.8;
-}
-
-.tc-fh-close:hover {
-    opacity: 1;
-}
+/* close button is .tc-menu-close (defined in thermal-camera.css) */
 
 .tc-fh-toolbar {
     padding: 10px 16px;

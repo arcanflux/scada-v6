@@ -419,6 +419,76 @@ td.tc-col-flooding:hover {
     box-shadow: inset 0 0 0 2px #3182ce;
 }
 
+/* ---- Unified close button for all popup menus ---- */
+.tc-menu-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 50%;
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+    padding: 0;
+}
+.tc-menu-close:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.7);
+}
+
+/* ---- Photo modal overlay ---- */
+.tc-photo-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 22, 47, 0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+.tc-photo-overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+.tc-photo-panel {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    max-width: 90vw;
+    max-height: 92vh;
+    min-width: 420px;
+}
+.tc-photo-body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: #1a202c;
+    flex: 1;
+}
+.tc-photo-img-full {
+    max-width: 100%;
+    max-height: 78vh;
+    border-radius: 4px;
+    display: block;
+}
+.tc-photo-error {
+    color: #fc8181;
+    font-size: 14px;
+    text-align: center;
+}
+
 /* Flooding signals container */
 .tc-flooding-container {
     display: flex;
@@ -782,28 +852,7 @@ td.tc-col-flooding:hover {
     flex: 0 0 auto;
 }
 
-.tc-chat-close {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    height: 32px;
-    padding: 0 12px;
-    color: #fff;
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    border-radius: 16px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.2s, border-color 0.2s;
-    white-space: nowrap;
-}
-
-.tc-chat-close:hover,
 .tc-chat-close:focus {
-    background: rgba(255, 255, 255, 0.22);
-    border-color: rgba(255, 255, 255, 0.7);
     outline: none;
 }
 

@@ -288,7 +288,7 @@ var tcFloodHistory = (function () {
             if (e.target === modal) closeHistoryModal();
         });
 
-        var closeBtn = modal.querySelector(".tc-fh-close");
+        var closeBtn = modal.querySelector(".tc-menu-close");
         if (closeBtn) closeBtn.addEventListener("click", closeHistoryModal);
 
         var yearSel = document.getElementById("tcFloodHistoryYear");

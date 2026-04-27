@@ -141,17 +141,17 @@ else
     </div>
 
     <!-- Photo Modal -->
-    <div class="modal fade" id="photoModal" tabindex="-1" aria-labelledby="photoModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="photoModalLabel">Фото объекта</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body text-center">
-                    <img id="imgPhoto" src="" alt="Фото объекта" class="img-fluid tc-photo-img" />
-                    <div id="divPhotoError" class="text-danger mt-2 d-none">Фото не найдено</div>
-                </div>
+    <div id="tcPhotoModal" class="tc-photo-overlay">
+        <div class="tc-photo-panel">
+            <div class="tc-fh-header">
+                <span id="tcPhotoTitle" class="tc-fh-header-title">Фото объекта</span>
+                <button type="button" class="tc-menu-close" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="tc-photo-body">
+                <img id="imgPhoto" src="" alt="Фото объекта" class="tc-photo-img-full" />
+                <div id="divPhotoError" class="tc-photo-error d-none">Фото не найдено</div>
             </div>
         </div>
     </div>
@@ -161,7 +161,9 @@ else
         <div class="tc-fh-panel">
             <div class="tc-fh-header">
                 <span id="tcFloodHistoryTitle" class="tc-fh-header-title">История затоплений</span>
-                <button type="button" class="tc-fh-close" aria-label="Close">&times;</button>
+                <button type="button" class="tc-menu-close" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
             <div class="tc-fh-toolbar">
                 <label for="tcFloodHistoryYear">Год:</label>
