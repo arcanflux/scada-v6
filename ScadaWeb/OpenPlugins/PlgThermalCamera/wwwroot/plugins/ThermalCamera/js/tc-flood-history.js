@@ -62,29 +62,6 @@ var tcFloodHistory = (function () {
         return null;
     }
 
-    // Count normal→flooded transitions (prev val >= 1, cur val === 0) per channel.
-    function countTransitions(histData, floodChannels) {
-        var result = { count200: 0, count700: 0 };
-        if (!histData || !histData.cnlNums || !histData.trends) return result;
-        var cnlIdx = {};
-        histData.cnlNums.forEach(function (n, i) { cnlIdx[n] = i; });
-        for (var i = 0; i < floodChannels.length; i++) {
-            var ch = floodChannels[i];
-            var idx = cnlIdx[ch.cnlNum];
-            if (idx === undefined) continue;
-            var trend = histData.trends[idx];
-            var prevVal = null, count = 0;
-            for (var j = 0; j < trend.length; j++) {
-                var rec = trend[j];
-                if (!rec || !rec.d || rec.d.stat <= 0) { prevVal = null; continue; }
-                if (prevVal !== null && prevVal >= 1 && rec.d.val === 0) count++;
-                prevVal = rec.d.val;
-            }
-            result['count' + ch.kind] = count;
-        }
-        return result;
-    }
-
     function buildFloodDef(item) {
         var channels = [];
         if (item.flood200CnlNum > 0) channels.push({ cnlNum: item.flood200CnlNum, kind: '200' });
@@ -92,30 +69,8 @@ var tcFloodHistory = (function () {
         return channels.length ? { name: item.name, itemId: item.id, channels: channels } : null;
     }
 
-    // Monthly count for current calendar month (used by cell hover tooltip).
-    // Goes through the global single-flight queue and dedups concurrent
-    // hovers on the same item to a single in-flight Promise.
-    function fetchCurrentMonthCount(item) {
-        var def = buildFloodDef(item);
-        if (!def) return Promise.resolve(null);
-        var now = new Date();
-        var key = "m_" + item.id + "_" + now.getFullYear() + "_" + now.getMonth();
-        if (inFlightPromises[key]) return inFlightPromises[key];
-
-        var promise = enqueueFetch(function () {
-            var monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-            return fetchHistData(def.channels.map(function (c) { return c.cnlNum; }),
-                                 monthStart, now)
-                .then(function (histData) { return countTransitions(histData, def.channels); });
-        });
-        promise = promise.finally(function () { delete inFlightPromises[key]; });
-        inFlightPromises[key] = promise;
-        return promise;
-    }
-
-    // Counts per month for a whole year. Single GetHistData request for the
-    // entire year range, then bucketed client-side — replaces 12 sequential
-    // requests to ease pressure on the SCADA server.
+    // Total flood duration per month for a whole year. Single GetHistData
+    // request for the entire year range, then integrated client-side.
     function fetchYearlyCounts(item, year) {
         var def = buildFloodDef(item);
         if (!def) return Promise.resolve(null);
@@ -139,12 +94,15 @@ var tcFloodHistory = (function () {
         return promise;
     }
 
-    // Splits 1→0 (normal→flooded) transitions across the months of `year`.
-    // histData.timestamps[j].ms — ms-since-epoch (same shape as PlgMap chart).
+    // Integrate total flood duration per month. For each record in the trend
+    // that is in flooded state (val === 0, stat > 0), the device is treated as
+    // flooded from ts[j].ms until the next record's timestamp (or the end of
+    // the requested period for the trailing record). The span is split across
+    // month boundaries so each calendar month gets only its overlap.
     function bucketByMonth(histData, floodChannels, year, lastMonthIdx) {
         var months = [];
         for (var m = 0; m <= lastMonthIdx; m++) {
-            months.push({ month: m, count200: 0, count700: 0 });
+            months.push({ month: m, time200: 0, time700: 0 });
         }
         if (!histData || !histData.cnlNums || !histData.trends || !histData.timestamps) {
             return months;
@@ -152,31 +110,60 @@ var tcFloodHistory = (function () {
         var cnlIdx = {};
         histData.cnlNums.forEach(function (n, i) { cnlIdx[n] = i; });
         var ts = histData.timestamps;
+        var nowMs = Date.now();
+        var periodEnd = (year === new Date().getFullYear())
+            ? nowMs
+            : new Date(year + 1, 0, 1).getTime();
+
         for (var c = 0; c < floodChannels.length; c++) {
             var ch = floodChannels[c];
             var idx = cnlIdx[ch.cnlNum];
             if (idx === undefined) continue;
             var trend = histData.trends[idx];
-            var prevVal = null;
             for (var j = 0; j < trend.length; j++) {
                 var rec = trend[j];
-                if (!rec || !rec.d || rec.d.stat <= 0) { prevVal = null; continue; }
-                if (prevVal !== null && prevVal >= 1 && rec.d.val === 0) {
-                    var msRec = ts[j];
-                    var msVal = msRec && typeof msRec.ms === 'number' ? msRec.ms :
-                                (typeof msRec === 'number' ? msRec : null);
-                    if (msVal !== null) {
-                        var t = new Date(msVal);
-                        if (t.getFullYear() === year) {
-                            var bucket = months[t.getMonth()];
-                            if (bucket) bucket['count' + ch.kind]++;
-                        }
-                    }
-                }
-                prevVal = rec.d.val;
+                if (!rec || !rec.d || rec.d.stat <= 0) continue;
+                if (rec.d.val !== 0) continue;
+                var startMs = tsMs(ts[j]);
+                if (startMs === null) continue;
+                var endMs = (j + 1 < trend.length) ? tsMs(ts[j + 1]) : null;
+                if (endMs === null) endMs = periodEnd;
+                addOverlapToMonths(months, startMs, endMs, year, ch.kind);
             }
         }
         return months;
+    }
+
+    function tsMs(rec) {
+        if (rec && typeof rec.ms === 'number') return rec.ms;
+        if (typeof rec === 'number') return rec;
+        return null;
+    }
+
+    function addOverlapToMonths(months, startMs, endMs, year, kind) {
+        if (endMs <= startMs) return;
+        for (var m = 0; m < months.length; m++) {
+            var ms0 = new Date(year, m, 1).getTime();
+            var ms1 = new Date(year, m + 1, 1).getTime();
+            var s = Math.max(startMs, ms0);
+            var e = Math.min(endMs, ms1);
+            if (e > s) months[m]['time' + kind] += (e - s);
+        }
+    }
+
+    // Same Nд HH:MM:SS / HH:MM:SS shape as the live timer in thermal-camera.js
+    function formatDuration(ms) {
+        if (!ms || ms < 0) return "—";
+        var sec = Math.floor(ms / 1000);
+        var h = Math.floor(sec / 3600);
+        var m = Math.floor((sec % 3600) / 60);
+        var s = sec % 60;
+        var pad = function (n) { return n < 10 ? "0" + n : "" + n; };
+        if (h >= 24) {
+            var days = Math.floor(h / 24);
+            return days + "д " + pad(h % 24) + ":" + pad(m) + ":" + pad(s);
+        }
+        return pad(h) + ":" + pad(m) + ":" + pad(s);
     }
 
     // ---- Modal UI ----
@@ -245,14 +232,14 @@ var tcFloodHistory = (function () {
         var rows = '';
         for (var i = 0; i < months.length; i++) {
             var m = months[i];
-            total200 += m.count200;
-            total700 += m.count700;
-            var total = m.count200 + m.count700;
+            total200 += m.time200;
+            total700 += m.time700;
+            var total = m.time200 + m.time700;
             rows += '<tr' + (total > 0 ? ' class="tc-fh-has-events"' : '') + '>' +
                 '<td class="tc-fh-month">' + MONTH_NAMES[m.month] + '</td>' +
-                '<td class="tc-fh-c200">' + m.count200 + '</td>' +
-                '<td class="tc-fh-c700">' + m.count700 + '</td>' +
-                '<td class="tc-fh-total">' + total + '</td>' +
+                '<td class="tc-fh-c200">' + formatDuration(m.time200) + '</td>' +
+                '<td class="tc-fh-c700">' + formatDuration(m.time700) + '</td>' +
+                '<td class="tc-fh-total">' + formatDuration(total) + '</td>' +
                 '</tr>';
         }
         var grandTotal = total200 + total700;
@@ -270,9 +257,9 @@ var tcFloodHistory = (function () {
                 '<tfoot>' +
                     '<tr class="tc-fh-total-row">' +
                         '<td>Итого</td>' +
-                        '<td>' + total200 + '</td>' +
-                        '<td>' + total700 + '</td>' +
-                        '<td>' + grandTotal + '</td>' +
+                        '<td>' + formatDuration(total200) + '</td>' +
+                        '<td>' + formatDuration(total700) + '</td>' +
+                        '<td>' + formatDuration(grandTotal) + '</td>' +
                     '</tr>' +
                 '</tfoot>' +
             '</table>';
@@ -308,7 +295,6 @@ var tcFloodHistory = (function () {
     document.addEventListener("DOMContentLoaded", init);
 
     return {
-        fetchCurrentMonthCount: fetchCurrentMonthCount,
         openHistoryModal: openHistoryModal,
         closeHistoryModal: closeHistoryModal
     };

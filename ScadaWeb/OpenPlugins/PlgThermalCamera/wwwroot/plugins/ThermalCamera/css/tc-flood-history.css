@@ -130,14 +130,20 @@
 
 .tc-fh-table .tc-fh-c200 {
     color: #b7791f;
+    min-width: 110px;
+    white-space: nowrap;
 }
 
 .tc-fh-table .tc-fh-c700 {
     color: #c53030;
+    min-width: 110px;
+    white-space: nowrap;
 }
 
 .tc-fh-table .tc-fh-total {
     font-weight: 600;
+    min-width: 110px;
+    white-space: nowrap;
 }
 
 .tc-fh-has-events {

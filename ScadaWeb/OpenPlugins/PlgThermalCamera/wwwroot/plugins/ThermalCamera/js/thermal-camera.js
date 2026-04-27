@@ -49,7 +49,7 @@ var thermalCamera = (function () {
         "Обследованное ТК сухое"
     ];
     var journalFilter = { show200: true, show700: true };
-    var journalBottomView = "pending"; // "pending" | "history"
+    var journalView = "events"; // "events" | "ack" | "history"
     var onlineByItem = {};             // itemId -> true|false
     var flood200ByItem = {};           // itemId -> true|false
     var flood700ByItem = {};           // itemId -> true|false
@@ -164,6 +164,8 @@ var thermalCamera = (function () {
         }
         updateChatDistrictNotice();
         updateHeaderCounters();
+        renderJournalEvents();
+        renderJournalAck();
     }
 
     function updateHeaderCounters() {
@@ -769,31 +771,32 @@ var thermalCamera = (function () {
         panel.id = "tcJournal";
         panel.className = "tc-journal-panel";
         panel.innerHTML =
-            '<div class="tc-journal-top">' +
-                '<div class="tc-journal-section-header">' +
-                    '<span class="tc-journal-section-title">Активные события</span>' +
-                    '<div class="tc-journal-filter">' +
-                        '<button id="jflt200" class="tc-journal-flt-btn tc-journal-flt-btn-active" data-kind="200">' +
-                            '<i class="fa-solid fa-water"></i> 200мм' +
-                        '</button>' +
-                        '<button id="jflt700" class="tc-journal-flt-btn tc-journal-flt-btn-active" data-kind="700">' +
-                            '<i class="fa-solid fa-water"></i> 700мм' +
-                        '</button>' +
-                    '</div>' +
+            '<div class="tc-journal-tabs">' +
+                '<button id="jtabEvents" class="tc-journal-tab tc-journal-tab-active" data-view="events">' +
+                    '<i class="fa-solid fa-bell"></i> Активные события' +
+                '</button>' +
+                '<button id="jtabAck" class="tc-journal-tab" data-view="ack">' +
+                    '<i class="fa-solid fa-clipboard-check"></i> Квитирование' +
+                '</button>' +
+                '<button id="jtabHistory" class="tc-journal-tab" data-view="history">' +
+                    '<i class="fa-solid fa-clock-rotate-left"></i> История' +
+                '</button>' +
+            '</div>' +
+            '<div id="tcJournalEventsWrap" class="tc-journal-view">' +
+                '<div class="tc-journal-filter tc-journal-filter-inline">' +
+                    '<button id="jflt200" class="tc-journal-flt-btn tc-journal-flt-btn-active" data-kind="200">' +
+                        '<i class="fa-solid fa-water"></i> 200мм' +
+                    '</button>' +
+                    '<button id="jflt700" class="tc-journal-flt-btn tc-journal-flt-btn-active" data-kind="700">' +
+                        '<i class="fa-solid fa-water"></i> 700мм' +
+                    '</button>' +
                 '</div>' +
                 '<div id="tcJournalEvents" class="tc-journal-events"></div>' +
             '</div>' +
-            '<div class="tc-journal-divider"></div>' +
-            '<div class="tc-journal-bottom">' +
-                '<div class="tc-journal-section-header">' +
-                    '<span class="tc-journal-section-title">Квитирование</span>' +
-                    '<div class="tc-journal-filter">' +
-                        '<button id="jbtnHistory" class="tc-journal-flt-btn">' +
-                            '<i class="fa-solid fa-clock-rotate-left"></i> История' +
-                        '</button>' +
-                    '</div>' +
-                '</div>' +
+            '<div id="tcJournalAckWrap" class="tc-journal-view" style="display:none;">' +
                 '<div id="tcJournalAck" class="tc-journal-ack-list"></div>' +
+            '</div>' +
+            '<div id="tcJournalHistoryWrap" class="tc-journal-view" style="display:none;">' +
                 '<div id="tcJournalAckHistory" class="tc-journal-ack-history"></div>' +
             '</div>';
 
@@ -810,23 +813,33 @@ var thermalCamera = (function () {
             renderJournalEvents();
         });
 
-        document.getElementById("jbtnHistory").addEventListener("click", function () {
-            switchJournalBottom(journalBottomView === "history" ? "pending" : "history");
-        });
-        switchJournalBottom("pending");
+        var tabBtns = panel.querySelectorAll(".tc-journal-tab");
+        for (var t = 0; t < tabBtns.length; t++) {
+            tabBtns[t].addEventListener("click", function () {
+                switchJournalView(this.getAttribute("data-view"));
+            });
+        }
+        switchJournalView("events");
 
         positionJournal();
     }
 
-    function switchJournalBottom(view) {
-        journalBottomView = view;
-        var ackBox  = document.getElementById("tcJournalAck");
-        var histBox = document.getElementById("tcJournalAckHistory");
-        var btn     = document.getElementById("jbtnHistory");
-        var showHistory = (view === "history");
-        if (ackBox)  ackBox.style.display  = showHistory ? "none" : "";
-        if (histBox) histBox.style.display = showHistory ? ""     : "none";
-        if (btn) btn.classList.toggle("tc-journal-flt-btn-active", showHistory);
+    function switchJournalView(view) {
+        journalView = view;
+        var wraps = {
+            events:  document.getElementById("tcJournalEventsWrap"),
+            ack:     document.getElementById("tcJournalAckWrap"),
+            history: document.getElementById("tcJournalHistoryWrap")
+        };
+        for (var key in wraps) {
+            if (wraps[key]) wraps[key].style.display = (key === view) ? "" : "none";
+        }
+        var tabs = document.querySelectorAll(".tc-journal-tab");
+        for (var i = 0; i < tabs.length; i++) {
+            tabs[i].classList.toggle("tc-journal-tab-active",
+                tabs[i].getAttribute("data-view") === view);
+        }
+        if (view === "history") loadAckHistory();
     }
 
     function positionJournal() {
@@ -887,25 +900,32 @@ var thermalCamera = (function () {
         if (!box) return;
         var now = Date.now();
         var html = "";
-        var hasItems = false;
 
+        var list = [];
         for (var idStr in activeFloodEvents) {
             if (!activeFloodEvents.hasOwnProperty(idStr)) continue;
             var ev = activeFloodEvents[idStr];
             if (ev.kind === "flood200" && !journalFilter.show200) continue;
             if (ev.kind === "flood700" && !journalFilter.show700) continue;
-            hasItems = true;
+            var item = findItemById(parseInt(idStr));
+            if (item && selectedDistricts[item.districtNumber || 0] !== true) continue;
+            list.push({ idStr: idStr, ev: ev });
+        }
+        list.sort(function (a, b) { return (a.ev.startMs || 0) - (b.ev.startMs || 0); });
 
-            var elapsed = ev.startMs > 0 ? formatDuration(now - ev.startMs) : "";
-            var timeStr = ev.startMs > 0 ? formatChatTime(ev.startMs) : "";
-            var kindLabel = ev.kind === "flood700" ? "700мм" : "200мм";
-            var cls = "tc-je " + (ev.kind === "flood700" ? "tc-je-700" : "tc-je-200");
+        for (var k = 0; k < list.length; k++) {
+            var idStr2 = list[k].idStr;
+            var ev2 = list[k].ev;
+            var elapsed = ev2.startMs > 0 ? formatDuration(now - ev2.startMs) : "";
+            var timeStr = ev2.startMs > 0 ? formatChatTime(ev2.startMs) : "";
+            var kindLabel = ev2.kind === "flood700" ? "700мм" : "200мм";
+            var cls = "tc-je " + (ev2.kind === "flood700" ? "tc-je-700" : "tc-je-200");
 
             var ackHtml = "";
-            if (ev.kind === "flood700") {
-                var ack = ackedByItem[parseInt(idStr)];
+            if (ev2.kind === "flood700") {
+                var ack = ackedByItem[parseInt(idStr2)];
                 if (ack) {
-                    var responseMs = (ack.ackedAtMs > 0 && ev.startMs > 0) ? ack.ackedAtMs - ev.startMs : 0;
+                    var responseMs = (ack.ackedAtMs > 0 && ev2.startMs > 0) ? ack.ackedAtMs - ev2.startMs : 0;
                     var responseStr = responseMs > 0 ? "за " + formatDuration(responseMs) : "";
                     var byStr = ack.ackedBy ? " · " + escapeHtml(ack.ackedBy) : "";
                     var cmtStr = ack.comment ? ": " + escapeHtml(ack.comment) : "";
@@ -919,20 +939,27 @@ var thermalCamera = (function () {
             html += '<div class="' + cls + '">' +
                 '<div class="tc-je-top">' +
                     '<span class="tc-je-kind">' + kindLabel + '</span>' +
-                    '<span class="tc-je-name">' + escapeHtml(ev.name) + '</span>' +
+                    '<span class="tc-je-name">' + escapeHtml(ev2.name) + '</span>' +
                 '</div>' +
                 '<div class="tc-je-bottom">' +
                     '<span class="tc-je-since">с ' + timeStr + '</span>' +
-                    '<span class="tc-je-elapsed" id="jev-elapsed-' + idStr + '">' + elapsed + '</span>' +
+                    '<span class="tc-je-elapsed" id="jev-elapsed-' + idStr2 + '">' + elapsed + '</span>' +
                 '</div>' +
                 ackHtml +
             '</div>';
         }
 
-        if (!hasItems) {
+        if (!list.length) {
             html = '<div class="tc-journal-empty">Нет активных событий</div>';
         }
         box.innerHTML = html;
+    }
+
+    function findItemById(id) {
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].id === id) return items[i];
+        }
+        return null;
     }
 
     function updateJournalEventTimers() {
@@ -971,7 +998,6 @@ var thermalCamera = (function () {
 
         var now = Date.now();
         var html = "";
-        var count = 0;
 
         // Build reason pill buttons HTML (shared for all items)
         var reasonBtnsHtml = '<div class="tc-ack-reasons">';
@@ -981,10 +1007,20 @@ var thermalCamera = (function () {
         }
         reasonBtnsHtml += '</div>';
 
+        var ackList = [];
         for (var idStr in pendingAckItems) {
             if (!pendingAckItems.hasOwnProperty(idStr)) continue;
-            var pa = pendingAckItems[idStr];
-            count++;
+            var item = findItemById(parseInt(idStr));
+            if (item && selectedDistricts[item.districtNumber || 0] !== true) continue;
+            ackList.push({ idStr: idStr, pa: pendingAckItems[idStr] });
+        }
+        ackList.sort(function (a, b) {
+            return (a.pa.flood700StartMs || 0) - (b.pa.flood700StartMs || 0);
+        });
+
+        for (var ai = 0; ai < ackList.length; ai++) {
+            var idStr = ackList[ai].idStr;
+            var pa = ackList[ai].pa;
             var elapsed = pa.flood700StartMs > 0 ? formatDuration(now - pa.flood700StartMs) : "";
             var timeStr = pa.flood700StartMs > 0 ? formatChatTime(pa.flood700StartMs) : "";
 
@@ -1005,7 +1041,7 @@ var thermalCamera = (function () {
             '</div>';
         }
 
-        if (count === 0) {
+        if (!ackList.length) {
             html = '<div class="tc-journal-empty">Нет событий для квитирования</div>';
         }
         box.innerHTML = html;
