@@ -244,8 +244,7 @@ var thermalCamera = (function () {
 
             // 1. Commissioned status (В работе) — first column
             html += '<td class="tc-col-status text-center">' +
-                '<label class="tc-commissioned-toggle" title="' +
-                (ud.isCommissioned ? 'В работе' : 'Не в работе') + '">' +
+                '<label class="tc-commissioned-toggle">' +
                 '<input type="checkbox" class="tc-commissioned-cb" data-item-id="' + item.id + '"' +
                 (ud.isCommissioned ? ' checked' : '') + '>' +
                 '<span class="tc-commissioned-visual"></span>' +
@@ -258,7 +257,7 @@ var thermalCamera = (function () {
             // 3. Object name + chat button (icon only, right of name)
             html += '<td class="tc-col-name"><div class="tc-name-cell">' +
                 '<span class="tc-name-text">' + escapeHtml(item.name) + '</span>' +
-                '<button type="button" class="tc-chat-trigger tc-name-chat-btn" data-item-id="' + item.id + '" title="Открыть чат">' +
+                '<button type="button" class="tc-chat-trigger tc-name-chat-btn" data-item-id="' + item.id + '">' +
                 '<i class="fa-solid fa-comments"></i>' +
                 '</button>' +
                 '</div></td>';
@@ -269,7 +268,7 @@ var thermalCamera = (function () {
             if (item.photoUrl) {
                 html += ' <button class="tc-photo-btn" ' +
                     'onclick="thermalCamera.showPhoto(\'' + escapeAttr(item.photoUrl) + '\', \'' +
-                    escapeAttr(item.name) + '\')" title="Фото">' +
+                    escapeAttr(item.name) + '\')">' +
                     '<i class="fa-solid fa-camera"></i></button>';
             }
             html += '</td>';
@@ -372,20 +371,34 @@ var thermalCamera = (function () {
         syncChatTriggerHighlights();
     }
 
-    // ---- Flood cell hover tooltip (static hint — no network requests) ----
+    // ---- Hover hint tooltip — used by flood cells and header stat dots ----
+    // Trigger sources:
+    //   - td.tc-col-flooding  → static "click for flood stats" message
+    //   - any [data-tc-hint]  → text from the attribute
+    // No network requests, fully static.
+
+    var FLOOD_CELL_HINT = "Нажмите для просмотра статистики затоплений";
+
+    function resolveHintTarget(targetEl) {
+        if (!targetEl || !targetEl.closest) return null;
+        var floodCell = targetEl.closest("td.tc-col-flooding");
+        if (floodCell) return { el: floodCell, text: FLOOD_CELL_HINT };
+        var hinted = targetEl.closest("[data-tc-hint]");
+        if (hinted) return { el: hinted, text: hinted.getAttribute("data-tc-hint") };
+        return null;
+    }
 
     function initFloodHoverTooltip() {
         floodHoverTooltipEl = document.createElement("div");
         floodHoverTooltipEl.id = "tcFloodCountTooltip";
         floodHoverTooltipEl.className = "tc-flood-count-tooltip";
         floodHoverTooltipEl.style.display = "none";
-        floodHoverTooltipEl.innerHTML = "Нажмите для просмотра статистики затоплений";
         document.body.appendChild(floodHoverTooltipEl);
 
         document.addEventListener("mouseover", function (e) {
-            var td = e.target.closest("td.tc-col-flooding");
-            if (!td) return;
-            if (!floodHoverTooltipEl) return;
+            var t = resolveHintTarget(e.target);
+            if (!t || !floodHoverTooltipEl) return;
+            floodHoverTooltipEl.textContent = t.text;
             floodHoverTooltipEl.style.display = "block";
         });
 
@@ -398,8 +411,8 @@ var thermalCamera = (function () {
 
         document.addEventListener("mouseout", function (e) {
             if (!floodHoverTooltipEl) return;
-            var td = e.target.closest("td.tc-col-flooding");
-            if (td && !td.contains(e.relatedTarget)) {
+            var t = resolveHintTarget(e.target);
+            if (t && !t.el.contains(e.relatedTarget)) {
                 floodHoverTooltipEl.style.display = "none";
             }
         });
@@ -1198,13 +1211,13 @@ var thermalCamera = (function () {
             titleParts += '<span class="tc-chat-title-address">' + address + '</span>';
         }
         return '' +
-            '<div class="tc-chat-resize-grip" title="Изменить размер"></div>' +
+            '<div class="tc-chat-resize-grip"></div>' +
             '<div class="tc-chat-header">' +
                 '<div class="tc-chat-header-title">' +
                     '<i class="fa-solid fa-comments"></i> ' + titleParts +
                 '</div>' +
                 '<div class="tc-chat-header-actions">' +
-                    '<button type="button" class="tc-menu-close tc-chat-close" title="Закрыть">' +
+                    '<button type="button" class="tc-menu-close tc-chat-close" aria-label="Закрыть">' +
                         '<i class="fa-solid fa-xmark"></i>' +
                     '</button>' +
                 '</div>' +
@@ -1213,7 +1226,7 @@ var thermalCamera = (function () {
             '<div class="tc-chat-input-row">' +
                 '<textarea class="tc-chat-input" rows="2" ' +
                     'placeholder="Введите сообщение..." maxlength="2000"></textarea>' +
-                '<button type="button" class="tc-chat-send" title="Отправить">' +
+                '<button type="button" class="tc-chat-send">' +
                     '<span>Отправить</span>' +
                 '</button>' +
             '</div>';
@@ -1473,7 +1486,7 @@ var thermalCamera = (function () {
                 '</div>' +
                 (isSystem || !isAdmin ? "" :
                     '<button type="button" class="tc-chat-del" data-msg-id="' + m.id +
-                    '" title="Удалить"><i class="fa-solid fa-xmark"></i></button>') +
+                    '" aria-label="Удалить"><i class="fa-solid fa-xmark"></i></button>') +
                 '</div>';
         }
         box.innerHTML = html;
