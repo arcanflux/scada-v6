@@ -771,25 +771,27 @@ var thermalCamera = (function () {
         panel.id = "tcJournal";
         panel.className = "tc-journal-panel";
         panel.innerHTML =
-            '<div class="tc-journal-sec-hdr tc-journal-sec-active" id="jsecEvents">' +
-                '<span class="tc-journal-sec-title"><i class="fa-solid fa-bell"></i> Активные события</span>' +
-                '<div class="tc-journal-filter">' +
-                    '<button id="jflt200" class="tc-journal-flt-btn tc-journal-flt-btn-active" data-kind="200">' +
-                        '<i class="fa-solid fa-water"></i> 200мм' +
-                    '</button>' +
-                    '<button id="jflt700" class="tc-journal-flt-btn tc-journal-flt-btn-active" data-kind="700">' +
-                        '<i class="fa-solid fa-water"></i> 700мм' +
+            '<div class="tc-journal-switcher">' +
+                '<div class="tc-journal-sw-item tc-sw-active" id="jswEvents">' +
+                    '<span class="tc-journal-sw-label"><i class="fa-solid fa-bell"></i> Активные события</span>' +
+                    '<div class="tc-journal-filter">' +
+                        '<button id="jflt200" class="tc-journal-flt-btn tc-journal-flt-btn-active" data-kind="200">' +
+                            '<i class="fa-solid fa-water"></i> 200мм' +
+                        '</button>' +
+                        '<button id="jflt700" class="tc-journal-flt-btn tc-journal-flt-btn-active" data-kind="700">' +
+                            '<i class="fa-solid fa-water"></i> 700мм' +
+                        '</button>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="tc-journal-sw-item" id="jswAck">' +
+                    '<span class="tc-journal-sw-label"><i class="fa-solid fa-clipboard-check"></i> Квитирование</span>' +
+                    '<button id="jbtnHistory" class="tc-journal-hist-btn">' +
+                        '<i class="fa-solid fa-clock-rotate-left"></i> История' +
                     '</button>' +
                 '</div>' +
             '</div>' +
             '<div id="tcJournalEventsWrap" class="tc-journal-view">' +
                 '<div id="tcJournalEvents" class="tc-journal-events"></div>' +
-            '</div>' +
-            '<div class="tc-journal-sec-hdr" id="jsecAck">' +
-                '<span class="tc-journal-sec-title"><i class="fa-solid fa-clipboard-check"></i> Квитирование</span>' +
-                '<button id="jbtnHistory" class="tc-journal-hist-btn">' +
-                    '<i class="fa-solid fa-clock-rotate-left"></i> История' +
-                '</button>' +
             '</div>' +
             '<div id="tcJournalAckWrap" class="tc-journal-view" style="display:none;">' +
                 '<div id="tcJournalAck" class="tc-journal-ack-list"></div>' +
@@ -813,10 +815,10 @@ var thermalCamera = (function () {
             renderJournalEvents();
         });
 
-        document.getElementById("jsecEvents").addEventListener("click", function () {
+        document.getElementById("jswEvents").addEventListener("click", function () {
             switchJournalView("events");
         });
-        document.getElementById("jsecAck").addEventListener("click", function () {
+        document.getElementById("jswAck").addEventListener("click", function () {
             switchJournalView("ack");
         });
         document.getElementById("jbtnHistory").addEventListener("click", function (e) {
@@ -839,10 +841,10 @@ var thermalCamera = (function () {
         for (var key in wraps) {
             if (wraps[key]) wraps[key].style.display = (key === view) ? "" : "none";
         }
-        var secEvents = document.getElementById("jsecEvents");
-        var secAck = document.getElementById("jsecAck");
-        if (secEvents) secEvents.classList.toggle("tc-journal-sec-active", view === "events");
-        if (secAck) secAck.classList.toggle("tc-journal-sec-active", view === "ack" || view === "history");
+        var evItem  = document.getElementById("jswEvents");
+        var ackItem = document.getElementById("jswAck");
+        if (evItem)  evItem.classList.toggle("tc-sw-active",  view === "events");
+        if (ackItem) ackItem.classList.toggle("tc-sw-active", view === "ack" || view === "history");
         if (view === "history") loadAckHistory();
     }
 
