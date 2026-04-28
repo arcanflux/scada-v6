@@ -92,6 +92,8 @@ var thermalCamera = (function () {
             repositionChat();
             positionJournal();
         });
+        var tableWrapper = document.querySelector(".tc-table-wrapper");
+        if (tableWrapper) tableWrapper.addEventListener("scroll", positionJournal);
     }
 
     function bindSearch() {
@@ -855,22 +857,27 @@ var thermalCamera = (function () {
         if (!headerEl) return;
         var headerRect = headerEl.getBoundingClientRect();
 
-        // Journal panel
-        var thJournal = document.querySelector("th.tc-col-journal");
-        if (thJournal) {
-            var jRect = thJournal.getBoundingClientRect();
+        // Journal panel — anchor to the right inner edge of the table wrapper so
+        // horizontal table scroll and varying viewport widths never shift the panel.
+        var thJournal  = document.querySelector("th.tc-col-journal");
+        var wrapperEl  = document.querySelector(".tc-table-wrapper");
+        if (thJournal && wrapperEl) {
+            var jRect      = thJournal.getBoundingClientRect();
+            var wRect      = wrapperEl.getBoundingClientRect();
+            // Inner right edge of wrapper (excludes vertical scrollbar width)
+            var wInnerRight = wRect.left + wrapperEl.clientWidth;
+            var panelWidth  = Math.max(200, Math.round(jRect.right - jRect.left));
             var panel = document.getElementById("tcJournal");
             if (panel) {
-                var h = window.innerHeight - jRect.bottom;
-                panel.style.left  = jRect.left + "px";
-                panel.style.top   = jRect.bottom + "px";
-                panel.style.width = (jRect.right - jRect.left) + "px";
-                panel.style.height = Math.max(200, h) + "px";
+                panel.style.left   = (wInnerRight - panelWidth) + "px";
+                panel.style.top    = jRect.bottom + "px";
+                panel.style.width  = panelWidth + "px";
+                panel.style.height = Math.max(200, window.innerHeight - jRect.bottom) + "px";
             }
             // Server time centered over journal column
             var timeEl = document.getElementById("spanServerTime");
             if (timeEl) {
-                timeEl.style.left = (jRect.left + (jRect.right - jRect.left) / 2 - headerRect.left) + "px";
+                timeEl.style.left = (wInnerRight - panelWidth / 2 - headerRect.left) + "px";
             }
         }
 
