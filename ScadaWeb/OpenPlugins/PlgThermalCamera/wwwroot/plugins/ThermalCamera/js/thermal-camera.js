@@ -1209,14 +1209,16 @@ var thermalCamera = (function () {
                     '<span class="tc-ack-name">' + escapeHtml(pa.itemName) + '</span>' +
                 '</div>' +
                 '<div class="tc-ack-info">' +
-                    'с ' + timeStr +
+                    'Затопление с ' + timeStr +
                     ' <span class="tc-ack-elapsed" data-start="' + pa.flood700StartMs + '">' + elapsed + '</span>' +
                 '</div>' +
                 reasonBtnsHtml +
-                '<textarea class="tc-ack-comment" placeholder="Дополнительный комментарий..." rows="2"></textarea>' +
-                '<button class="tc-ack-submit" data-item-id="' + idStr + '" ' +
-                    'data-item-name="' + escapeAttr(pa.itemName) + '" ' +
-                    'data-flood-start="' + pa.flood700StartMs + '">Квитировать</button>' +
+                '<div class="tc-ack-comment-row">' +
+                    '<input type="text" class="tc-ack-comment" placeholder="Дополнительный комментарий..." />' +
+                    '<button class="tc-ack-submit" data-item-id="' + idStr + '" ' +
+                        'data-item-name="' + escapeAttr(pa.itemName) + '" ' +
+                        'data-flood-start="' + pa.flood700StartMs + '">Квитировать</button>' +
+                '</div>' +
             '</div>';
         }
 

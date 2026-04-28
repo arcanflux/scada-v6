@@ -1435,15 +1435,15 @@ td.tc-col-flooding:hover {
 
 .tc-ack-kind {
     font-weight: 800;
-    font-size: 0.78rem;
+    font-size: 1.0rem;
     color: #9b2c2c;
     flex-shrink: 0;
 }
 
 .tc-ack-name {
-    font-weight: 600;
+    font-weight: 500;
     color: #2d3748;
-    font-size: 0.85rem;
+    font-size: 1.2rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1451,13 +1451,14 @@ td.tc-col-flooding:hover {
 }
 
 .tc-ack-info {
-    font-size: 0.75rem;
-    color: #718096;
+    font-size: 0.9rem;
+    color: #4a5568;
 }
 
 .tc-ack-elapsed {
     font-variant-numeric: tabular-nums;
     font-weight: 700;
+    font-size: 1.0rem;
     color: #9b2c2c;
 }
 
@@ -1499,17 +1500,23 @@ td.tc-col-flooding:hover {
     border-color: #2c5282;
 }
 
+.tc-ack-comment-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+}
+
 .tc-ack-comment {
-    width: 100%;
-    padding: 5px 8px;
-    font-size: 0.85rem;
-    border-radius: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 7px 12px;
+    font-size: 0.9rem;
+    border-radius: 14px;
     border: 1px solid #cbd5e0;
     background: #fff;
     color: #2d3748;
-    resize: none;
     outline: none;
-    box-sizing: border-box;
     transition: border-color 0.15s, box-shadow 0.15s;
 }
 
@@ -1523,15 +1530,16 @@ td.tc-col-flooding:hover {
 }
 
 .tc-ack-submit {
-    align-self: flex-end;
-    padding: 4px 16px;
-    font-size: 0.82rem;
+    flex: 0 0 auto;
+    padding: 7px 16px;
+    font-size: 0.88rem;
     font-weight: 700;
     color: #fff;
     background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
     border: 1px solid #2c5282;
-    border-radius: 10px;
+    border-radius: 14px;
     cursor: pointer;
+    white-space: nowrap;
     transition: filter 0.15s, box-shadow 0.15s;
 }
 
