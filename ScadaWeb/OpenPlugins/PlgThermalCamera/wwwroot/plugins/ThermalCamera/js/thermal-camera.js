@@ -284,8 +284,8 @@ var thermalCamera = (function () {
         var ind = btn.querySelector(".tc-sort-indicator");
         if (!ind) { ind = document.createElement("span"); ind.className = "tc-sort-indicator"; btn.appendChild(ind); }
         ind.innerHTML = journalEventsSortAsc
-            ? '<i class="fa-solid fa-arrow-down-short-wide"></i>'
-            : '<i class="fa-solid fa-arrow-up-short-wide"></i>';
+            ? '<i class="fa-solid fa-arrow-up-short-wide"></i>'
+            : '<i class="fa-solid fa-arrow-down-short-wide"></i>';
     }
 
     function updateAckSortBtnIcon() {
@@ -294,8 +294,8 @@ var thermalCamera = (function () {
         var ind = btn.querySelector(".tc-sort-indicator");
         if (!ind) { ind = document.createElement("span"); ind.className = "tc-sort-indicator"; btn.appendChild(ind); }
         ind.innerHTML = journalAckSortAsc
-            ? '<i class="fa-solid fa-arrow-down-short-wide"></i>'
-            : '<i class="fa-solid fa-arrow-up-short-wide"></i>';
+            ? '<i class="fa-solid fa-arrow-up-short-wide"></i>'
+            : '<i class="fa-solid fa-arrow-down-short-wide"></i>';
     }
 
     function updateHistSortBtnIcon() {
@@ -304,8 +304,8 @@ var thermalCamera = (function () {
         var ind = btn.querySelector(".tc-sort-indicator");
         if (!ind) { ind = document.createElement("span"); ind.className = "tc-sort-indicator"; btn.appendChild(ind); }
         ind.innerHTML = journalHistSortAsc
-            ? '<i class="fa-solid fa-arrow-down-short-wide"></i>'
-            : '<i class="fa-solid fa-arrow-up-short-wide"></i>';
+            ? '<i class="fa-solid fa-arrow-up-short-wide"></i>'
+            : '<i class="fa-solid fa-arrow-down-short-wide"></i>';
     }
 
     function bindFloodSortBtns() {
