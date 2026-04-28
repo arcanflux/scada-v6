@@ -247,10 +247,10 @@ var thermalCamera = (function () {
     }
 
     function bindHeaderSort() {
-        var th = document.querySelector("#tblThermalCameras th.tc-col-district");
-        if (!th) return;
-        th.style.cursor = "pointer";
-        th.addEventListener("click", function () {
+        var btn = document.getElementById("btnSortDistrict");
+        if (!btn) return;
+        btn.addEventListener("click", function (e) {
+            e.stopPropagation();
             districtSortAsc = !districtSortAsc;
             sortItemsByDistrict();
             renderTable();
@@ -262,16 +262,7 @@ var thermalCamera = (function () {
     }
 
     function updateSortIndicator() {
-        var th = document.querySelector("#tblThermalCameras th.tc-col-district");
-        if (!th) return;
-        var existing = th.querySelector(".tc-sort-indicator");
-        if (existing) existing.remove();
-        var span = document.createElement("span");
-        span.className = "tc-sort-indicator ms-1";
-        span.innerHTML = districtSortAsc
-            ? '<i class="fa-solid fa-arrow-down-short-wide"></i>'
-            : '<i class="fa-solid fa-arrow-up-short-wide"></i>';
-        th.appendChild(span);
+        updateFloodSortBtnIcon("btnSortDistrict", districtSortAsc);
     }
 
     function updateFloodSortBtnIcon(btnId, isAsc) {

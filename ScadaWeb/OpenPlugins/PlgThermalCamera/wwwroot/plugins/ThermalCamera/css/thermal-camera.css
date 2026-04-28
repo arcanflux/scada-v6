@@ -55,9 +55,9 @@
 }
 
 .tc-hdr-stat-label {
-    font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.55);
-    font-weight: 400;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.65);
+    font-weight: 500;
 }
 
 .tc-hdr-dot {
