@@ -1176,7 +1176,8 @@ td.tc-col-flooding:hover {
 }
 
 .tc-journal-sw-item:not(.tc-sw-active) .tc-journal-filter,
-.tc-journal-sw-item:not(.tc-sw-active) .tc-journal-hist-btn {
+.tc-journal-sw-item:not(.tc-sw-active) .tc-journal-hist-btn,
+.tc-journal-sw-item:not(.tc-sw-active) .tc-journal-sort-btn {
     display: none;
 }
 

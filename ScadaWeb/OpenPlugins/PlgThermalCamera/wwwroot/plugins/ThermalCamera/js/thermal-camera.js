@@ -52,6 +52,8 @@ var thermalCamera = (function () {
     var journalFilter = { show200: true, show700: true };
     var journalView = "events"; // "events" | "ack" | "history"
     var journalEventsSortAsc = false;    // false = shortest elapsed first (default)
+    var journalAckSortAsc = false;       // false = shortest elapsed (newest flood) first
+    var journalHistSortAsc = false;      // false = most recent ack first
     var onlineByItem = {};               // itemId -> true|false
     var flood200ByItem = {};             // itemId -> true|false
     var flood700ByItem = {};             // itemId -> true|false
@@ -282,6 +284,26 @@ var thermalCamera = (function () {
         var ind = btn.querySelector(".tc-sort-indicator");
         if (!ind) { ind = document.createElement("span"); ind.className = "tc-sort-indicator"; btn.appendChild(ind); }
         ind.innerHTML = journalEventsSortAsc
+            ? '<i class="fa-solid fa-arrow-down-short-wide"></i>'
+            : '<i class="fa-solid fa-arrow-up-short-wide"></i>';
+    }
+
+    function updateAckSortBtnIcon() {
+        var btn = document.getElementById("jbtnAckSort");
+        if (!btn) return;
+        var ind = btn.querySelector(".tc-sort-indicator");
+        if (!ind) { ind = document.createElement("span"); ind.className = "tc-sort-indicator"; btn.appendChild(ind); }
+        ind.innerHTML = journalAckSortAsc
+            ? '<i class="fa-solid fa-arrow-down-short-wide"></i>'
+            : '<i class="fa-solid fa-arrow-up-short-wide"></i>';
+    }
+
+    function updateHistSortBtnIcon() {
+        var btn = document.getElementById("jbtnHistSort");
+        if (!btn) return;
+        var ind = btn.querySelector(".tc-sort-indicator");
+        if (!ind) { ind = document.createElement("span"); ind.className = "tc-sort-indicator"; btn.appendChild(ind); }
+        ind.innerHTML = journalHistSortAsc
             ? '<i class="fa-solid fa-arrow-down-short-wide"></i>'
             : '<i class="fa-solid fa-arrow-up-short-wide"></i>';
     }
@@ -872,6 +894,14 @@ var thermalCamera = (function () {
                 '</div>' +
                 '<div class="tc-journal-sw-item" id="jswAck">' +
                     '<span class="tc-journal-sw-label"><i class="fa-solid fa-clipboard-check"></i> Квитирование</span>' +
+                    '<button id="jbtnAckSort" class="tc-journal-sort-btn" title="Сортировка по времени">' +
+                        '<i class="fa-solid fa-clock"></i>' +
+                        '<span class="tc-sort-indicator"></span>' +
+                    '</button>' +
+                    '<button id="jbtnHistSort" class="tc-journal-sort-btn" title="Сортировка по времени" style="display:none;">' +
+                        '<i class="fa-solid fa-clock"></i>' +
+                        '<span class="tc-sort-indicator"></span>' +
+                    '</button>' +
                     '<button id="jbtnHistory" class="tc-journal-hist-btn">' +
                         '<i class="fa-solid fa-clock-rotate-left"></i> История' +
                     '</button>' +
@@ -910,6 +940,22 @@ var thermalCamera = (function () {
         });
         updateJournalSortBtnIcon();
 
+        document.getElementById("jbtnAckSort").addEventListener("click", function (e) {
+            e.stopPropagation();
+            journalAckSortAsc = !journalAckSortAsc;
+            updateAckSortBtnIcon();
+            renderJournalAck();
+        });
+        updateAckSortBtnIcon();
+
+        document.getElementById("jbtnHistSort").addEventListener("click", function (e) {
+            e.stopPropagation();
+            journalHistSortAsc = !journalHistSortAsc;
+            updateHistSortBtnIcon();
+            renderAckHistory();
+        });
+        updateHistSortBtnIcon();
+
         document.getElementById("jswEvents").addEventListener("click", function () {
             switchJournalView("events");
         });
@@ -942,6 +988,10 @@ var thermalCamera = (function () {
         if (ackItem) ackItem.classList.toggle("tc-sw-active", view === "ack" || view === "history");
         var histBtn = document.getElementById("jbtnHistory");
         if (histBtn) histBtn.classList.toggle("tc-hist-active", view === "history");
+        var ackSortBtn = document.getElementById("jbtnAckSort");
+        var histSortBtn = document.getElementById("jbtnHistSort");
+        if (ackSortBtn) ackSortBtn.style.display = (view === "ack") ? "" : "none";
+        if (histSortBtn) histSortBtn.style.display = (view === "history") ? "" : "none";
         if (view === "history") loadAckHistory();
     }
 
@@ -1142,7 +1192,9 @@ var thermalCamera = (function () {
             ackList.push({ idStr: idStr, pa: pa0 });
         }
         ackList.sort(function (a, b) {
-            return (a.pa.flood700StartMs || 0) - (b.pa.flood700StartMs || 0);
+            return journalAckSortAsc
+                ? (a.pa.flood700StartMs || 0) - (b.pa.flood700StartMs || 0)
+                : (b.pa.flood700StartMs || 0) - (a.pa.flood700StartMs || 0);
         });
 
         for (var ai = 0; ai < ackList.length; ai++) {
@@ -1289,10 +1341,15 @@ var thermalCamera = (function () {
             box.innerHTML = '<div class="tc-journal-empty">История пуста</div>';
             return;
         }
+        var sorted = ackHistory.slice().sort(function (a, b) {
+            return journalHistSortAsc
+                ? (a.ackedAtMs || 0) - (b.ackedAtMs || 0)
+                : (b.ackedAtMs || 0) - (a.ackedAtMs || 0);
+        });
         var html = "";
-        var limit = Math.min(ackHistory.length, 50);
+        var limit = Math.min(sorted.length, 50);
         for (var i = 0; i < limit; i++) {
-            var rec = ackHistory[i];
+            var rec = sorted[i];
             var ackTime = formatChatTime(rec.ackedAtMs);
             var floodTime = rec.floodStartMs > 0 ? formatChatTime(rec.floodStartMs) : "—";
             html += '<div class="tc-ack-hist-item">' +
