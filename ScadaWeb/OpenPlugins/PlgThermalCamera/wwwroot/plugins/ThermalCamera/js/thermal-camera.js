@@ -50,11 +50,15 @@ var thermalCamera = (function () {
     ];
     var journalFilter = { show200: true, show700: true };
     var journalView = "events"; // "events" | "ack" | "history"
-    var onlineByItem = {};             // itemId -> true|false
-    var flood200ByItem = {};           // itemId -> true|false
-    var flood700ByItem = {};           // itemId -> true|false
+    var journalEventsSortAsc = false;    // false = shortest elapsed first (default)
+    var onlineByItem = {};               // itemId -> true|false
+    var flood200ByItem = {};             // itemId -> true|false
+    var flood700ByItem = {};             // itemId -> true|false
+    var tempByItem = {};                 // itemId -> { t200: number|null, t700: number|null }
+    var floodStateSortAsc = true;        // for table flood-state sort
+    var tempSortAsc = true;              // for table temperature sort
     var hasLiveData = false;
-    var ackHistory = [];                // loaded once and updated after each new ack
+    var ackHistory = [];                  // loaded once and updated after each new ack
 
     var floodHoverTooltipEl = null;
 
@@ -77,6 +81,7 @@ var thermalCamera = (function () {
         updateDistrictCounts();
         bindHeaderSort();
         updateSortIndicator();
+        bindFloodSortBtns();
         bindSearch();
         bindDistrictFilter();
         applyFilter();
@@ -207,6 +212,40 @@ var thermalCamera = (function () {
         });
     }
 
+    function floodStateRank(item) {
+        var t = timersByItem[item.id] || {};
+        if (t.flood700StartMs > 0) return 2;
+        if (t.flood200StartMs > 0) return 1;
+        return 0;
+    }
+
+    function sortByFloodState() {
+        items.sort(function (a, b) {
+            var ra = floodStateRank(a), rb = floodStateRank(b);
+            return floodStateSortAsc ? ra - rb : rb - ra;
+        });
+    }
+
+    function getMaxTemp(itemId) {
+        var tb = tempByItem[itemId] || {};
+        var t200 = (tb.t200 !== null && tb.t200 !== undefined) ? tb.t200 : null;
+        var t700 = (tb.t700 !== null && tb.t700 !== undefined) ? tb.t700 : null;
+        if (t200 === null && t700 === null) return null;
+        if (t200 === null) return t700;
+        if (t700 === null) return t200;
+        return Math.max(t200, t700);
+    }
+
+    function sortByTemperature() {
+        items.sort(function (a, b) {
+            var ta = getMaxTemp(a.id), tb2 = getMaxTemp(b.id);
+            if (ta === null && tb2 === null) return 0;
+            if (ta === null) return 1;   // nulls go last
+            if (tb2 === null) return -1;
+            return tempSortAsc ? ta - tb2 : tb2 - ta;
+        });
+    }
+
     function bindHeaderSort() {
         var th = document.querySelector("#tblThermalCameras th.tc-col-district");
         if (!th) return;
@@ -233,6 +272,53 @@ var thermalCamera = (function () {
             ? '<i class="fa-solid fa-arrow-down-short-wide"></i>'
             : '<i class="fa-solid fa-arrow-up-short-wide"></i>';
         th.appendChild(span);
+    }
+
+    function updateFloodSortBtnIcon(btnId, isAsc) {
+        var btn = document.getElementById(btnId);
+        if (!btn) return;
+        var ind = btn.querySelector(".tc-sort-indicator");
+        if (!ind) { ind = document.createElement("span"); ind.className = "tc-sort-indicator"; btn.appendChild(ind); }
+        ind.innerHTML = isAsc
+            ? '<i class="fa-solid fa-arrow-down-short-wide"></i>'
+            : '<i class="fa-solid fa-arrow-up-short-wide"></i>';
+    }
+
+    function updateJournalSortBtnIcon() {
+        var btn = document.getElementById("jbtnEventsSort");
+        if (!btn) return;
+        var ind = btn.querySelector(".tc-sort-indicator");
+        if (!ind) { ind = document.createElement("span"); ind.className = "tc-sort-indicator"; btn.appendChild(ind); }
+        ind.innerHTML = journalEventsSortAsc
+            ? '<i class="fa-solid fa-arrow-down-short-wide"></i>'
+            : '<i class="fa-solid fa-arrow-up-short-wide"></i>';
+    }
+
+    function bindFloodSortBtns() {
+        var btnState = document.getElementById("btnSortFloodState");
+        if (btnState) {
+            updateFloodSortBtnIcon("btnSortFloodState", floodStateSortAsc);
+            btnState.addEventListener("click", function () {
+                floodStateSortAsc = !floodStateSortAsc;
+                sortByFloodState();
+                renderTable();
+                applyFilter();
+                positionJournal();
+                updateFloodSortBtnIcon("btnSortFloodState", floodStateSortAsc);
+            });
+        }
+        var btnTemp = document.getElementById("btnSortTemp");
+        if (btnTemp) {
+            updateFloodSortBtnIcon("btnSortTemp", tempSortAsc);
+            btnTemp.addEventListener("click", function () {
+                tempSortAsc = !tempSortAsc;
+                sortByTemperature();
+                renderTable();
+                applyFilter();
+                positionJournal();
+                updateFloodSortBtnIcon("btnSortTemp", tempSortAsc);
+            });
+        }
     }
 
 
@@ -603,6 +689,8 @@ var thermalCamera = (function () {
                 tempEl.textContent = td.stat > 0
                     ? td.val.toFixed(1) + "\u00b0C"
                     : "\u2014";
+                if (!tempByItem[itemId]) tempByItem[itemId] = {};
+                tempByItem[itemId]['t' + size] = td.stat > 0 ? td.val : null;
             }
         }
     }
@@ -784,6 +872,10 @@ var thermalCamera = (function () {
                         '<button id="jflt700" class="tc-journal-flt-btn tc-journal-flt-btn-active" data-kind="700">' +
                             '<i class="fa-solid fa-water"></i> 700мм' +
                         '</button>' +
+                        '<button id="jbtnEventsSort" class="tc-journal-sort-btn" title="Сортировка по времени">' +
+                            '<i class="fa-solid fa-clock"></i>' +
+                            '<span class="tc-sort-indicator"></span>' +
+                        '</button>' +
                     '</div>' +
                 '</div>' +
                 '<div class="tc-journal-sw-item" id="jswAck">' +
@@ -817,6 +909,14 @@ var thermalCamera = (function () {
             journalFilter.show700 = this.classList.contains("tc-journal-flt-btn-active");
             renderJournalEvents();
         });
+
+        document.getElementById("jbtnEventsSort").addEventListener("click", function (e) {
+            e.stopPropagation();
+            journalEventsSortAsc = !journalEventsSortAsc;
+            updateJournalSortBtnIcon();
+            renderJournalEvents();
+        });
+        updateJournalSortBtnIcon();
 
         document.getElementById("jswEvents").addEventListener("click", function () {
             switchJournalView("events");
@@ -925,9 +1025,20 @@ var thermalCamera = (function () {
             if (ev.kind === "flood700" && !journalFilter.show700) continue;
             var item = findItemById(parseInt(idStr));
             if (item && selectedDistricts[item.districtNumber || 0] !== true) continue;
+            if (searchQuery) {
+                var q = searchQuery.toLowerCase();
+                var inName = ev.name && ev.name.toLowerCase().indexOf(q) >= 0;
+                var inAddr = item && item.address && item.address.toLowerCase().indexOf(q) >= 0;
+                var inDescr = item && item.descr && item.descr.toLowerCase().indexOf(q) >= 0;
+                if (!inName && !inAddr && !inDescr) continue;
+            }
             list.push({ idStr: idStr, ev: ev });
         }
-        list.sort(function (a, b) { return (a.ev.startMs || 0) - (b.ev.startMs || 0); });
+        list.sort(function (a, b) {
+            return journalEventsSortAsc
+                ? (a.ev.startMs || 0) - (b.ev.startMs || 0)
+                : (b.ev.startMs || 0) - (a.ev.startMs || 0);
+        });
 
         for (var k = 0; k < list.length; k++) {
             var idStr2 = list[k].idStr;
@@ -1026,9 +1137,17 @@ var thermalCamera = (function () {
         var ackList = [];
         for (var idStr in pendingAckItems) {
             if (!pendingAckItems.hasOwnProperty(idStr)) continue;
+            var pa0 = pendingAckItems[idStr];
             var item = findItemById(parseInt(idStr));
             if (item && selectedDistricts[item.districtNumber || 0] !== true) continue;
-            ackList.push({ idStr: idStr, pa: pendingAckItems[idStr] });
+            if (searchQuery) {
+                var q = searchQuery.toLowerCase();
+                var inName = pa0.itemName && pa0.itemName.toLowerCase().indexOf(q) >= 0;
+                var inAddr = item && item.address && item.address.toLowerCase().indexOf(q) >= 0;
+                var inDescr = item && item.descr && item.descr.toLowerCase().indexOf(q) >= 0;
+                if (!inName && !inAddr && !inDescr) continue;
+            }
+            ackList.push({ idStr: idStr, pa: pa0 });
         }
         ackList.sort(function (a, b) {
             return (a.pa.flood700StartMs || 0) - (b.pa.flood700StartMs || 0);
