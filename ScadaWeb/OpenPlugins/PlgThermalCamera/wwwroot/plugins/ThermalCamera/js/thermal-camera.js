@@ -90,7 +90,7 @@ var thermalCamera = (function () {
         bindChatKeyboard();
         window.addEventListener("resize", function () {
             repositionChat();
-            positionJournal();
+            requestAnimationFrame(positionJournal);
         });
         var tableWrapper = document.querySelector(".tc-table-wrapper");
         if (tableWrapper) tableWrapper.addEventListener("scroll", positionJournal);
@@ -168,6 +168,7 @@ var thermalCamera = (function () {
         updateHeaderCounters();
         renderJournalEvents();
         renderJournalAck();
+        positionJournal();
     }
 
     function updateHeaderCounters() {
