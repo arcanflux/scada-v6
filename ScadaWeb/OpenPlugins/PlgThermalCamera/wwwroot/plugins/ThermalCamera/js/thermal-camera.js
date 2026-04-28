@@ -36,7 +36,7 @@ var thermalCamera = (function () {
     var ackedByItem = {};               // itemId -> { flood700StartMs, ackedAtMs, ackedBy, comment }
 
     var ACK_REASONS = [
-        "Дефект",
+        "Дефект ТС",
         "Парение/Конденсат",
         "Гидравлические испытания",
         "Ремонт ТС",
@@ -46,7 +46,8 @@ var thermalCamera = (function () {
         "Затопление грунтовыми водами",
         "Дренирование",
         "Остаточная вода после дефекта",
-        "Обследованное ТК сухое"
+        "Обследованное ТК сухое",
+        "Другое"
     ];
     var journalFilter = { show200: true, show700: true };
     var journalView = "events"; // "events" | "ack" | "history"
