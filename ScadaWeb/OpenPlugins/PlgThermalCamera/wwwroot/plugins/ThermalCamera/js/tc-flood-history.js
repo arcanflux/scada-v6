@@ -234,15 +234,13 @@ var tcFloodHistory = (function () {
             var m = months[i];
             total200 += m.time200;
             total700 += m.time700;
-            var total = m.time200 + m.time700;
-            rows += '<tr' + (total > 0 ? ' class="tc-fh-has-events"' : '') + '>' +
+            var hasEvents = m.time200 > 0 || m.time700 > 0;
+            rows += '<tr' + (hasEvents ? ' class="tc-fh-has-events"' : '') + '>' +
                 '<td class="tc-fh-month">' + MONTH_NAMES[m.month] + '</td>' +
                 '<td class="tc-fh-c200">' + formatDuration(m.time200) + '</td>' +
                 '<td class="tc-fh-c700">' + formatDuration(m.time700) + '</td>' +
-                '<td class="tc-fh-total">' + formatDuration(total) + '</td>' +
                 '</tr>';
         }
-        var grandTotal = total200 + total700;
         body.innerHTML =
             '<table class="tc-fh-table">' +
                 '<thead>' +
@@ -250,7 +248,6 @@ var tcFloodHistory = (function () {
                         '<th>Месяц</th>' +
                         '<th><span class="tc-fh-dot tc-fh-dot-200"></span>200мм</th>' +
                         '<th><span class="tc-fh-dot tc-fh-dot-700"></span>700мм</th>' +
-                        '<th>Всего</th>' +
                     '</tr>' +
                 '</thead>' +
                 '<tbody>' + rows + '</tbody>' +
@@ -259,7 +256,6 @@ var tcFloodHistory = (function () {
                         '<td>Итого</td>' +
                         '<td>' + formatDuration(total200) + '</td>' +
                         '<td>' + formatDuration(total700) + '</td>' +
-                        '<td>' + formatDuration(grandTotal) + '</td>' +
                     '</tr>' +
                 '</tfoot>' +
             '</table>';
