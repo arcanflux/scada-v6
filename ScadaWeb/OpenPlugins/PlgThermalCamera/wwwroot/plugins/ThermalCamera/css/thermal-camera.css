@@ -1434,14 +1434,14 @@ td.tc-col-flooding:hover {
 }
 
 .tc-ack-kind {
-    font-weight: 800;
+    font-weight: 400;
     font-size: 1.0rem;
     color: #9b2c2c;
     flex-shrink: 0;
 }
 
 .tc-ack-name {
-    font-weight: 500;
+    font-weight: 400;
     color: #2d3748;
     font-size: 1.2rem;
     overflow: hidden;
