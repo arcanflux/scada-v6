@@ -21,8 +21,8 @@
 .tc-fh-panel {
     background: #ffffff;
     color: #1a202c;
-    width: 720px;
-    max-width: 94vw;
+    width: 900px;
+    max-width: 97vw;
     max-height: 90vh;
     border-radius: 10px;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
@@ -215,6 +215,7 @@
     padding: 6px 12px 10px;
     background: #f7fafc;
     border-bottom: 1px solid #edf2f7;
+    overflow-x: auto;
 }
 
 .tc-fh-day-grid {
@@ -231,7 +232,7 @@
 
 .tc-fh-days-wrap {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 3px;
 }
 
