@@ -54,6 +54,7 @@
     <Phrase key="ValveDischarge">Клапан напор</Phrase>
     <Phrase key="ValveOpen">Откр</Phrase>
     <Phrase key="ValveClosed">Закр</Phrase>
+    <Phrase key="ValveBypass">Клапан байпаса</Phrase>
     <Phrase key="FlowRateUnit">т/ч</Phrase>
   </Dictionary>
 </PlgMapDictionaries>

@@ -402,29 +402,26 @@
             padding-left: 2px;
         }
 
-        .map-pns-valve-section {
-            margin: 8px 0 4px;
-            padding: 6px 8px;
-            background: #f7f9fb;
+        .map-pns-hydro-box {
+            margin: 6px 0;
+            padding: 6px 10px;
+            border: 2px solid #ccc;
             border-radius: 6px;
-            border: 1px solid #e0e5ea;
+            font-size: 15px;
+            font-weight: 600;
+            color: #999;
+            text-align: center;
+            transition: border-color 0.2s, color 0.2s, background 0.2s;
         }
 
-        .map-pns-valve-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 6px;
+        .map-pns-hydro-box.active {
+            border-color: #4caf50;
+            color: #2e7d32;
+            background: #f1f8e9;
         }
 
-        .map-pns-valve-icon {
-            flex-shrink: 0;
-        }
-
-        .map-pns-valve-pct {
-            font-size: 18px;
-            font-weight: 700;
-            color: #222;
+        .map-pns-valve-rows {
+            margin: 6px 0 4px;
         }
 
         .map-pns-valve-row {
@@ -452,21 +449,9 @@
             color: #d32f2f;
         }
 
-        .map-pns-hydro-test {
-            display: none;
-            margin: 6px 0;
-            padding: 6px 10px;
-            background: #e8f5e9;
-            border: 1px solid #4caf50;
-            border-radius: 6px;
-            font-size: 15px;
-            font-weight: 600;
-            color: #2e7d32;
-            text-align: center;
-        }
-
-        .map-pns-hydro-test.active {
-            display: block;
+        .map-pns-valve-bypass {
+            color: #444;
+            font-weight: 700;
         }
 
         .map-pns-connectivity {
@@ -1598,6 +1583,7 @@
                 valveDischarge: "@Html.Raw(Model.JsDict.ValveDischarge)",
                 valveOpen: "@Html.Raw(Model.JsDict.ValveOpen)",
                 valveClosed: "@Html.Raw(Model.JsDict.ValveClosed)",
+                valveBypass: "@Html.Raw(Model.JsDict.ValveBypass)",
                 flowRateUnit: "@Html.Raw(Model.JsDict.FlowRateUnit)"
             };
 
@@ -2572,6 +2558,11 @@
                     html += '<div class="map-popup-descr">' + this._escapeHtml(def.descr) + '</div>';
                 }
 
+                // Hydraulic test box (always visible, border color shows state)
+                let hydroTest = this._getPnsHydroTest(def);
+                html += '<div class="map-pns-hydro-box' + (hydroTest ? ' active' : '') + '" data-pns-hydro>' +
+                    this._escapeHtml(this.t.hydroTestActive) + '</div>';
+
                 // Parameter rows: G, P всас, Р напор, Р байпас
                 let paramDefs = [
                     { idx: 0, unit: this.t.flowRateUnit },
@@ -2592,41 +2583,28 @@
                 }
                 html += '</table>';
 
-                // Valve section
-                let valveRec = ch[4] ? this.curDataMap[ch[4].cnlNum] : null;
-                let valvePct = (valveRec && valveRec.stat > 0) ? valveRec.val : 0;
-                let valveColor = this._getValveColor(valvePct);
-                let valveText = (valveRec && valveRec.stat > 0) ? valveRec.text || valvePct.toFixed(1) : '--';
-
+                // Valve rows: Клапан всас, Клапан напор, Клапан байпаса (%)
                 let vSucRec = ch[5] ? this.curDataMap[ch[5].cnlNum] : null;
                 let vDisRec = ch[6] ? this.curDataMap[ch[6].cnlNum] : null;
                 let vSucOpen = !!(vSucRec && vSucRec.stat > 0 && vSucRec.val >= 1);
                 let vDisOpen = !!(vDisRec && vDisRec.stat > 0 && vDisRec.val >= 1);
+                let valveRec = ch[4] ? this.curDataMap[ch[4].cnlNum] : null;
+                let valveText = (valveRec && valveRec.stat > 0) ? (valveRec.text || valveRec.val.toFixed(1)) : '--';
 
-                html += '<div class="map-pns-valve-section">';
-                html += '<div class="map-pns-valve-header">';
-                html += '<span class="map-pns-valve-icon" data-pns-valve-icon>' +
-                    '<svg width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="11" fill="' + valveColor + '" stroke="#fff" stroke-width="1.5"/>' +
-                    '<path d="M9,14 L12,10 L16,18 L19,14" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
-                html += '<span class="map-pns-valve-pct" data-pns-valve-pct>' + this._escapeHtml(valveText) + ' %</span>';
-                html += '</div>';
-
+                html += '<div class="map-pns-valve-rows">';
                 html += '<div class="map-pns-valve-row"><span class="map-pns-valve-label">' +
                     this._escapeHtml(this.t.valveSuction) + ':</span>' +
                     '<span class="map-pns-valve-state ' + (vSucOpen ? 'open' : 'closed') + '" data-pns-vsuc>' +
                     this._escapeHtml(vSucOpen ? this.t.valveOpen : this.t.valveClosed) + '</span></div>';
-
                 html += '<div class="map-pns-valve-row"><span class="map-pns-valve-label">' +
                     this._escapeHtml(this.t.valveDischarge) + ':</span>' +
                     '<span class="map-pns-valve-state ' + (vDisOpen ? 'open' : 'closed') + '" data-pns-vdis>' +
                     this._escapeHtml(vDisOpen ? this.t.valveOpen : this.t.valveClosed) + '</span></div>';
-
+                html += '<div class="map-pns-valve-row"><span class="map-pns-valve-label">' +
+                    this._escapeHtml(this.t.valveBypass) + ':</span>' +
+                    '<span class="map-pns-valve-bypass" data-pns-vbypass>' +
+                    this._escapeHtml(valveText) + ' %</span></div>';
                 html += '</div>';
-
-                // Hydraulic test banner
-                let hydroTest = this._getPnsHydroTest(def);
-                html += '<div class="map-pns-hydro-test' + (hydroTest ? ' active' : '') + '" data-pns-hydro>' +
-                    this._escapeHtml(this.t.hydroTestActive) + '</div>';
 
                 // Combined chart button
                 html += '<button class="map-popup-chart-btn" ' +
@@ -2645,16 +2623,7 @@
                     let rec = this.curDataMap[ch[i].cnlNum];
                     if (el && rec) el.textContent = rec.text || '--';
                 }
-                // Valve icon color
-                let valveRec = ch[4] ? this.curDataMap[ch[4].cnlNum] : null;
-                let valvePct = (valveRec && valveRec.stat > 0) ? valveRec.val : 0;
-                let valveColor = this._getValveColor(valvePct);
-                let valveText = (valveRec && valveRec.stat > 0) ? valveRec.text || valvePct.toFixed(1) : '--';
-                let vIconEl = popupEl.querySelector('[data-pns-valve-icon] circle');
-                if (vIconEl) vIconEl.setAttribute('fill', valveColor);
-                let vPctEl = popupEl.querySelector('[data-pns-valve-pct]');
-                if (vPctEl) vPctEl.textContent = valveText + ' %';
-                // Valve states
+                // Valve states (ch[5], ch[6])
                 let vSucRec = ch[5] ? this.curDataMap[ch[5].cnlNum] : null;
                 let vDisRec = ch[6] ? this.curDataMap[ch[6].cnlNum] : null;
                 let vSucOpen = !!(vSucRec && vSucRec.stat > 0 && vSucRec.val >= 1);
@@ -2669,16 +2638,18 @@
                     vDisEl.textContent = vDisOpen ? this.t.valveOpen : this.t.valveClosed;
                     vDisEl.className = 'map-pns-valve-state ' + (vDisOpen ? 'open' : 'closed');
                 }
+                // Bypass valve % (ch[4])
+                let valveRec = ch[4] ? this.curDataMap[ch[4].cnlNum] : null;
+                let valveText = (valveRec && valveRec.stat > 0) ? (valveRec.text || valveRec.val.toFixed(1)) : '--';
+                let vBypassEl = popupEl.querySelector('[data-pns-vbypass]');
+                if (vBypassEl) vBypassEl.textContent = valveText + ' %';
                 // Connectivity icon
                 let connected = this._getPnsConnectivity(def);
                 let connEl = popupEl.querySelector('[data-pns-conn] circle');
                 if (connEl) connEl.setAttribute('fill', connected ? '#4caf50' : '#d32f2f');
-                // Hydraulic test banner
+                // Hydraulic test box
                 let hydroEl = popupEl.querySelector('[data-pns-hydro]');
-                if (hydroEl) {
-                    let active = this._getPnsHydroTest(def);
-                    hydroEl.classList.toggle('active', active);
-                }
+                if (hydroEl) hydroEl.classList.toggle('active', this._getPnsHydroTest(def));
             }
 
             // --- Chart Overlay (Combined) ---

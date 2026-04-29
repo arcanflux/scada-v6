@@ -54,6 +54,7 @@
     <Phrase key="ValveDischarge">Valve discharge</Phrase>
     <Phrase key="ValveOpen">Open</Phrase>
     <Phrase key="ValveClosed">Closed</Phrase>
+    <Phrase key="ValveBypass">Bypass valve</Phrase>
     <Phrase key="FlowRateUnit">t/h</Phrase>
   </Dictionary>
 </PlgMapDictionaries>
