@@ -12,7 +12,8 @@ namespace Scada.Web.Plugins.PlgMap.Code
     public enum MarkerType
     {
         Circle = 0,
-        Triangle = 1
+        Triangle = 1,
+        Pns = 2
     }
 
     /// <summary>

@@ -163,5 +163,34 @@
         <DataItem cnlNum="6006">Онлайн</DataItem>
       </Data>
     </Location>
+
+    <!-- PNS marker (pumping station) -->
+    <Location>
+      <Lat>55.040000</Lat>
+      <Lon>82.950000</Lon>
+      <Name>ПНС-01</Name>
+      <Descr>Передвижная насосная станция ПНС-01</Descr>
+      <Type>Pns</Type>
+      <LatCnlNum>8001</LatCnlNum>
+      <LonCnlNum>8002</LonCnlNum>
+      <Data>
+        <!-- Flow rate -->
+        <DataItem cnlNum="8010">G</DataItem>
+        <!-- Suction pressure -->
+        <DataItem cnlNum="8011">P всас</DataItem>
+        <!-- Discharge pressure -->
+        <DataItem cnlNum="8012">Р напор</DataItem>
+        <!-- Bypass pressure -->
+        <DataItem cnlNum="8013">Р байпас</DataItem>
+        <!-- Valve position % -->
+        <DataItem cnlNum="8014">Клапан %</DataItem>
+        <!-- Suction valve state (0=closed, 1=open) -->
+        <DataItem cnlNum="8015">Клапан всас</DataItem>
+        <!-- Discharge valve state (0=closed, 1=open) -->
+        <DataItem cnlNum="8016">Клапан напор</DataItem>
+        <!-- Connectivity (online status) -->
+        <DataItem cnlNum="8017">Связь</DataItem>
+      </Data>
+    </Location>
   </Locations>
 </Map>

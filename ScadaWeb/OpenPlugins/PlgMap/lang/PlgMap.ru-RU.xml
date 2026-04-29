@@ -48,5 +48,12 @@
     <Phrase key="MarkerFilterTriangles">Треугольники</Phrase>
     <Phrase key="MainScreen">Главный экран</Phrase>
     <Phrase key="TcTable">ТС Таблица</Phrase>
+    <Phrase key="MarkerFilterPns">ПНС</Phrase>
+    <Phrase key="HydroTestActive">Гидравлические испытания</Phrase>
+    <Phrase key="ValveSuction">Клапан всас</Phrase>
+    <Phrase key="ValveDischarge">Клапан напор</Phrase>
+    <Phrase key="ValveOpen">Откр</Phrase>
+    <Phrase key="ValveClosed">Закр</Phrase>
+    <Phrase key="FlowRateUnit">т/ч</Phrase>
   </Dictionary>
 </PlgMapDictionaries>
