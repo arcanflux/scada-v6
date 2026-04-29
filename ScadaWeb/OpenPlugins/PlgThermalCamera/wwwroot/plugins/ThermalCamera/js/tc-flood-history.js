@@ -102,7 +102,10 @@ var tcFloodHistory = (function () {
     function bucketByMonth(histData, floodChannels, year, lastMonthIdx) {
         var months = [];
         for (var m = 0; m <= lastMonthIdx; m++) {
-            months.push({ month: m, time200: 0, time700: 0 });
+            var daysInMonth = new Date(year, m + 1, 0).getDate();
+            var days = [];
+            for (var d = 0; d < daysInMonth; d++) days.push({ has200: false, has700: false });
+            months.push({ month: m, time200: 0, time700: 0, days: days });
         }
         if (!histData || !histData.cnlNums || !histData.trends || !histData.timestamps) {
             return months;
@@ -147,7 +150,15 @@ var tcFloodHistory = (function () {
             var ms1 = new Date(year, m + 1, 1).getTime();
             var s = Math.max(startMs, ms0);
             var e = Math.min(endMs, ms1);
-            if (e > s) months[m]['time' + kind] += (e - s);
+            if (e > s) {
+                months[m]['time' + kind] += (e - s);
+                var days = months[m].days;
+                for (var d = 0; d < days.length; d++) {
+                    var ds = ms0 + d * 86400000;
+                    if (Math.min(endMs, ds + 86400000) > Math.max(startMs, ds))
+                        days[d]['has' + kind] = true;
+                }
+            }
         }
     }
 
@@ -227,6 +238,22 @@ var tcFloodHistory = (function () {
         }
     }
 
+    var SHORT_MONTHS = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+
+    function buildDayGrid(m) {
+        var days200 = '', days700 = '', mn = SHORT_MONTHS[m.month];
+        for (var d = 0; d < m.days.length; d++) {
+            var day = m.days[d];
+            var title = (d + 1) + ' ' + mn;
+            days200 += '<div class="tc-fh-day ' + (day.has200 ? 'tc-fh-day-200' : 'tc-fh-day-empty') + '" title="' + title + '"></div>';
+            days700 += '<div class="tc-fh-day ' + (day.has700 ? 'tc-fh-day-700' : 'tc-fh-day-empty') + '" title="' + title + '"></div>';
+        }
+        return '<div class="tc-fh-day-grid">' +
+            '<div class="tc-fh-day-strip"><span class="tc-fh-dot tc-fh-dot-200"></span><div class="tc-fh-days-wrap">' + days200 + '</div></div>' +
+            '<div class="tc-fh-day-strip"><span class="tc-fh-dot tc-fh-dot-700"></span><div class="tc-fh-days-wrap">' + days700 + '</div></div>' +
+        '</div>';
+    }
+
     function renderTable(body, months) {
         var total200 = 0, total700 = 0;
         var rows = '';
@@ -235,11 +262,14 @@ var tcFloodHistory = (function () {
             total200 += m.time200;
             total700 += m.time700;
             var hasEvents = m.time200 > 0 || m.time700 > 0;
-            rows += '<tr' + (hasEvents ? ' class="tc-fh-has-events"' : '') + '>' +
-                '<td class="tc-fh-month">' + MONTH_NAMES[m.month] + '</td>' +
-                '<td class="tc-fh-c200">' + formatDuration(m.time200) + '</td>' +
-                '<td class="tc-fh-c700">' + formatDuration(m.time700) + '</td>' +
-                '</tr>';
+            var rowCls = 'tc-fh-month-row' + (hasEvents ? ' tc-fh-has-events' : '');
+            rows +=
+                '<tr class="' + rowCls + '">' +
+                    '<td class="tc-fh-month"><span class="tc-fh-expand-icon">&#9654;</span>' + MONTH_NAMES[m.month] + '</td>' +
+                    '<td class="tc-fh-c200">' + formatDuration(m.time200) + '</td>' +
+                    '<td class="tc-fh-c700">' + formatDuration(m.time700) + '</td>' +
+                '</tr>' +
+                '<tr class="tc-fh-day-row"><td colspan="3">' + buildDayGrid(m) + '</td></tr>';
         }
         body.innerHTML =
             '<table class="tc-fh-table">' +
@@ -259,6 +289,17 @@ var tcFloodHistory = (function () {
                     '</tr>' +
                 '</tfoot>' +
             '</table>';
+
+        body.querySelector('tbody').addEventListener('click', function (e) {
+            var row = e.target.closest('.tc-fh-month-row');
+            if (!row) return;
+            var dayRow = row.nextElementSibling;
+            if (!dayRow) return;
+            var isOpen = dayRow.style.display === 'table-row';
+            dayRow.style.display = isOpen ? '' : 'table-row';
+            var icon = row.querySelector('.tc-fh-expand-icon');
+            if (icon) icon.textContent = isOpen ? '►' : '▼';
+        });
     }
 
     // ---- Initialization ----

@@ -179,3 +179,67 @@
 .tc-fh-dot-700 {
     background: #d32f2f;
 }
+
+/* Expandable month rows */
+.tc-fh-month-row {
+    cursor: pointer;
+    user-select: none;
+}
+
+.tc-fh-month-row:hover {
+    background: #edf2f7 !important;
+}
+
+.tc-fh-expand-icon {
+    display: inline-block;
+    font-size: 0.55rem;
+    color: #a0aec0;
+    margin-right: 6px;
+    vertical-align: middle;
+    line-height: 1;
+    transition: color 0.15s;
+}
+
+.tc-fh-month-row:hover .tc-fh-expand-icon {
+    color: #4a5568;
+}
+
+/* Day grid row — hidden by default */
+.tc-fh-day-row {
+    display: none;
+}
+
+.tc-fh-day-row td {
+    padding: 6px 12px 10px;
+    background: #f7fafc;
+    border-bottom: 1px solid #edf2f7;
+}
+
+.tc-fh-day-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.tc-fh-day-strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tc-fh-days-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}
+
+.tc-fh-day {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.tc-fh-day-empty { background: #e2e8f0; }
+.tc-fh-day-200   { background: #f0ad4e; }
+.tc-fh-day-700   { background: #e53e3e; }
