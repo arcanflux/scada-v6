@@ -250,10 +250,8 @@
     color: rgba(0, 0, 0, 0.45);
 }
 
-.tc-fh-day-200,
-.tc-fh-day-700 {
-    color: rgba(255, 255, 255, 0.9);
-}
+.tc-fh-day-200 { color: rgba(0, 0, 0, 0.75); }
+.tc-fh-day-700 { color: rgba(255, 255, 255, 0.95); }
 
 .tc-fh-day-empty { background: #e2e8f0; }
 .tc-fh-day-200   { background: #f0ad4e; }
