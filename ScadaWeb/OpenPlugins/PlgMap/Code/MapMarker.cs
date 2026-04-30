@@ -13,7 +13,7 @@ namespace Scada.Web.Plugins.PlgMap.Code
     {
         Circle = 0,
         Triangle = 1,
-        Pns = 2
+        Pnu = 2
     }
 
     /// <summary>

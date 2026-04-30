@@ -164,13 +164,13 @@
       </Data>
     </Location>
 
-    <!-- PNS marker (pumping station) -->
+    <!-- PNU marker (pumping station) -->
     <Location>
       <Lat>55.040000</Lat>
       <Lon>82.950000</Lon>
-      <Name>ПНС-01</Name>
-      <Descr>Передвижная насосная станция ПНС-01</Descr>
-      <Type>Pns</Type>
+      <Name>ПНУ-01</Name>
+      <Descr>Передвижная насосная установка ПНУ-01</Descr>
+      <Type>Pnu</Type>
       <LatCnlNum>8001</LatCnlNum>
       <LonCnlNum>8002</LonCnlNum>
       <Data>

@@ -369,40 +369,40 @@
             display: block;
         }
 
-        /* --- PNS (pumping station) popup styles --- */
-        .map-pns-params {
+        /* --- PNU (pumping station) popup styles --- */
+        .map-pnu-params {
             width: 100%;
             border-collapse: collapse;
             font-size: 18px;
             margin: 6px 0;
         }
 
-        .map-pns-params td {
+        .map-pnu-params td {
             padding: 3px 6px;
         }
 
-        .map-pns-params .alias {
+        .map-pnu-params .alias {
             color: #555;
             font-size: 16px;
             font-weight: 500;
             white-space: nowrap;
         }
 
-        .map-pns-params .val {
+        .map-pnu-params .val {
             font-weight: 700;
             text-align: right;
             color: #222;
             white-space: nowrap;
         }
 
-        .map-pns-params .unit {
+        .map-pnu-params .unit {
             color: #888;
             font-size: 14px;
             font-weight: 400;
             padding-left: 2px;
         }
 
-        .map-pns-hydro-box {
+        .map-pnu-hydro-box {
             margin: 6px 0;
             padding: 6px 10px;
             border: 2px solid #ccc;
@@ -414,29 +414,29 @@
             transition: border-color 0.2s, color 0.2s, background 0.2s;
         }
 
-        .map-pns-hydro-box.active {
+        .map-pnu-hydro-box.active {
             border-color: #4caf50;
             color: #2e7d32;
             background: #f1f8e9;
         }
 
-        .map-pns-params .dot-cell {
+        .map-pnu-params .dot-cell {
             padding: 0 4px;
             width: 20px;
             text-align: center;
             vertical-align: middle;
         }
 
-        .map-pns-params .bypass-alias-td {
+        .map-pnu-params .bypass-alias-td {
             vertical-align: middle;
         }
 
-        .map-pns-params .bypass-bar-td {
+        .map-pnu-params .bypass-bar-td {
             padding: 2px 4px 2px 0;
             vertical-align: middle;
         }
 
-        .map-pns-connectivity {
+        .map-pnu-connectivity {
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -1559,7 +1559,7 @@
                 markerFilterAll: "@Html.Raw(Model.JsDict.MarkerFilterAll)",
                 markerFilterCircles: "@Html.Raw(Model.JsDict.MarkerFilterCircles)",
                 markerFilterTriangles: "@Html.Raw(Model.JsDict.MarkerFilterTriangles)",
-                markerFilterPns: "@Html.Raw(Model.JsDict.MarkerFilterPns)",
+                markerFilterPnu: "@Html.Raw(Model.JsDict.MarkerFilterPnu)",
                 hydroTestActive: "@Html.Raw(Model.JsDict.HydroTestActive)",
                 valveSuction: "@Html.Raw(Model.JsDict.ValveSuction)",
                 valveDischarge: "@Html.Raw(Model.JsDict.ValveDischarge)",
@@ -1760,7 +1760,7 @@
                 return "#3388ff"; // blue — no flood
             }
 
-            _createPnsMarkerIcon(hasHydroTest) {
+            _createPnuMarkerIcon(hasHydroTest) {
                 let size = this._getMarkerSize();
                 let half = size / 2;
                 let sw = Math.max(1.5, size * 0.08);
@@ -1784,7 +1784,7 @@
                 });
             }
 
-            _getPnsHydroTest(def) {
+            _getPnuHydroTest(def) {
                 let ch = def.channels || [];
                 if (!ch[1] || !ch[2]) return false;
                 let pSuc = this.curDataMap[ch[1].cnlNum];
@@ -1793,7 +1793,7 @@
                 return (pDis.val - pSuc.val) > 1;
             }
 
-            _getPnsConnectivity(def) {
+            _getPnuConnectivity(def) {
                 let ch = def.channels || [];
                 if (!ch[7]) return false;
                 let rec = this.curDataMap[ch[7].cnlNum];
@@ -1854,11 +1854,11 @@
 
             _refreshAllMarkerIcons() {
                 for (let entry of this.markerEntries) {
-                    let isPns = entry.def.type === 'pns';
+                    let isPnu = entry.def.type === 'pnu';
                     let isTriangle = entry.def.type === 'triangle';
                     let icon;
-                    if (isPns) {
-                        icon = this._createPnsMarkerIcon(this._getPnsHydroTest(entry.def));
+                    if (isPnu) {
+                        icon = this._createPnuMarkerIcon(this._getPnuHydroTest(entry.def));
                     } else if (isTriangle) {
                         let color = this._getTriangleMarkerColor(entry.def);
                         icon = this._createTriangleMarkerIcon(color, false, null);
@@ -1964,10 +1964,10 @@
                     if (!m.statusChannels) m.statusChannels = [];
                     if (!m.extraChannelGroups) m.extraChannelGroups = [];
 
-                    let isPns = m.type === 'pns';
+                    let isPnu = m.type === 'pnu';
                     let isTriangle = m.type === 'triangle';
-                    let icon = isPns
-                        ? this._createPnsMarkerIcon(false)
+                    let icon = isPnu
+                        ? this._createPnuMarkerIcon(false)
                         : isTriangle
                             ? this._createTriangleMarkerIcon(null)
                             : this._createMarkerIcon(null);
@@ -1978,8 +1978,8 @@
                     }).addTo(this.map);
 
                     let popupOpts = { maxWidth: 350, minWidth: 160, closeButton: false, autoPan: false };
-                    let popupHtml = isPns
-                        ? this._buildPnsPopupHtml(m)
+                    let popupHtml = isPnu
+                        ? this._buildPnuPopupHtml(m)
                         : isTriangle
                             ? this._buildTrianglePopupHtml(m)
                             : this._buildPopupHtml(m);
@@ -2206,7 +2206,7 @@
             }
 
             // --- Marker Type Filter ---
-            _markerFilter = 'all'; // 'all', 'circle', 'triangle', 'pns'
+            _markerFilter = 'all'; // 'all', 'circle', 'triangle', 'pnu'
 
             _initMarkerFilter() {
                 let btn = document.getElementById("mapMarkerFilterBtn");
@@ -2237,7 +2237,7 @@
                 let options = [{ key: 'all', label: this.t.markerFilterAll }];
                 if (types.has('circle')) options.push({ key: 'circle', label: this.t.markerFilterCircles });
                 if (types.has('triangle')) options.push({ key: 'triangle', label: this.t.markerFilterTriangles });
-                if (types.has('pns')) options.push({ key: 'pns', label: this.t.markerFilterPns });
+                if (types.has('pnu')) options.push({ key: 'pnu', label: this.t.markerFilterPnu });
                 let html = '';
                 for (let opt of options) {
                     let sel = this._markerFilter === opt.key ? ' selected' : '';
@@ -2284,8 +2284,8 @@
                     let f = this._markerFilter;
                     if (f !== 'all' && f !== mType) continue;
 
-                    if (mType === 'pns') {
-                        let hydroActive = this._getPnsHydroTest(entry.def);
+                    if (mType === 'pnu') {
+                        let hydroActive = this._getPnuHydroTest(entry.def);
                         if (hydroActive) {
                             let dots = [{ alias: this.t.hydroTestActive, on: true, color: '#4caf50' }];
                             problemEntries.push({ entry, dots, activeCount: 1 });
@@ -2523,18 +2523,18 @@
                 }
             }
 
-            // Build popup for PNS markers (pumping stations)
+            // Build popup for PNU markers (pumping stations)
             // Channels: [0]=G, [1]=P всас, [2]=Р напор, [3]=Р байпас, [4]=Valve%, [5]=Valve suction, [6]=Valve discharge, [7]=Online
-            _buildPnsPopupHtml(def) {
+            _buildPnuPopupHtml(def) {
                 let markerIdx = this.markerEntries.findIndex(e => e.def === def);
                 if (markerIdx < 0) markerIdx = this.markers.indexOf(def);
                 let ch = def.channels || [];
                 let html = '';
 
                 // Name + connectivity icon (WiFi symbol)
-                let connected = this._getPnsConnectivity(def);
+                let connected = this._getPnuConnectivity(def);
                 let connColor = connected ? '#4caf50' : '#d32f2f';
-                let connIcon = '<span class="map-pns-connectivity" data-pns-conn>' +
+                let connIcon = '<span class="map-pnu-connectivity" data-pnu-conn>' +
                     '<svg width="20" height="20" viewBox="0 0 24 24" fill="' + connColor + '">' +
                     '<path d="M1 9l2 2c5.523-5.523 14.477-5.523 20 0l2-2C18.312 2.312 5.688 2.312 1 9z"/>' +
                     '<path d="M5 13l2 2c2.761-2.761 7.239-2.761 10 0l2-2C15.521 9.521 8.479 9.521 5 13z"/>' +
@@ -2548,8 +2548,8 @@
                 }
 
                 // Hydraulic test box (always visible, border color shows state)
-                let hydroTest = this._getPnsHydroTest(def);
-                html += '<div class="map-pns-hydro-box' + (hydroTest ? ' active' : '') + '" data-pns-hydro>' +
+                let hydroTest = this._getPnuHydroTest(def);
+                html += '<div class="map-pnu-hydro-box' + (hydroTest ? ' active' : '') + '" data-pnu-hydro>' +
                     this._escapeHtml(this.t.hydroTestActive) + '</div>';
 
                 // Parameter rows: G, P всас, Р напор, Р байпас + valve dots inline + bypass bar
@@ -2563,11 +2563,11 @@
 
                 let paramDefs = [
                     { idx: 0, unit: this.t.flowRateUnit, dotRec: null },
-                    { idx: 1, unit: this.t.pressureUnit, dotRec: vSucRec, dotAttr: 'data-pns-vsuc' },
-                    { idx: 2, unit: this.t.pressureUnit, dotRec: vDisRec, dotAttr: 'data-pns-vdis' },
+                    { idx: 1, unit: this.t.pressureUnit, dotRec: vSucRec, dotAttr: 'data-pnu-vsuc' },
+                    { idx: 2, unit: this.t.pressureUnit, dotRec: vDisRec, dotAttr: 'data-pnu-vdis' },
                     { idx: 3, unit: this.t.pressureUnit, dotRec: null }
                 ];
-                html += '<table class="map-pns-params">';
+                html += '<table class="map-pnu-params">';
                 for (let pd of paramDefs) {
                     let c = ch[pd.idx];
                     if (!c) continue;
@@ -2588,8 +2588,8 @@
                         '<td class="alias bypass-alias-td">' + this._escapeHtml(this.t.valveBypass) + '</td>' +
                         '<td colspan="3" class="bypass-bar-td">' +
                         '<div class="map-tri-battery-bar">' +
-                        '<div class="map-tri-battery-fill" data-pns-bypass-fill style="width:' + valvePercent + '%;background:' + valveBarColor + '"></div>' +
-                        '<div class="map-tri-battery-text" data-pns-vbypass>' + this._escapeHtml(valveText) + ' %</div>' +
+                        '<div class="map-tri-battery-fill" data-pnu-bypass-fill style="width:' + valvePercent + '%;background:' + valveBarColor + '"></div>' +
+                        '<div class="map-tri-battery-text" data-pnu-vbypass>' + this._escapeHtml(valveText) + ' %</div>' +
                         '</div></td></tr>';
                 }
                 html += '</table>';
@@ -2602,7 +2602,7 @@
                 return html;
             }
 
-            _updatePnsPopupInPlace(popupEl, def) {
+            _updatePnuPopupInPlace(popupEl, def) {
                 let ch = def.channels || [];
                 // Parameter values (ch[0]-[3])
                 for (let i = 0; i < 4; i++) {
@@ -2615,28 +2615,28 @@
                 let vSucRec = ch[5] ? this.curDataMap[ch[5].cnlNum] : null;
                 let vDisRec = ch[6] ? this.curDataMap[ch[6].cnlNum] : null;
                 let vDotColor = (rec) => (!rec || rec.stat <= 0) ? '#bbb' : (rec.val >= 1 ? '#4caf50' : '#d32f2f');
-                let vSucDot = popupEl.querySelector('[data-pns-vsuc]');
+                let vSucDot = popupEl.querySelector('[data-pnu-vsuc]');
                 if (vSucDot) vSucDot.style.background = vDotColor(vSucRec);
-                let vDisDot = popupEl.querySelector('[data-pns-vdis]');
+                let vDisDot = popupEl.querySelector('[data-pnu-vdis]');
                 if (vDisDot) vDisDot.style.background = vDotColor(vDisRec);
                 // Bypass valve % bar (ch[4])
                 let valveRec = ch[4] ? this.curDataMap[ch[4].cnlNum] : null;
                 let valveText = (valveRec && valveRec.stat > 0) ? (valveRec.text || valveRec.val.toFixed(1)) : '--';
-                let vBypassEl = popupEl.querySelector('[data-pns-vbypass]');
+                let vBypassEl = popupEl.querySelector('[data-pnu-vbypass]');
                 if (vBypassEl) vBypassEl.textContent = valveText + ' %';
-                let bypassFillEl = popupEl.querySelector('[data-pns-bypass-fill]');
+                let bypassFillEl = popupEl.querySelector('[data-pnu-bypass-fill]');
                 if (bypassFillEl) {
                     let pct = (valveRec && valveRec.stat > 0) ? Math.max(0, Math.min(100, valveRec.val)) : 0;
                     bypassFillEl.style.width = pct + '%';
                     bypassFillEl.style.backgroundColor = (valveRec && valveRec.stat > 0) ? this._getValveColor(pct) : '#e0e0e0';
                 }
                 // Connectivity icon
-                let connected = this._getPnsConnectivity(def);
-                let connSvg = popupEl.querySelector('[data-pns-conn] svg');
+                let connected = this._getPnuConnectivity(def);
+                let connSvg = popupEl.querySelector('[data-pnu-conn] svg');
                 if (connSvg) connSvg.setAttribute('fill', connected ? '#4caf50' : '#d32f2f');
                 // Hydraulic test box
-                let hydroEl = popupEl.querySelector('[data-pns-hydro]');
-                if (hydroEl) hydroEl.classList.toggle('active', this._getPnsHydroTest(def));
+                let hydroEl = popupEl.querySelector('[data-pnu-hydro]');
+                if (hydroEl) hydroEl.classList.toggle('active', this._getPnuHydroTest(def));
             }
 
             // --- Chart Overlay (Combined) ---
@@ -3555,7 +3555,7 @@
                     this._activeChart = null;
                 }
 
-                let isPns = def.type === 'pns';
+                let isPnu = def.type === 'pnu';
                 let isTriangle = def.type === 'triangle';
                 let timestamps = histData.timestamps.map(t => new Date(t.ms));
                 let datasets = [];
@@ -3570,10 +3570,10 @@
                 }
 
                 let chartChannels, allCnlNums;
-                let PNS_COLORS = ['#1f77b4', '#d32f2f', '#2ca02c']; // P suc=blue, P dis=red, Valve=green
+                let PNU_COLORS = ['#1f77b4', '#d32f2f', '#2ca02c']; // P suc=blue, P dis=red, Valve=green
 
-                if (isPns) {
-                    // PNS: ch[1]=P всас, ch[2]=Р напор as lines; ch[4]=Valve% scaled
+                if (isPnu) {
+                    // PNU: ch[1]=P всас, ch[2]=Р напор as lines; ch[4]=Valve% scaled
                     chartChannels = [def.channels[1], def.channels[2]].filter(Boolean);
                     allCnlNums = chartChannels.map(c => c.cnlNum);
                     if (def.channels[4]) allCnlNums.push(def.channels[4].cnlNum);
@@ -3597,7 +3597,7 @@
                 for (let i = 0; i < chartChannels.length; i++) {
                     let ch = chartChannels[i];
                     let alias = ch.alias || (this.t.channel + ch.cnlNum);
-                    let color = isPns ? PNS_COLORS[i] : isTriangle ? TRI_LINE_COLORS[i] : this._getChannelColor(alias, i);
+                    let color = isPnu ? PNU_COLORS[i] : isTriangle ? TRI_LINE_COLORS[i] : this._getChannelColor(alias, i);
                     let trendIdx = cnlToTrendIdx[ch.cnlNum];
                     if (trendIdx === undefined) continue;
 
@@ -3607,8 +3607,8 @@
                         y: (rec && rec.d && rec.d.stat > 0) ? rec.d.val : null
                     }));
 
-                    let axisGroup = isPns ? "pressure" : isTriangle ? "temp" : this._getAxisGroup(alias);
-                    let unit = isPns ? this.t.pressureUnit : axisGroup === "pressure" ? this.t.pressureUnit : "°C";
+                    let axisGroup = isPnu ? "pressure" : isTriangle ? "temp" : this._getAxisGroup(alias);
+                    let unit = isPnu ? this.t.pressureUnit : axisGroup === "pressure" ? this.t.pressureUnit : "°C";
                     datasets.push({
                         label: alias,
                         data: data,
@@ -3620,14 +3620,14 @@
                         tension: 0.3,
                         fill: false,
                         spanGaps: false,
-                        yAxisID: isPns ? "yPressure" : axisGroup === "pressure" ? "yPressure" : "yTemp",
+                        yAxisID: isPnu ? "yPressure" : axisGroup === "pressure" ? "yPressure" : "yTemp",
                         _cnlNum: ch.cnlNum,
                         _unit: unit
                     });
                 }
 
-                // PNS: valve % as a scaled line on the pressure axis (0-100% mapped to 0-25)
-                if (isPns && def.channels[4]) {
+                // PNU: valve % as a scaled line on the pressure axis (0-100% mapped to 0-25)
+                if (isPnu && def.channels[4]) {
                     let vCh = def.channels[4];
                     let vAlias = vCh.alias || (this.t.channel + vCh.cnlNum);
                     let vTrendIdx = cnlToTrendIdx[vCh.cnlNum];
@@ -3640,8 +3640,8 @@
                         datasets.push({
                             label: vAlias,
                             data: vData,
-                            borderColor: PNS_COLORS[2],
-                            backgroundColor: PNS_COLORS[2] + "20",
+                            borderColor: PNU_COLORS[2],
+                            backgroundColor: PNU_COLORS[2] + "20",
                             borderWidth: 1.5,
                             borderDash: [6, 3],
                             pointRadius: 0,
@@ -3801,7 +3801,7 @@
                     }
                 };
 
-                if (isPns) {
+                if (isPnu) {
                     scales.yPressure = {
                         type: 'linear',
                         position: 'left',
@@ -4500,11 +4500,11 @@
                         }
                     }
 
-                    let isPns = entry.def.type === 'pns';
+                    let isPnu = entry.def.type === 'pnu';
                     let isTriangle = entry.def.type === 'triangle';
                     let icon;
-                    if (isPns) {
-                        icon = this._createPnsMarkerIcon(this._getPnsHydroTest(entry.def));
+                    if (isPnu) {
+                        icon = this._createPnuMarkerIcon(this._getPnuHydroTest(entry.def));
                     } else if (isTriangle) {
                         let color = this._getTriangleMarkerColor(entry.def);
                         icon = this._createTriangleMarkerIcon(color, false, null);
@@ -4520,8 +4520,8 @@
                     if (popup && popup.isOpen()) {
                         let popupEl = popup.getElement();
                         if (popupEl) {
-                            if (isPns) {
-                                this._updatePnsPopupInPlace(popupEl, entry.def);
+                            if (isPnu) {
+                                this._updatePnuPopupInPlace(popupEl, entry.def);
                             } else if (isTriangle) {
                                 this._updateTrianglePopupInPlace(popupEl, entry.def);
                             } else {
@@ -4538,7 +4538,7 @@
                     }
 
                     entry.leafletMarker.setPopupContent(
-                        isPns ? this._buildPnsPopupHtml(entry.def)
+                        isPnu ? this._buildPnuPopupHtml(entry.def)
                             : isTriangle ? this._buildTrianglePopupHtml(entry.def)
                             : this._buildPopupHtml(entry.def)
                     );
