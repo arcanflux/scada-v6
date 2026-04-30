@@ -214,7 +214,8 @@ var thermalCamera = (function () {
         items.sort(function (a, b) {
             var da = a.districtNumber || 0;
             var db = b.districtNumber || 0;
-            return districtSortAsc ? da - db : db - da;
+            if (da !== db) return districtSortAsc ? da - db : db - da;
+            return a.id - b.id;
         });
     }
 
@@ -228,7 +229,8 @@ var thermalCamera = (function () {
     function sortByFloodState() {
         items.sort(function (a, b) {
             var ra = floodStateRank(a), rb = floodStateRank(b);
-            return floodStateSortAsc ? ra - rb : rb - ra;
+            if (ra !== rb) return floodStateSortAsc ? ra - rb : rb - ra;
+            return a.id - b.id;
         });
     }
 
@@ -245,26 +247,42 @@ var thermalCamera = (function () {
     function sortByTemperature() {
         items.sort(function (a, b) {
             var ta = getMaxTemp(a.id), tb2 = getMaxTemp(b.id);
-            if (ta === null && tb2 === null) return 0;
-            if (ta === null) return 1;   // nulls go last
+            // Items without data always go to the end, regardless of direction
+            if (ta === null && tb2 === null) return a.id - b.id;
+            if (ta === null) return 1;
             if (tb2 === null) return -1;
-            return tempSortAsc ? ta - tb2 : tb2 - ta;
+            if (ta !== tb2) return tempSortAsc ? ta - tb2 : tb2 - ta;
+            return a.id - b.id;
         });
     }
 
     function sortByOnline() {
+        // Sort by offline duration: 0 = online, positive = how long offline.
+        // Ascending: online first, then increasing offline duration.
+        // Descending: longest offline first.
+        var nowMs = Date.now();
         items.sort(function (a, b) {
-            var oa = onlineByItem[a.id] ? 1 : 0;
-            var ob = onlineByItem[b.id] ? 1 : 0;
-            return onlineSortAsc ? oa - ob : ob - oa;
+            var ta = timersByItem[a.id];
+            var tb = timersByItem[b.id];
+            var da = (ta && ta.offlineStartMs > 0) ? (nowMs - ta.offlineStartMs) : 0;
+            var db = (tb && tb.offlineStartMs > 0) ? (nowMs - tb.offlineStartMs) : 0;
+            if (da !== db) return onlineSortAsc ? da - db : db - da;
+            return a.id - b.id;
         });
     }
 
     function sortByBattery() {
         items.sort(function (a, b) {
-            var ba = batteryByItem[a.id] != null ? batteryByItem[a.id] : -1;
-            var bb = batteryByItem[b.id] != null ? batteryByItem[b.id] : -1;
-            return batterySortAsc ? ba - bb : bb - ba;
+            var ba = batteryByItem[a.id];
+            var bb = batteryByItem[b.id];
+            var aHas = ba != null;
+            var bHas = bb != null;
+            // Items without data always go to the end, regardless of direction
+            if (!aHas && !bHas) return a.id - b.id;
+            if (!aHas) return 1;
+            if (!bHas) return -1;
+            if (ba !== bb) return batterySortAsc ? ba - bb : bb - ba;
+            return a.id - b.id;
         });
     }
 
