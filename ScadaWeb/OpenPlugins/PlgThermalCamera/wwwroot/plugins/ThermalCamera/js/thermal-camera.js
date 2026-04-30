@@ -219,17 +219,15 @@ var thermalCamera = (function () {
         });
     }
 
-    function floodStateRank(item) {
-        var t = timersByItem[item.id] || {};
-        if (t.flood700StartMs > 0) return 2;
-        if (t.flood200StartMs > 0) return 1;
-        return 0;
-    }
-
     function sortByFloodState() {
+        var nowMs = Date.now();
         items.sort(function (a, b) {
-            var ra = floodStateRank(a), rb = floodStateRank(b);
-            if (ra !== rb) return floodStateSortAsc ? ra - rb : rb - ra;
+            var ta = timersByItem[a.id] || {}, tb = timersByItem[b.id] || {};
+            var da = ta.flood700StartMs > 0 ? (nowMs - ta.flood700StartMs) :
+                     ta.flood200StartMs > 0 ? (nowMs - ta.flood200StartMs) : 0;
+            var db = tb.flood700StartMs > 0 ? (nowMs - tb.flood700StartMs) :
+                     tb.flood200StartMs > 0 ? (nowMs - tb.flood200StartMs) : 0;
+            if (da !== db) return floodStateSortAsc ? da - db : db - da;
             return a.id - b.id;
         });
     }
