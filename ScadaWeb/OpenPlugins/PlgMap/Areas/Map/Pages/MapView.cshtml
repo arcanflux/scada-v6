@@ -420,83 +420,20 @@
             background: #f1f8e9;
         }
 
-        .map-pns-valve-box {
-            margin: 6px 0 4px;
-            padding: 8px 10px 8px;
-            border: 2px solid #ccc;
-            border-radius: 6px;
+        .map-pns-params .dot-cell {
+            padding: 0 4px;
+            width: 20px;
             text-align: center;
-            transition: border-color 0.2s, background 0.2s;
+            vertical-align: middle;
         }
 
-        .map-pns-valve-box.all-open {
-            border-color: #4caf50;
-            background: #f1f8e9;
+        .map-pns-params .bypass-alias-td {
+            vertical-align: middle;
         }
 
-        .map-pns-valve-box.all-closed {
-            border-color: #d32f2f;
-            background: #fde8e8;
-        }
-
-        .map-pns-valve-box.mixed {
-            border-color: #f0ad4e;
-            background: #fff8e1;
-        }
-
-        .map-pns-valve-row {
-            font-size: 15px;
-            padding: 1px 0;
-        }
-
-        .map-pns-valve-label {
-            color: #555;
-            font-weight: 500;
-        }
-
-        .map-pns-valve-state {
-            font-weight: 700;
-        }
-
-        .map-pns-valve-state.open {
-            color: #4caf50;
-        }
-
-        .map-pns-valve-state.closed {
-            color: #d32f2f;
-        }
-
-        .map-pns-bypass-label {
-            font-size: 14px;
-            color: #555;
-            font-weight: 500;
-            margin-top: 7px;
-        }
-
-        .map-pns-bypass-bar-wrap {
-            position: relative;
-            height: 16px;
-            background: #e0e0e0;
-            border-radius: 8px;
-            margin: 4px 0 2px;
-            overflow: hidden;
-        }
-
-        .map-pns-bypass-bar-fill {
-            height: 100%;
-            border-radius: 8px;
-            transition: width 0.4s, background-color 0.4s;
-        }
-
-        .map-pns-bypass-bar-text {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            font-weight: 700;
-            color: #333;
+        .map-pns-params .bypass-bar-td {
+            padding: 2px 4px 2px 0;
+            vertical-align: middle;
         }
 
         .map-pns-connectivity {
@@ -2596,7 +2533,9 @@
                 let connColor = connected ? '#4caf50' : '#d32f2f';
                 let connIcon = '<span class="map-pns-connectivity" data-pns-conn>' +
                     '<svg width="20" height="20" viewBox="0 0 24 24" fill="' + connColor + '">' +
-                    '<path d="M12 18c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1zm-4.24-3.76a.996.996 0 0 0 0 1.41C8.91 16.8 10.38 17.5 12 17.5s3.09-.7 4.24-1.85a.996.996 0 1 0-1.41-1.41A3.984 3.984 0 0 1 12 15.5c-1.07 0-2.07-.42-2.83-1.17a.996.996 0 0 0-1.41 0zm-2.83-2.83a.996.996 0 0 0 0 1.41C6.59 14.48 9.18 15.5 12 15.5s5.41-1.02 7.07-2.68a.996.996 0 1 0-1.41-1.41A7.984 7.984 0 0 1 12 13.5c-2.12 0-4.07-.81-5.66-2.41a.996.996 0 0 0-1.41.32zm-2.83-2.83a.996.996 0 0 0 0 1.41C4.1 12 7.87 13.5 12 13.5s7.9-1.5 9.9-3.51a.996.996 0 1 0-1.41-1.41C18.73 10.34 15.53 11.5 12 11.5s-6.73-1.16-8.49-2.92a.996.996 0 0 0-1.41 0z"/>' +
+                    '<path d="M1 9l2 2c5.523-5.523 14.477-5.523 20 0l2-2C18.312 2.312 5.688 2.312 1 9z"/>' +
+                    '<path d="M5 13l2 2c2.761-2.761 7.239-2.761 10 0l2-2C15.521 9.521 8.479 9.521 5 13z"/>' +
+                    '<path d="M9 17l3 3 3-3c-1.657-1.657-4.343-1.657-6 0z"/>' +
                     '</svg></span>';
                 html += '<div class="map-popup-name-row"><span class="map-popup-name">' +
                     this._escapeHtml(def.name) + '</span>' + connIcon + '</div>';
@@ -2610,12 +2549,20 @@
                 html += '<div class="map-pns-hydro-box' + (hydroTest ? ' active' : '') + '" data-pns-hydro>' +
                     this._escapeHtml(this.t.hydroTestActive) + '</div>';
 
-                // Parameter rows: G, P всас, Р напор, Р байпас
+                // Parameter rows: G, P всас, Р напор, Р байпас + valve dots inline + bypass bar
+                let vSucRec = ch[5] ? this.curDataMap[ch[5].cnlNum] : null;
+                let vDisRec = ch[6] ? this.curDataMap[ch[6].cnlNum] : null;
+                let valveRec = ch[4] ? this.curDataMap[ch[4].cnlNum] : null;
+                let valveText = (valveRec && valveRec.stat > 0) ? (valveRec.text || valveRec.val.toFixed(1)) : '--';
+                let valvePercent = (valveRec && valveRec.stat > 0) ? Math.max(0, Math.min(100, valveRec.val)) : 0;
+                let valveBarColor = (valveRec && valveRec.stat > 0) ? this._getValveColor(valvePercent) : '#e0e0e0';
+                let vDotColor = (rec) => (!rec || rec.stat <= 0) ? '#bbb' : (rec.val >= 1 ? '#4caf50' : '#d32f2f');
+
                 let paramDefs = [
-                    { idx: 0, unit: this.t.flowRateUnit },
-                    { idx: 1, unit: this.t.pressureUnit },
-                    { idx: 2, unit: this.t.pressureUnit },
-                    { idx: 3, unit: this.t.pressureUnit }
+                    { idx: 0, unit: this.t.flowRateUnit, dotRec: null },
+                    { idx: 1, unit: this.t.pressureUnit, dotRec: vSucRec, dotAttr: 'data-pns-vsuc' },
+                    { idx: 2, unit: this.t.pressureUnit, dotRec: vDisRec, dotAttr: 'data-pns-vdis' },
+                    { idx: 3, unit: this.t.pressureUnit, dotRec: null }
                 ];
                 html += '<table class="map-pns-params">';
                 for (let pd of paramDefs) {
@@ -2624,44 +2571,25 @@
                     let rec = this.curDataMap[c.cnlNum];
                     let valText = rec ? this._escapeHtml(rec.text) : '--';
                     let alias = c.alias || (this.t.channel + c.cnlNum);
+                    let dotCell = pd.dotAttr
+                        ? '<td class="dot-cell"><span class="map-popup-status-dot" ' + pd.dotAttr + ' style="background:' + vDotColor(pd.dotRec) + '"></span></td>'
+                        : '<td class="dot-cell"></td>';
                     html += '<tr><td class="alias">' + this._escapeHtml(alias) + '</td>' +
+                        dotCell +
                         '<td class="val" data-cnl="' + c.cnlNum + '">' + valText + '</td>' +
                         '<td class="unit">' + this._escapeHtml(pd.unit) + '</td></tr>';
                 }
-                html += '</table>';
-
-                // Valve rows: Клапан всас, Клапан напор, Клапан байпаса (%)
-                let vSucRec = ch[5] ? this.curDataMap[ch[5].cnlNum] : null;
-                let vDisRec = ch[6] ? this.curDataMap[ch[6].cnlNum] : null;
-                let vSucOpen = !!(vSucRec && vSucRec.stat > 0 && vSucRec.val >= 1);
-                let vDisOpen = !!(vDisRec && vDisRec.stat > 0 && vDisRec.val >= 1);
-                let valveRec = ch[4] ? this.curDataMap[ch[4].cnlNum] : null;
-                let valveText = (valveRec && valveRec.stat > 0) ? (valveRec.text || valveRec.val.toFixed(1)) : '--';
-
-                let hasSucSig = !!(vSucRec && vSucRec.stat > 0);
-                let hasDisSig = !!(vDisRec && vDisRec.stat > 0);
-                let valveBoxClass = '';
-                if (hasSucSig && hasDisSig) {
-                    valveBoxClass = (vSucOpen && vDisOpen) ? ' all-open' : (!vSucOpen && !vDisOpen) ? ' all-closed' : ' mixed';
+                // Bypass valve % bar row
+                if (ch[4]) {
+                    html += '<tr>' +
+                        '<td class="alias bypass-alias-td">' + this._escapeHtml(this.t.valveBypass) + '</td>' +
+                        '<td colspan="3" class="bypass-bar-td">' +
+                        '<div class="map-tri-battery-bar">' +
+                        '<div class="map-tri-battery-fill" data-pns-bypass-fill style="width:' + valvePercent + '%;background:' + valveBarColor + '"></div>' +
+                        '<div class="map-tri-battery-text" data-pns-vbypass>' + this._escapeHtml(valveText) + ' %</div>' +
+                        '</div></td></tr>';
                 }
-                let valvePercent = (valveRec && valveRec.stat > 0) ? Math.max(0, Math.min(100, valveRec.val)) : 0;
-                let valveBarColor = (valveRec && valveRec.stat > 0) ? this._getValveColor(valvePercent) : '#e0e0e0';
-
-                html += '<div class="map-pns-valve-box' + valveBoxClass + '" data-pns-valve-box>';
-                html += '<div class="map-pns-valve-row">' +
-                    '<span class="map-pns-valve-label">' + this._escapeHtml(this.t.valveSuction) + '</span> ' +
-                    '<span class="map-pns-valve-state ' + (vSucOpen ? 'open' : 'closed') + '" data-pns-vsuc>' +
-                    this._escapeHtml(vSucOpen ? this.t.valveOpen : this.t.valveClosed) + '</span></div>';
-                html += '<div class="map-pns-valve-row">' +
-                    '<span class="map-pns-valve-label">' + this._escapeHtml(this.t.valveDischarge) + '</span> ' +
-                    '<span class="map-pns-valve-state ' + (vDisOpen ? 'open' : 'closed') + '" data-pns-vdis>' +
-                    this._escapeHtml(vDisOpen ? this.t.valveOpen : this.t.valveClosed) + '</span></div>';
-                html += '<div class="map-pns-bypass-label">' + this._escapeHtml(this.t.valveBypass) + '</div>';
-                html += '<div class="map-pns-bypass-bar-wrap">' +
-                    '<div class="map-pns-bypass-bar-fill" data-pns-bypass-fill style="width:' + valvePercent + '%;background:' + valveBarColor + '"></div>' +
-                    '<div class="map-pns-bypass-bar-text" data-pns-vbypass>' + this._escapeHtml(valveText) + ' %</div>' +
-                    '</div>';
-                html += '</div>';
+                html += '</table>';
 
                 // Combined chart button
                 html += '<button class="map-popup-chart-btn" ' +
@@ -2680,44 +2608,24 @@
                     let rec = this.curDataMap[ch[i].cnlNum];
                     if (el && rec) el.textContent = rec.text || '--';
                 }
-                // Valve states (ch[5], ch[6]) and bypass (ch[4])
+                // Valve dots (ch[5] → P всас row, ch[6] → Р напор row)
                 let vSucRec = ch[5] ? this.curDataMap[ch[5].cnlNum] : null;
                 let vDisRec = ch[6] ? this.curDataMap[ch[6].cnlNum] : null;
-                let vSucOpen = !!(vSucRec && vSucRec.stat > 0 && vSucRec.val >= 1);
-                let vDisOpen = !!(vDisRec && vDisRec.stat > 0 && vDisRec.val >= 1);
-                let hasSucSig = !!(vSucRec && vSucRec.stat > 0);
-                let hasDisSig = !!(vDisRec && vDisRec.stat > 0);
-                let vSucEl = popupEl.querySelector('[data-pns-vsuc]');
-                if (vSucEl) {
-                    vSucEl.textContent = vSucOpen ? this.t.valveOpen : this.t.valveClosed;
-                    vSucEl.className = 'map-pns-valve-state ' + (vSucOpen ? 'open' : 'closed');
-                }
-                let vDisEl = popupEl.querySelector('[data-pns-vdis]');
-                if (vDisEl) {
-                    vDisEl.textContent = vDisOpen ? this.t.valveOpen : this.t.valveClosed;
-                    vDisEl.className = 'map-pns-valve-state ' + (vDisOpen ? 'open' : 'closed');
-                }
-                // Valve box state class
-                let valveBoxEl = popupEl.querySelector('[data-pns-valve-box]');
-                if (valveBoxEl) {
-                    valveBoxEl.classList.remove('all-open', 'all-closed', 'mixed');
-                    if (hasSucSig && hasDisSig) {
-                        valveBoxEl.classList.add((vSucOpen && vDisOpen) ? 'all-open' : (!vSucOpen && !vDisOpen) ? 'all-closed' : 'mixed');
-                    }
-                }
-                // Bypass valve % (ch[4])
+                let vDotColor = (rec) => (!rec || rec.stat <= 0) ? '#bbb' : (rec.val >= 1 ? '#4caf50' : '#d32f2f');
+                let vSucDot = popupEl.querySelector('[data-pns-vsuc]');
+                if (vSucDot) vSucDot.style.background = vDotColor(vSucRec);
+                let vDisDot = popupEl.querySelector('[data-pns-vdis]');
+                if (vDisDot) vDisDot.style.background = vDotColor(vDisRec);
+                // Bypass valve % bar (ch[4])
                 let valveRec = ch[4] ? this.curDataMap[ch[4].cnlNum] : null;
                 let valveText = (valveRec && valveRec.stat > 0) ? (valveRec.text || valveRec.val.toFixed(1)) : '--';
                 let vBypassEl = popupEl.querySelector('[data-pns-vbypass]');
                 if (vBypassEl) vBypassEl.textContent = valveText + ' %';
                 let bypassFillEl = popupEl.querySelector('[data-pns-bypass-fill]');
-                if (bypassFillEl && valveRec && valveRec.stat > 0) {
-                    let pct = Math.max(0, Math.min(100, valveRec.val));
+                if (bypassFillEl) {
+                    let pct = (valveRec && valveRec.stat > 0) ? Math.max(0, Math.min(100, valveRec.val)) : 0;
                     bypassFillEl.style.width = pct + '%';
-                    bypassFillEl.style.backgroundColor = this._getValveColor(pct);
-                } else if (bypassFillEl) {
-                    bypassFillEl.style.width = '0%';
-                    bypassFillEl.style.backgroundColor = '#e0e0e0';
+                    bypassFillEl.style.backgroundColor = (valveRec && valveRec.stat > 0) ? this._getValveColor(pct) : '#e0e0e0';
                 }
                 // Connectivity icon
                 let connected = this._getPnsConnectivity(def);
