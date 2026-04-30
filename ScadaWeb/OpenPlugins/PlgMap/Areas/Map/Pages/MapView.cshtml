@@ -2003,6 +2003,9 @@
                 this._initMarkerFilter();
                 this._refreshData();
                 this.updateTimer = setInterval(() => this._refreshData(), this.refreshRate);
+
+                // Pre-load Chart.js in the background so the first chart open is instant
+                setTimeout(() => { this._loadChartJs().catch(() => {}); }, 500);
             }
 
             // --- Search ---
@@ -2880,12 +2883,15 @@
                 overlay.classList.add("show");
 
                 try {
-                    await this._loadChartJs();
                     let cnlNums = def.channels.map(c => c.cnlNum);
                     if (this._showStatusTimelines && def.statusChannels && def.statusChannels.length > 0) {
                         cnlNums = cnlNums.concat(def.statusChannels.map(c => c.cnlNum));
                     }
-                    let histData = await this._fetchHistDataRange(cnlNums, this._chartStartTime, this._chartEndTime);
+                    // Load Chart.js library and fetch hist data in parallel
+                    let [, histData] = await Promise.all([
+                        this._loadChartJs(),
+                        this._fetchHistDataRange(cnlNums, this._chartStartTime, this._chartEndTime)
+                    ]);
 
                     if (!histData) {
                         body.innerHTML = '<div class="map-chart-loading">' + this._escapeHtml(this.t.noData) + '</div>';
@@ -3785,7 +3791,8 @@
                         },
                         title: { display: false },
                         ticks: {
-                            font: { size: 14 },
+                            font: { size: 15, weight: '500' },
+                            color: '#333',
                             callback: xTickCallback,
                             maxRotation: 0,
                             autoSkipPadding: 20,
@@ -3800,8 +3807,14 @@
                         position: 'left',
                         min: 0,
                         max: 25,
-                        title: { display: true, text: MapViewManager.LANG.pressureUnit, font: { size: 15 } },
-                        ticks: { font: { size: 14 } }
+                        title: {
+                            display: true,
+                            text: MapViewManager.LANG.pressureUnit,
+                            font: { size: 17, weight: '600' },
+                            color: '#1f4e8c',
+                            padding: { bottom: 6 }
+                        },
+                        ticks: { font: { size: 15, weight: '500' }, color: '#333' }
                     };
                 } else {
                     scales.yTemp = {
@@ -3809,8 +3822,14 @@
                         position: 'left',
                         min: isTriangle ? -10 : 0,
                         max: 120,
-                        title: { display: true, text: '°C', font: { size: 15 } },
-                        ticks: { font: { size: 14 } }
+                        title: {
+                            display: true,
+                            text: '°C',
+                            font: { size: 17, weight: '600' },
+                            color: '#b71c1c',
+                            padding: { bottom: 6 }
+                        },
+                        ticks: { font: { size: 15, weight: '500' }, color: '#333' }
                     };
                     if (!isTriangle) {
                         scales.yPressure = {
@@ -3818,8 +3837,14 @@
                             position: 'right',
                             min: 0,
                             max: 25,
-                            title: { display: true, text: MapViewManager.LANG.pressureUnit, font: { size: 15 } },
-                            ticks: { font: { size: 14 } },
+                            title: {
+                                display: true,
+                                text: MapViewManager.LANG.pressureUnit,
+                                font: { size: 17, weight: '600' },
+                                color: '#1f4e8c',
+                                padding: { bottom: 6 }
+                            },
+                            ticks: { font: { size: 15, weight: '500' }, color: '#333' },
                             grid: { drawOnChartArea: false }
                         };
                     }
@@ -3832,6 +3857,9 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        animation: false,
+                        animations: { colors: false, x: false, y: false },
+                        transitions: { active: { animation: { duration: 0 } } },
                         interaction: { mode: 'index', intersect: false },
                         plugins: {
                             legend: {
@@ -4414,6 +4442,16 @@
             }
 
             async _fetchHistDataRange(cnlNums, startTime, endTime) {
+                let startMs = startTime.getTime();
+                let endMs = endTime.getTime();
+                let cacheKey = cnlNums.join(",") + "_" + startMs + "_" + endMs;
+                let cached = this._chartCache[cacheKey];
+                // 30s cache for short ranges, 5min for longer
+                let cacheMs = (endMs - startMs) <= 24 * 3600 * 1000 ? 30000 : 300000;
+                if (cached && (Date.now() - cached.time) < cacheMs) {
+                    return cached.data;
+                }
+
                 let url = this._mainApiRoot() + "GetHistData" +
                     "?archiveBit=1" +
                     "&startTime=" + encodeURIComponent(startTime.toISOString()) +
@@ -4424,7 +4462,10 @@
                 try {
                     let resp = await fetch(url);
                     let dto = await resp.json();
-                    if (dto.ok && dto.data) return dto.data;
+                    if (dto.ok && dto.data) {
+                        this._chartCache[cacheKey] = { data: dto.data, time: Date.now() };
+                        return dto.data;
+                    }
                 } catch (err) {
                     console.error("Failed to fetch hist data range:", err);
                 }
