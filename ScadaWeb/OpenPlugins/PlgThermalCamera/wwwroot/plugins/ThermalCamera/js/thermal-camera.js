@@ -58,8 +58,11 @@ var thermalCamera = (function () {
     var flood200ByItem = {};             // itemId -> true|false
     var flood700ByItem = {};             // itemId -> true|false
     var tempByItem = {};                 // itemId -> { t200: number|null, t700: number|null }
+    var batteryByItem = {};              // itemId -> number|null (percentage)
     var floodStateSortAsc = true;        // for table flood-state sort
     var tempSortAsc = true;              // for table temperature sort
+    var onlineSortAsc = true;            // for table online sort
+    var batterySortAsc = true;           // for table battery sort
     var hasLiveData = false;
     var ackHistory = [];                  // loaded once and updated after each new ack
 
@@ -249,6 +252,22 @@ var thermalCamera = (function () {
         });
     }
 
+    function sortByOnline() {
+        items.sort(function (a, b) {
+            var oa = onlineByItem[a.id] ? 1 : 0;
+            var ob = onlineByItem[b.id] ? 1 : 0;
+            return onlineSortAsc ? oa - ob : ob - oa;
+        });
+    }
+
+    function sortByBattery() {
+        items.sort(function (a, b) {
+            var ba = batteryByItem[a.id] != null ? batteryByItem[a.id] : -1;
+            var bb = batteryByItem[b.id] != null ? batteryByItem[b.id] : -1;
+            return batterySortAsc ? ba - bb : bb - ba;
+        });
+    }
+
     function bindHeaderSort() {
         var btn = document.getElementById("btnSortDistrict");
         if (!btn) return;
@@ -331,6 +350,30 @@ var thermalCamera = (function () {
                 applyFilter();
                 positionJournal();
                 updateFloodSortBtnIcon("btnSortTemp", tempSortAsc);
+            });
+        }
+        var btnOnline = document.getElementById("btnSortOnline");
+        if (btnOnline) {
+            updateFloodSortBtnIcon("btnSortOnline", onlineSortAsc);
+            btnOnline.addEventListener("click", function () {
+                onlineSortAsc = !onlineSortAsc;
+                sortByOnline();
+                renderTable();
+                applyFilter();
+                positionJournal();
+                updateFloodSortBtnIcon("btnSortOnline", onlineSortAsc);
+            });
+        }
+        var btnBattery = document.getElementById("btnSortBattery");
+        if (btnBattery) {
+            updateFloodSortBtnIcon("btnSortBattery", batterySortAsc);
+            btnBattery.addEventListener("click", function () {
+                batterySortAsc = !batterySortAsc;
+                sortByBattery();
+                renderTable();
+                applyFilter();
+                positionJournal();
+                updateFloodSortBtnIcon("btnSortBattery", batterySortAsc);
             });
         }
     }
@@ -602,12 +645,14 @@ var thermalCamera = (function () {
         if (!d) return;
 
         if (d.stat <= 0) {
+            batteryByItem[item.id] = null;
             el.className = "tc-battery-value tc-battery-unknown";
             el.innerHTML = '<i class="fa-solid fa-battery-half"></i> \u2014';
             return;
         }
 
         var pct = d.val;
+        batteryByItem[item.id] = pct;
         var icon = pct > 75 ? "fa-battery-full" :
                    pct > 50 ? "fa-battery-three-quarters" :
                    pct > 25 ? "fa-battery-half" :
