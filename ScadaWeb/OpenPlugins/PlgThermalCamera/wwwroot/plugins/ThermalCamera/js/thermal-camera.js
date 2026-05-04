@@ -219,15 +219,23 @@ var thermalCamera = (function () {
         });
     }
 
+    function hasFloodColumn(item) {
+        return item.flood200CnlNum > 0 || item.flood700CnlNum > 0 ||
+               item.temp200CnlNum  > 0 || item.temp700CnlNum  > 0;
+    }
+
     function sortByFloodState() {
         var nowMs = Date.now();
         items.sort(function (a, b) {
+            var aHas = hasFloodColumn(a), bHas = hasFloodColumn(b);
+            if (aHas !== bHas) return aHas ? -1 : 1;   // no-data items always last
             var ta = timersByItem[a.id] || {}, tb = timersByItem[b.id] || {};
-            var da = ta.flood700StartMs > 0 ? (nowMs - ta.flood700StartMs) :
-                     ta.flood200StartMs > 0 ? (nowMs - ta.flood200StartMs) : 0;
-            var db = tb.flood700StartMs > 0 ? (nowMs - tb.flood700StartMs) :
-                     tb.flood200StartMs > 0 ? (nowMs - tb.flood200StartMs) : 0;
-            if (da !== db) return floodStateSortAsc ? da - db : db - da;
+            var da700 = ta.flood700StartMs > 0 ? (nowMs - ta.flood700StartMs) : 0;
+            var db700 = tb.flood700StartMs > 0 ? (nowMs - tb.flood700StartMs) : 0;
+            var da200 = ta.flood200StartMs > 0 ? (nowMs - ta.flood200StartMs) : 0;
+            var db200 = tb.flood200StartMs > 0 ? (nowMs - tb.flood200StartMs) : 0;
+            if (da700 !== db700) return floodStateSortAsc ? da700 - db700 : db700 - da700;
+            if (da200 !== db200) return floodStateSortAsc ? da200 - db200 : db200 - da200;
             return a.id - b.id;
         });
     }
