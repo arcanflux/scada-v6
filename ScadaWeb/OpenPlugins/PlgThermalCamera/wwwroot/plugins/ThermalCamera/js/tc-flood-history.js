@@ -107,8 +107,9 @@ var tcFloodHistory = (function () {
             for (var d = 0; d < daysInMonth; d++) days.push({ has200: false, has700: false });
             months.push({ month: m, time200: 0, time700: 0, days: days });
         }
+        var archiveOngoing = {}; // kind -> true if archive last record is active flood (extrapolated to now)
         if (!histData || !histData.cnlNums || !histData.trends || !histData.timestamps) {
-            return months;
+            return { months: months, archiveOngoing: archiveOngoing };
         }
         var cnlIdx = {};
         histData.cnlNums.forEach(function (n, i) { cnlIdx[n] = i; });
@@ -133,8 +134,16 @@ var tcFloodHistory = (function () {
                 if (endMs === null) endMs = periodEnd;
                 addOverlapToMonths(months, startMs, endMs, year, ch.kind);
             }
+            // Determine if archive already covers the ongoing flood up to now
+            // (last valid record is flooded → was extrapolated to periodEnd above)
+            for (var k = trend.length - 1; k >= 0; k--) {
+                var lr = trend[k];
+                if (!lr || !lr.d || lr.d.stat <= 0) continue;
+                archiveOngoing[ch.kind] = (lr.d.val === 0);
+                break;
+            }
         }
-        return months;
+        return { months: months, archiveOngoing: archiveOngoing };
     }
 
     function tsMs(rec) {
@@ -180,11 +189,13 @@ var tcFloodHistory = (function () {
     // ---- Modal UI ----
 
     var currentItem = null;
+    var currentLiveTimers = {};
 
-    function openHistoryModal(item) {
+    function openHistoryModal(item, liveTimers) {
         var modal = document.getElementById("tcFloodHistoryModal");
         if (!modal) return;
         currentItem = item;
+        currentLiveTimers = liveTimers || {};
 
         var titleEl = document.getElementById("tcFloodHistoryTitle");
         if (titleEl) {
@@ -218,6 +229,7 @@ var tcFloodHistory = (function () {
         var modal = document.getElementById("tcFloodHistoryModal");
         if (modal) modal.classList.remove("show");
         currentItem = null;
+        currentLiveTimers = {};
     }
 
     async function loadYearData(year) {
@@ -226,10 +238,23 @@ var tcFloodHistory = (function () {
         if (!body) return;
         body.innerHTML = '<div class="tc-fh-loading">Загрузка...</div>';
         try {
-            var months = await fetchYearlyCounts(currentItem, year);
+            var result = await fetchYearlyCounts(currentItem, year);
+            var months = result ? result.months : null;
             if (!months || !months.length) {
                 body.innerHTML = '<div class="tc-fh-loading">Нет данных</div>';
                 return;
+            }
+            // Inject live timer data for channels not yet captured by the archive.
+            // This ensures an active flood is visible on the very first open even if
+            // the minute archive hasn't written the current interval yet.
+            if (year === new Date().getFullYear()) {
+                var archiveOngoing = result.archiveOngoing || {};
+                var nowMs = Date.now();
+                var lt = currentLiveTimers;
+                if (lt.flood700StartMs > 0 && !archiveOngoing['700'])
+                    addOverlapToMonths(months, lt.flood700StartMs, nowMs, year, '700');
+                if (lt.flood200StartMs > 0 && !archiveOngoing['200'])
+                    addOverlapToMonths(months, lt.flood200StartMs, nowMs, year, '200');
             }
             renderTable(body, months);
         } catch (err) {
