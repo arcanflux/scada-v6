@@ -290,14 +290,14 @@
 }
 
 /* Column widths — percentage-based so the table scales with any screen width */
-.tc-col-status   { width: 5%;   min-width: 80px; }
-.tc-col-district { width: 5%;   min-width: 90px; }
+.tc-col-status   { width: 7%;   min-width: 80px; }
+.tc-col-district { width: 7%;   min-width: 90px; }
 .tc-col-name     { width: 12%;  min-width: 150px; }
 .tc-col-address  { width: 14%;  min-width: 180px; }
-.tc-col-online   { width: 6%;   min-width: 80px; }
+.tc-col-online   { width: 7%;   min-width: 80px; }
 .tc-col-flooding { width: 18%;  min-width: 220px; }
-.tc-col-battery  { width: 6%;   min-width: 90px; }
-.tc-col-journal  { width: auto; min-width: 200px; }
+.tc-col-battery  { width: 7%;   min-width: 90px; }
+.tc-col-journal  { width: auto; min-width: 150px; }
 
 /* District badge */
 .tc-district-badge {
