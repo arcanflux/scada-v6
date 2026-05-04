@@ -190,12 +190,14 @@ var tcFloodHistory = (function () {
 
     var currentItem = null;
     var currentLiveTimers = {};
+    var currentAckList = [];
 
-    function openHistoryModal(item, liveTimers) {
+    function openHistoryModal(item, liveTimers, ackList) {
         var modal = document.getElementById("tcFloodHistoryModal");
         if (!modal) return;
         currentItem = item;
         currentLiveTimers = liveTimers || {};
+        currentAckList = ackList || [];
 
         var titleEl = document.getElementById("tcFloodHistoryTitle");
         if (titleEl) {
@@ -230,6 +232,7 @@ var tcFloodHistory = (function () {
         if (modal) modal.classList.remove("show");
         currentItem = null;
         currentLiveTimers = {};
+        currentAckList = [];
     }
 
     async function loadYearData(year) {
@@ -256,7 +259,8 @@ var tcFloodHistory = (function () {
                 if (lt.flood200StartMs > 0 && !archiveOngoing['200'])
                     addOverlapToMonths(months, lt.flood200StartMs, nowMs, year, '200');
             }
-            renderTable(body, months);
+            var ackDayMap = buildAckDayMap(currentAckList, year);
+            renderTable(body, months, ackDayMap);
         } catch (err) {
             console.error(err);
             body.innerHTML = '<div class="tc-fh-loading">Ошибка загрузки</div>';
@@ -265,13 +269,41 @@ var tcFloodHistory = (function () {
 
     var SHORT_MONTHS = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
 
-    function buildDayGrid(m) {
+    // Build map: ackDayMap[monthIdx][dayIdx(0-based)] = [{ackedAtMs, ackedBy, comment}, ...]
+    function buildAckDayMap(ackList, year) {
+        var map = {};
+        for (var i = 0; i < ackList.length; i++) {
+            var r = ackList[i];
+            if (!r.ackedAtMs) continue;
+            var dt = new Date(r.ackedAtMs);
+            if (dt.getFullYear() !== year) continue;
+            var mo = dt.getMonth(), dy = dt.getDate() - 1;
+            if (!map[mo]) map[mo] = {};
+            if (!map[mo][dy]) map[mo][dy] = [];
+            map[mo][dy].push(r);
+        }
+        return map;
+    }
+
+    function buildDayGrid(m, ackDayMap) {
+        var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
         var days200 = '', days700 = '';
         for (var d = 0; d < m.days.length; d++) {
             var day = m.days[d];
             var label = d + 1;
-            days200 += '<div class="tc-fh-day ' + (day.has200 ? 'tc-fh-day-200' : 'tc-fh-day-empty') + '">' + label + '</div>';
-            days700 += '<div class="tc-fh-day ' + (day.has700 ? 'tc-fh-day-700' : 'tc-fh-day-empty') + '">' + label + '</div>';
+            var dayAcks = (ackDayMap && ackDayMap[m.month] && ackDayMap[m.month][d]) ? ackDayMap[m.month][d] : null;
+            var ackCls = dayAcks ? ' tc-fh-day-acked' : '';
+            var ackAttr = '';
+            if (dayAcks) {
+                var r = dayAcks[0];
+                var dt = new Date(r.ackedAtMs);
+                var dateStr = pad(dt.getDate()) + '.' + pad(dt.getMonth() + 1) + '.' + dt.getFullYear() +
+                              ' ' + pad(dt.getHours()) + ':' + pad(dt.getMinutes());
+                var comment = (r.comment || '').replace(/"/g, '&quot;').replace(/\n/g, ' ');
+                ackAttr = ' data-tc-hint="Квитировал: ' + (r.ackedBy || '—') + '&#10;' + dateStr + '&#10;' + comment + '"';
+            }
+            days200 += '<div class="tc-fh-day ' + (day.has200 ? 'tc-fh-day-200' : 'tc-fh-day-empty') + ackCls + '"' + ackAttr + '>' + label + '</div>';
+            days700 += '<div class="tc-fh-day ' + (day.has700 ? 'tc-fh-day-700' : 'tc-fh-day-empty') + ackCls + '"' + ackAttr + '>' + label + '</div>';
         }
         return '<div class="tc-fh-day-grid">' +
             '<div class="tc-fh-day-strip"><span class="tc-fh-dot tc-fh-dot-200"></span><div class="tc-fh-days-wrap">' + days200 + '</div></div>' +
@@ -279,7 +311,8 @@ var tcFloodHistory = (function () {
         '</div>';
     }
 
-    function renderTable(body, months) {
+    function renderTable(body, months, ackDayMap) {
+        ackDayMap = ackDayMap || {};
         var total200 = 0, total700 = 0;
         var rows = '';
         for (var i = 0; i < months.length; i++) {
@@ -294,7 +327,7 @@ var tcFloodHistory = (function () {
                     '<td class="tc-fh-c200">' + formatDuration(m.time200) + '</td>' +
                     '<td class="tc-fh-c700">' + formatDuration(m.time700) + '</td>' +
                 '</tr>' +
-                '<tr class="tc-fh-day-row"><td colspan="3">' + buildDayGrid(m) + '</td></tr>';
+                '<tr class="tc-fh-day-row"><td colspan="3">' + buildDayGrid(m, ackDayMap) + '</td></tr>';
         }
         body.innerHTML =
             '<table class="tc-fh-table">' +

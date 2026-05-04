@@ -1601,7 +1601,7 @@ td.tc-col-flooding:hover {
     border-radius: 6px;
     font-size: 13px;
     pointer-events: none;
-    z-index: 9999;
+    z-index: 10001;
     white-space: pre-line;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
     line-height: 1.6;

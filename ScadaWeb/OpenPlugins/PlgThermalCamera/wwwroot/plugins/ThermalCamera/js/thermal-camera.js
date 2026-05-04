@@ -533,7 +533,10 @@ var thermalCamera = (function () {
                 var item = items.find(function (x) { return x.id === itemId; });
                 if (!item) return;
                 if (typeof tcFloodHistory !== "undefined" && tcFloodHistory) {
-                    tcFloodHistory.openHistoryModal(item, timersByItem[item.id] || {});
+                    var itemAcks = ackHistory.filter(function (r) {
+                        return r.itemId === item.id || r.itemName === item.name;
+                    });
+                    tcFloodHistory.openHistoryModal(item, timersByItem[item.id] || {}, itemAcks);
                 }
             });
         }

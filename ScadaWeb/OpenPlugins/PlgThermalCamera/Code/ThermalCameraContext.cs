@@ -125,7 +125,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         /// <summary>
         /// Appends a system chat message (used for flood event notifications) and persists.
         /// </summary>
-        public ChatMessage AddSystemMessage(int itemId, string text, string kind)
+        public ChatMessage AddSystemMessage(int itemId, string text, string kind, string author = "Система")
         {
             lock (lockObj)
             {
@@ -136,7 +136,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                 {
                     Id = ++userData.LastMessageId,
                     TimestampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    Author = "Система",
+                    Author = string.IsNullOrEmpty(author) ? "Система" : author,
                     Text = text ?? "",
                     Kind = kind ?? ChatMessageKind.User
                 };
@@ -414,7 +414,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                 // Post a chat message so the TK's chat log shows the acknowledgment
                 string duration = FormatDuration(rec.AckedAtMs - floodStartMs);
                 string sysText = $"Квитировано (время реагирования: {duration})\n{comment}";
-                AddSystemMessage(itemId, sysText, ChatMessageKind.Ack);
+                AddSystemMessage(itemId, sysText, ChatMessageKind.Ack, ackedBy);
 
                 return rec;
             }

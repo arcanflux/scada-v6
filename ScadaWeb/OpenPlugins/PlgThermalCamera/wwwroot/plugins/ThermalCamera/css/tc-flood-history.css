@@ -256,3 +256,8 @@
 .tc-fh-day-empty { background: #e2e8f0; }
 .tc-fh-day-200   { background: #f0ad4e; }
 .tc-fh-day-700   { background: #e53e3e; }
+
+.tc-fh-day-acked {
+    outline: 2px solid #38a169;
+    outline-offset: -2px;
+}
