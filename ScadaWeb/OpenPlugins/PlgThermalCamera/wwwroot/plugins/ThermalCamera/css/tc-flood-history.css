@@ -21,7 +21,7 @@
 .tc-fh-panel {
     background: #ffffff;
     color: #1a202c;
-    width: 980px;
+    width: 1005px;
     max-width: 98vw;
     max-height: 90vh;
     border-radius: 10px;
@@ -237,8 +237,8 @@
 }
 
 .tc-fh-day {
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     border-radius: 5px;
     flex-shrink: 0;
     display: flex;
