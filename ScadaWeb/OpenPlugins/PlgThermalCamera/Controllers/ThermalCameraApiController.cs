@@ -113,17 +113,13 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
 
                 foreach (ThermalCameraItem item in view.Items)
                 {
-                    // Use the debounced timer as the source of truth rather than the
-                    // instantaneous channel reading. During a SCADA restart the channel
-                    // may briefly report "not flooded" while the timer is still active;
-                    // keeping the item visible in both active-events and ack panels
-                    // prevents desynchronisation between the two displays.
-                    long flood700StartMs = timers.TryGetValue(item.Id, out ItemTimers t) ? t.Flood700StartMs : 0;
-                    if (flood700StartMs <= 0)
+                    if (!floodStates.TryGetValue(item.Id, out FloodStateSnapshot s) || !s.Flood700)
                         continue;
 
+                    long flood700StartMs = timers.TryGetValue(item.Id, out ItemTimers t) ? t.Flood700StartMs : 0;
+
                     AckRecord existingAck = null;
-                    if (userData.Entries.TryGetValue(item.Id, out UserDataEntry entry))
+                    if (flood700StartMs > 0 && userData.Entries.TryGetValue(item.Id, out UserDataEntry entry))
                         existingAck = entry.AckHistory.FirstOrDefault(a => a.FloodStartMs == flood700StartMs);
 
                     if (existingAck == null)
