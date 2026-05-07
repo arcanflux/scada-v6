@@ -96,7 +96,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
                     }
                     floodStates[item.Id] = snap;
                 }
-                thermalCameraContext.DetectFloodTransitions(view.Items, floodStates, clientAccessor.ScadaClient);
+                thermalCameraContext.DetectFloodTransitions(view.Items, floodStates);
 
                 // Collect any new chat messages so the client can merge them in.
                 ChatSyncResult chatSync = thermalCameraContext.GetChatUpdates(chatCursor);

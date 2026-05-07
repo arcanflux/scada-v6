@@ -47,6 +47,10 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         private readonly HashSet<(int itemId, string kind)> scansInProgress = [];
         // UTC ms when each scan was started — used to detect stalled scans.
         private readonly Dictionary<(int itemId, string kind), long> scanStartTimes = [];
+        // Serializes background archive scans so only one GetTrend runs at a time.
+        // Without this, parallel scans corrupt the transaction ID on the shared
+        // ScadaClient and the server rejects requests with "неверный идентификатор транзакции".
+        private readonly SemaphoreSlim scanSemaphore = new(1, 1);
 
         public string GetUserDataFilePath()
         {
@@ -249,10 +253,9 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         /// </summary>
         public void DetectFloodTransitions(
             IEnumerable<ThermalCameraItem> items,
-            Dictionary<int, FloodStateSnapshot> currentStates,
-            ScadaClient scadaClient)
+            Dictionary<int, FloodStateSnapshot> currentStates)
         {
-            if (items == null || currentStates == null || scadaClient == null)
+            if (items == null || currentStates == null)
                 return;
 
             lock (lockObj)
@@ -273,7 +276,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                         if (!cur.IsOnline)
                         {
                             if (entry.OfflineArchiveStartMs == 0 && item.OnlineCnlNum > 0)
-                                TriggerArchiveScan(item.Id, item.OnlineCnlNum, "offline", scadaClient);
+                                TriggerArchiveScan(item.Id, item.OnlineCnlNum, "offline");
                         }
                         else if (entry.OfflineArchiveStartMs != 0)
                         {
@@ -296,7 +299,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                                     ChatMessageKind.Flood200);
                             }
                             if (entry.Flood200ArchiveStartMs == 0 && item.Flood200CnlNum > 0)
-                                TriggerArchiveScan(item.Id, item.Flood200CnlNum, "flood200", scadaClient);
+                                TriggerArchiveScan(item.Id, item.Flood200CnlNum, "flood200");
                             lastFlood200State[item.Id] = true;
                         }
                         else
@@ -324,7 +327,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                                     ChatMessageKind.Flood700);
                             }
                             if (entry.Flood700ArchiveStartMs == 0 && item.Flood700CnlNum > 0)
-                                TriggerArchiveScan(item.Id, item.Flood700CnlNum, "flood700", scadaClient);
+                                TriggerArchiveScan(item.Id, item.Flood700CnlNum, "flood700");
                             lastFlood700State[item.Id] = true;
                         }
                         else
@@ -348,20 +351,29 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         }
 
         // Must be called inside lockObj.
-        private void TriggerArchiveScan(int itemId, int cnlNum, string kind, ScadaClient client)
+        private void TriggerArchiveScan(int itemId, int cnlNum, string kind)
         {
             var key = (itemId, kind);
             if (!scansInProgress.Add(key))
                 return; // scan already running for this item+kind
             scanStartTimes[key] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            Task.Run(() => DoArchiveScan(itemId, cnlNum, kind, client, key));
+            Task.Run(() => DoArchiveScan(itemId, cnlNum, kind, key));
         }
 
-        private void DoArchiveScan(int itemId, int cnlNum, string kind, ScadaClient client, (int, string) key)
+        private void DoArchiveScan(int itemId, int cnlNum, string kind, (int, string) key)
         {
             long archiveStartMs = 0;
+            ScadaClient client = null;
+            // Serialize all background scans so only one GetTrend runs at a time.
+            // This prevents transaction-ID corruption on the shared client and avoids
+            // hammering the SCADA Server when many TKs need scanning simultaneously.
+            scanSemaphore.Wait();
             try
             {
+                // Rent a dedicated client from the pool so scans never share state with
+                // the request-scoped client used by HTTP API handlers.
+                client = webContext.ClientPool.GetClient(webContext.AppConfig.ConnectionOptions);
+
                 archiveStartMs = kind == "offline"
                     ? ScanOfflineStartMs(client, cnlNum)
                     : ScanFloodStartMs(client, cnlNum);
@@ -370,6 +382,12 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
             {
                 webContext.Log.WriteError(
                     $"PlgThermalCamera: archive scan failed for item {itemId}/{kind}: {ex.Message}");
+            }
+            finally
+            {
+                if (client != null)
+                    webContext.ClientPool.ReturnClient(client);
+                scanSemaphore.Release();
             }
 
             lock (lockObj)
