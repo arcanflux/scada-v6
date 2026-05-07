@@ -47,6 +47,10 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         private readonly HashSet<(int itemId, string kind)> scansInProgress = [];
         // UTC ms when each scan was started — used to detect stalled scans.
         private readonly Dictionary<(int itemId, string kind), long> scanStartTimes = [];
+        // Tracks which MoreThan30DaysSentinel values have been reset this session.
+        // Prevents infinite re-scan loops for genuinely long floods while still
+        // giving the improved ScanFloodStartMs algorithm one chance to run.
+        private readonly HashSet<(int itemId, string kind)> sentinelsReset = [];
         // Serializes background archive scans so only one GetTrend runs at a time.
         // Without this, parallel scans corrupt the transaction ID on the shared
         // ScadaClient and the server rejects requests with "неверный идентификатор транзакции".
@@ -298,6 +302,15 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                                     (string.IsNullOrEmpty(item.Name) ? "объект ТК" : item.Name),
                                     ChatMessageKind.Flood200);
                             }
+                            // Give a previously wrong "> 30д" result one retry with the
+                            // improved scan algorithm (which can find the start when
+                            // no pre-flood dry points exist in the archive).
+                            if (entry.Flood200ArchiveStartMs == MoreThan30DaysSentinel &&
+                                sentinelsReset.Add((item.Id, "flood200")))
+                            {
+                                entry.Flood200ArchiveStartMs = 0;
+                                dirty = true;
+                            }
                             if (entry.Flood200ArchiveStartMs == 0 && item.Flood200CnlNum > 0)
                                 TriggerArchiveScan(item.Id, item.Flood200CnlNum, "flood200");
                             lastFlood200State[item.Id] = true;
@@ -325,6 +338,12 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                                     "ТРЕВОГА: затопление 700мм — " +
                                     (string.IsNullOrEmpty(item.Name) ? "объект ТК" : item.Name),
                                     ChatMessageKind.Flood700);
+                            }
+                            if (entry.Flood700ArchiveStartMs == MoreThan30DaysSentinel &&
+                                sentinelsReset.Add((item.Id, "flood700")))
+                            {
+                                entry.Flood700ArchiveStartMs = 0;
+                                dirty = true;
                             }
                             if (entry.Flood700ArchiveStartMs == 0 && item.Flood700CnlNum > 0)
                                 TriggerArchiveScan(item.Id, item.Flood700CnlNum, "flood700");
@@ -444,9 +463,10 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
             DateTime now = DateTime.UtcNow;
             foreach (int hours in ScanWindowHours)
             {
+                DateTime windowStart = now.AddHours(-hours);
                 Trend trend = client.GetTrend(
                     MinuteArchiveBit,
-                    new TimeRange(now.AddHours(-hours), now, true),
+                    new TimeRange(windowStart, now, true),
                     cnlNum);
 
                 if (trend == null || trend.Points.Count == 0)
@@ -477,7 +497,27 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                     return 0;
                 }
 
-                // All points in window are flooded — try a wider window.
+                // No dry point found — all archived points in this window are flooded.
+                // This happens when the channel started archiving DURING an active flood
+                // (so there are no pre-flood "normal" readings in the archive).
+                // In that case the very first flooded point in the window is the best known
+                // start time, provided it's well inside the window (not right at the edge).
+                // "Right at the edge" (< 10 min from windowStart) indicates the flood was
+                // already active before this window — widen the scan.
+                for (int i = 0; i < trend.Points.Count; i++)
+                {
+                    TrendPoint p = trend.Points[i];
+                    if (p.Stat > 0 && p.Val == 0)
+                    {
+                        if (p.Timestamp > windowStart.AddMinutes(10))
+                        {
+                            // First flooded point is well within the window — treat as flood start.
+                            return new DateTimeOffset(p.Timestamp, TimeSpan.Zero).ToUnixTimeMilliseconds();
+                        }
+                        break; // point is at window edge → try wider window
+                    }
+                }
+
                 if (hours == ScanWindowHours[^1])
                     return MoreThan30DaysSentinel;
             }
