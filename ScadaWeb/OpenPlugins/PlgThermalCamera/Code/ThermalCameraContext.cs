@@ -28,11 +28,24 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         /// </summary>
         public const bool EnableMessageLimit = true;
 
+        /// <summary>
+        /// Number of consecutive polls that must report "normal" before an active timer is
+        /// cleared. Prevents transient channel readings during SCADA restart from resetting
+        /// accumulated flood / offline durations.
+        /// </summary>
+        private const int ClearDebounceCount = 3;
+
         private readonly object lockObj = new();
         private ThermalCameraUserData cache;
         private readonly Dictionary<int, bool> lastFlood200State = [];
         private readonly Dictionary<int, bool> lastFlood700State = [];
         private readonly Dictionary<int, bool> lastOnlineState = [];
+
+        // Counts consecutive "normal" readings while a timer is still active.
+        // The timer is only cleared once the count reaches ClearDebounceCount.
+        private readonly Dictionary<int, int> clearPendingOnline = [];
+        private readonly Dictionary<int, int> clearPending200 = [];
+        private readonly Dictionary<int, int> clearPending700 = [];
 
         public string GetUserDataFilePath()
         {
@@ -266,18 +279,39 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                     {
                         if (!curOnline)
                         {
+                            // Device is offline — cancel any pending debounce and start timer.
+                            clearPendingOnline.Remove(item.Id);
                             if (entry.OfflineStartMs == 0)
                             {
                                 entry.OfflineStartMs = now;
                                 dirty = true;
                             }
+                            lastOnlineState[item.Id] = false;
                         }
                         else if (entry.OfflineStartMs > 0)
                         {
-                            entry.OfflineStartMs = 0;
-                            dirty = true;
+                            // Timer active but current reading says "online" — debounce the clear.
+                            clearPendingOnline.TryGetValue(item.Id, out int cnt);
+                            cnt++;
+                            if (cnt >= ClearDebounceCount)
+                            {
+                                clearPendingOnline.Remove(item.Id);
+                                entry.OfflineStartMs = 0;
+                                dirty = true;
+                                lastOnlineState[item.Id] = true;
+                            }
+                            else
+                            {
+                                clearPendingOnline[item.Id] = cnt;
+                                // Keep lastOnlineState as false during debounce so a re-offline
+                                // reading is treated as a continuation, not a new transition.
+                            }
                         }
-                        lastOnlineState[item.Id] = curOnline;
+                        else
+                        {
+                            clearPendingOnline.Remove(item.Id);
+                            lastOnlineState[item.Id] = true;
+                        }
                     }
 
                     // 200mm transition
@@ -287,6 +321,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                         bool prev200 = prevKnown200 ? p200 : false;
                         if (cur.Flood200)
                         {
+                            clearPending200.Remove(item.Id);
                             if (!prev200 && prevKnown200) // Real transition — notify once
                             {
                                 AddSystemMessage(item.Id,
@@ -299,13 +334,32 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                                 entry.Flood200StartMs = now;
                                 dirty = true;
                             }
+                            lastFlood200State[item.Id] = true;
                         }
                         else if (entry.Flood200StartMs > 0)
                         {
-                            entry.Flood200StartMs = 0;
-                            dirty = true;
+                            // Timer active but current reading says "not flooded" — debounce the clear.
+                            clearPending200.TryGetValue(item.Id, out int cnt);
+                            cnt++;
+                            if (cnt >= ClearDebounceCount)
+                            {
+                                clearPending200.Remove(item.Id);
+                                entry.Flood200StartMs = 0;
+                                dirty = true;
+                                lastFlood200State[item.Id] = false;
+                            }
+                            else
+                            {
+                                clearPending200[item.Id] = cnt;
+                                // Keep lastFlood200State as true during debounce so a re-flooded
+                                // reading doesn't fire a duplicate alarm notification.
+                            }
                         }
-                        lastFlood200State[item.Id] = cur.Flood200;
+                        else
+                        {
+                            clearPending200.Remove(item.Id);
+                            lastFlood200State[item.Id] = false;
+                        }
                     }
 
                     // 700mm transition
@@ -315,6 +369,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                         bool prev700 = prevKnown700 ? p700 : false;
                         if (cur.Flood700)
                         {
+                            clearPending700.Remove(item.Id);
                             if (!prev700 && prevKnown700) // Real transition — notify once
                             {
                                 AddSystemMessage(item.Id,
@@ -327,13 +382,32 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                                 entry.Flood700StartMs = now;
                                 dirty = true;
                             }
+                            lastFlood700State[item.Id] = true;
                         }
                         else if (entry.Flood700StartMs > 0)
                         {
-                            entry.Flood700StartMs = 0;
-                            dirty = true;
+                            // Timer active but current reading says "not flooded" — debounce the clear.
+                            clearPending700.TryGetValue(item.Id, out int cnt);
+                            cnt++;
+                            if (cnt >= ClearDebounceCount)
+                            {
+                                clearPending700.Remove(item.Id);
+                                entry.Flood700StartMs = 0;
+                                dirty = true;
+                                lastFlood700State[item.Id] = false;
+                            }
+                            else
+                            {
+                                clearPending700[item.Id] = cnt;
+                                // Keep lastFlood700State as true during debounce so a re-flooded
+                                // reading doesn't fire a duplicate alarm notification.
+                            }
                         }
-                        lastFlood700State[item.Id] = cur.Flood700;
+                        else
+                        {
+                            clearPending700.Remove(item.Id);
+                            lastFlood700State[item.Id] = false;
+                        }
                     }
                 }
 
