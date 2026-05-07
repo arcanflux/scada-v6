@@ -881,11 +881,21 @@ var thermalCamera = (function () {
             var pa = result.pendingAcks[i];
             newPending[pa.itemId] = { itemName: pa.itemName, flood700StartMs: pa.flood700StartMs };
         }
-        // Only rebuild DOM when the set of pending items changes (avoids clearing typed comments)
         var newKeys = Object.keys(newPending).sort().join(",");
         var oldKeys = Object.keys(pendingAckItems).sort().join(",");
+        // Rebuild DOM when set of items changes OR when any flood start timestamp changed
+        // (e.g. timer was reset after restart — data-start attribute must be refreshed)
+        var needsRender = newKeys !== oldKeys;
+        if (!needsRender) {
+            for (var idStr in newPending) {
+                if ((pendingAckItems[idStr] || {}).flood700StartMs !== newPending[idStr].flood700StartMs) {
+                    needsRender = true;
+                    break;
+                }
+            }
+        }
         pendingAckItems = newPending;
-        if (newKeys !== oldKeys) {
+        if (needsRender) {
             renderJournalAck();
         }
     }
