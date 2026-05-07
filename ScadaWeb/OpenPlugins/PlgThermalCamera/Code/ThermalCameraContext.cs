@@ -1,6 +1,8 @@
 // Copyright (c) Rapid Software LLC. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using Scada.Client;
+using Scada.Data.Models;
 using Scada.Web.Plugins.PlgThermalCamera.Models;
 using Scada.Web.Services;
 
@@ -14,33 +16,31 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
     {
         /// <summary>
         /// Hard upper limit on how many chat messages are kept per TK when
-        /// <see cref="EnableMessageLimit"/> is enabled. Older messages are trimmed
-        /// after each new write. Flip <see cref="EnableMessageLimit"/> to false to
-        /// keep the full history regardless of size.
-        /// <para>Жёсткий лимит сообщений на один объект ТК. Если
-        /// <see cref="EnableMessageLimit"/> = false, лимит отключается.</para>
+        /// <see cref="EnableMessageLimit"/> is enabled.
         /// </summary>
         public const int MaxMessagesPerItem = 1000;
 
         /// <summary>
-        /// Code-level switch that enables/disables the per-TK message limit.
         /// Set to <c>false</c> to retain the entire chat history without trimming.
         /// </summary>
         public const bool EnableMessageLimit = true;
 
-        /// <summary>
-        /// How long (in ms) the channel must continuously report "normal" before an
-        /// active offline / flood timer is actually cleared. The pending-since timestamp
-        /// is persisted to disk so back-to-back SCADA restarts cannot accumulate enough
-        /// transient polls to bypass it.
-        /// </summary>
-        private const long ClearDebounceMs = 60_000;
+        // MinuteArchive bit — matches the archiveBit used by the flood-history JS endpoint.
+        private const int MinuteArchiveBit = 1;
+
+        // Expanding scan windows (hours): 1h → 6h → 1d → 7d → 30d.
+        private static readonly int[] ScanWindowHours = [1, 6, 24, 168, 720];
+
+        // Stored in *ArchiveStartMs when the state has been active for more than 30 days
+        // and no transition point was found in the full 30-day archive window.
+        // Value 1L (1 ms after Unix epoch) is clearly not a real flood-start timestamp.
+        private const long MoreThan30DaysSentinel = 1L;
 
         private readonly object lockObj = new();
         private ThermalCameraUserData cache;
         private readonly Dictionary<int, bool> lastFlood200State = [];
         private readonly Dictionary<int, bool> lastFlood700State = [];
-        private readonly Dictionary<int, bool> lastOnlineState = [];
+        private readonly HashSet<(int itemId, string kind)> scansInProgress = [];
 
         public string GetUserDataFilePath()
         {
@@ -93,9 +93,6 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
 
         private static void TrimMessages(UserDataEntry entry)
         {
-            // EnableMessageLimit is a const switch — when it's false the rest of the
-            // method is dead-code-eliminated, which is exactly the toggle behavior we
-            // want, so the unreachable-code warning is suppressed locally.
 #pragma warning disable CS0162 // Unreachable code detected
             if (!EnableMessageLimit)
                 return;
@@ -159,9 +156,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         }
 
         /// <summary>
-        /// Removes a user chat message. The caller (controller) is responsible for enforcing
-        /// that only administrators reach this method. System messages (flood events) cannot
-        /// be deleted.
+        /// Removes a user chat message. System messages (flood events) cannot be deleted.
         /// </summary>
         public bool DeleteMessage(int itemId, long messageId, out string errMsg)
         {
@@ -194,9 +189,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         }
 
         /// <summary>
-        /// Returns a flat list of {itemId, message} pairs for any messages whose id is greater than
-        /// the given cursor. Also returns the set of item IDs that saw at least one deletion so the
-        /// client can invalidate its local cache for them.
+        /// Returns incremental chat updates since the given cursor.
         /// </summary>
         public ChatSyncResult GetChatUpdates(long sinceMessageId)
         {
@@ -242,23 +235,24 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         }
 
         /// <summary>
-        /// Compares the latest flood-state snapshot against the previous one and appends a
-        /// system message for every normal→flooded transition. Only one system message is
-        /// emitted per episode (state stays "flooded" until the driver reports normal again).
-        /// Also updates persistent start-time timestamps for Offline / 200mm / 700mm states.
+        /// Compares the latest flood-state snapshot against the previous one, fires chat
+        /// notifications for new transitions, and triggers background archive scans to find
+        /// the exact start timestamp of each active state.
+        /// Timer values are persisted in the SCADA minute archive (not in plugin-managed
+        /// timestamps) so they survive server restarts without resetting.
         /// </summary>
         public void DetectFloodTransitions(
             IEnumerable<ThermalCameraItem> items,
-            Dictionary<int, FloodStateSnapshot> currentStates)
+            Dictionary<int, FloodStateSnapshot> currentStates,
+            ScadaClient scadaClient)
         {
-            if (items == null || currentStates == null)
+            if (items == null || currentStates == null || scadaClient == null)
                 return;
 
             lock (lockObj)
             {
                 ThermalCameraUserData userData = LoadUserData();
                 bool dirty = false;
-                long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
                 foreach (ThermalCameraItem item in items)
                 {
@@ -267,159 +261,71 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
 
                     UserDataEntry entry = GetOrCreateEntry(userData, item.Id);
 
-                    // Online / Offline timer — state-based so already-offline devices
-                    // get a start timestamp even on the first poll cycle after plugin startup.
-                    bool curOnline = cur.IsOnline;
+                    // Offline timer
                     if (cur.OnlineHasValue)
                     {
-                        if (!curOnline)
+                        if (!cur.IsOnline)
                         {
-                            // Device is offline — cancel any pending debounce and start timer.
-                            if (entry.OfflineClearPendingSinceMs != 0)
-                            {
-                                entry.OfflineClearPendingSinceMs = 0;
-                                dirty = true;
-                            }
-                            if (entry.OfflineStartMs == 0)
-                            {
-                                entry.OfflineStartMs = now;
-                                dirty = true;
-                            }
-                            lastOnlineState[item.Id] = false;
+                            if (entry.OfflineArchiveStartMs == 0 && item.OnlineCnlNum > 0)
+                                TriggerArchiveScan(item.Id, item.OnlineCnlNum, "offline", scadaClient);
                         }
-                        else if (entry.OfflineStartMs > 0)
+                        else if (entry.OfflineArchiveStartMs != 0)
                         {
-                            // Timer is active but current reading says "online" — debounce by elapsed time.
-                            if (entry.OfflineClearPendingSinceMs == 0)
-                            {
-                                entry.OfflineClearPendingSinceMs = now;
-                                dirty = true;
-                            }
-                            else if (now - entry.OfflineClearPendingSinceMs >= ClearDebounceMs)
-                            {
-                                entry.OfflineStartMs = 0;
-                                entry.OfflineClearPendingSinceMs = 0;
-                                dirty = true;
-                                lastOnlineState[item.Id] = true;
-                            }
-                            // Keep lastOnlineState as false during debounce so a re-offline
-                            // reading is treated as a continuation, not a new transition.
-                        }
-                        else
-                        {
-                            if (entry.OfflineClearPendingSinceMs != 0)
-                            {
-                                entry.OfflineClearPendingSinceMs = 0;
-                                dirty = true;
-                            }
-                            lastOnlineState[item.Id] = true;
+                            entry.OfflineArchiveStartMs = 0;
+                            dirty = true;
                         }
                     }
 
-                    // 200mm transition
+                    // 200mm flood
                     if (cur.Flood200HasValue)
                     {
-                        bool prevKnown200 = lastFlood200State.TryGetValue(item.Id, out bool p200);
-                        bool prev200 = prevKnown200 ? p200 : false;
+                        bool prevKnown = lastFlood200State.TryGetValue(item.Id, out bool prev);
                         if (cur.Flood200)
                         {
-                            if (entry.Flood200ClearPendingSinceMs != 0)
-                            {
-                                entry.Flood200ClearPendingSinceMs = 0;
-                                dirty = true;
-                            }
-                            if (!prev200 && prevKnown200) // Real transition — notify once
+                            if (!prev && prevKnown)
                             {
                                 AddSystemMessage(item.Id,
                                     "Зафиксировано затопление 200мм — " +
                                     (string.IsNullOrEmpty(item.Name) ? "объект ТК" : item.Name),
                                     ChatMessageKind.Flood200);
                             }
-                            if (entry.Flood200StartMs == 0)
-                            {
-                                entry.Flood200StartMs = now;
-                                dirty = true;
-                            }
+                            if (entry.Flood200ArchiveStartMs == 0 && item.Flood200CnlNum > 0)
+                                TriggerArchiveScan(item.Id, item.Flood200CnlNum, "flood200", scadaClient);
                             lastFlood200State[item.Id] = true;
-                        }
-                        else if (entry.Flood200StartMs > 0)
-                        {
-                            // Timer is active but current reading says "not flooded" — debounce by elapsed time.
-                            if (entry.Flood200ClearPendingSinceMs == 0)
-                            {
-                                entry.Flood200ClearPendingSinceMs = now;
-                                dirty = true;
-                            }
-                            else if (now - entry.Flood200ClearPendingSinceMs >= ClearDebounceMs)
-                            {
-                                entry.Flood200StartMs = 0;
-                                entry.Flood200ClearPendingSinceMs = 0;
-                                dirty = true;
-                                lastFlood200State[item.Id] = false;
-                            }
-                            // Keep lastFlood200State as true during debounce so a re-flooded
-                            // reading doesn't fire a duplicate alarm notification.
                         }
                         else
                         {
-                            if (entry.Flood200ClearPendingSinceMs != 0)
+                            if (entry.Flood200ArchiveStartMs != 0)
                             {
-                                entry.Flood200ClearPendingSinceMs = 0;
+                                entry.Flood200ArchiveStartMs = 0;
                                 dirty = true;
                             }
                             lastFlood200State[item.Id] = false;
                         }
                     }
 
-                    // 700mm transition
+                    // 700mm flood
                     if (cur.Flood700HasValue)
                     {
-                        bool prevKnown700 = lastFlood700State.TryGetValue(item.Id, out bool p700);
-                        bool prev700 = prevKnown700 ? p700 : false;
+                        bool prevKnown = lastFlood700State.TryGetValue(item.Id, out bool prev);
                         if (cur.Flood700)
                         {
-                            if (entry.Flood700ClearPendingSinceMs != 0)
-                            {
-                                entry.Flood700ClearPendingSinceMs = 0;
-                                dirty = true;
-                            }
-                            if (!prev700 && prevKnown700) // Real transition — notify once
+                            if (!prev && prevKnown)
                             {
                                 AddSystemMessage(item.Id,
                                     "ТРЕВОГА: затопление 700мм — " +
                                     (string.IsNullOrEmpty(item.Name) ? "объект ТК" : item.Name),
                                     ChatMessageKind.Flood700);
                             }
-                            if (entry.Flood700StartMs == 0)
-                            {
-                                entry.Flood700StartMs = now;
-                                dirty = true;
-                            }
+                            if (entry.Flood700ArchiveStartMs == 0 && item.Flood700CnlNum > 0)
+                                TriggerArchiveScan(item.Id, item.Flood700CnlNum, "flood700", scadaClient);
                             lastFlood700State[item.Id] = true;
-                        }
-                        else if (entry.Flood700StartMs > 0)
-                        {
-                            // Timer is active but current reading says "not flooded" — debounce by elapsed time.
-                            if (entry.Flood700ClearPendingSinceMs == 0)
-                            {
-                                entry.Flood700ClearPendingSinceMs = now;
-                                dirty = true;
-                            }
-                            else if (now - entry.Flood700ClearPendingSinceMs >= ClearDebounceMs)
-                            {
-                                entry.Flood700StartMs = 0;
-                                entry.Flood700ClearPendingSinceMs = 0;
-                                dirty = true;
-                                lastFlood700State[item.Id] = false;
-                            }
-                            // Keep lastFlood700State as true during debounce so a re-flooded
-                            // reading doesn't fire a duplicate alarm notification.
                         }
                         else
                         {
-                            if (entry.Flood700ClearPendingSinceMs != 0)
+                            if (entry.Flood700ArchiveStartMs != 0)
                             {
-                                entry.Flood700ClearPendingSinceMs = 0;
+                                entry.Flood700ArchiveStartMs = 0;
                                 dirty = true;
                             }
                             lastFlood700State[item.Id] = false;
@@ -435,9 +341,162 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
             }
         }
 
+        // Must be called inside lockObj.
+        private void TriggerArchiveScan(int itemId, int cnlNum, string kind, ScadaClient client)
+        {
+            var key = (itemId, kind);
+            if (!scansInProgress.Add(key))
+                return; // scan already running for this item+kind
+            Task.Run(() => DoArchiveScan(itemId, cnlNum, kind, client, key));
+        }
+
+        private void DoArchiveScan(int itemId, int cnlNum, string kind, ScadaClient client, (int, string) key)
+        {
+            long archiveStartMs = 0;
+            try
+            {
+                archiveStartMs = kind == "offline"
+                    ? ScanOfflineStartMs(client, cnlNum)
+                    : ScanFloodStartMs(client, cnlNum);
+            }
+            catch (Exception ex)
+            {
+                webContext.Log.WriteError(
+                    $"PlgThermalCamera: archive scan failed for item {itemId}/{kind}: {ex.Message}");
+            }
+
+            lock (lockObj)
+            {
+                scansInProgress.Remove(key);
+
+                // archiveStartMs == 0 means flood was not yet committed to archive — retry next poll.
+                if (archiveStartMs == 0)
+                    return;
+
+                ThermalCameraUserData userData = LoadUserData();
+                UserDataEntry entry = GetOrCreateEntry(userData, itemId);
+                bool updated = false;
+
+                switch (kind)
+                {
+                    case "offline" when entry.OfflineArchiveStartMs == 0:
+                        entry.OfflineArchiveStartMs = archiveStartMs;
+                        updated = true;
+                        break;
+                    case "flood200" when entry.Flood200ArchiveStartMs == 0:
+                        entry.Flood200ArchiveStartMs = archiveStartMs;
+                        updated = true;
+                        break;
+                    case "flood700" when entry.Flood700ArchiveStartMs == 0:
+                        // Variant B migration: align existing ack records to the archive-derived start.
+                        if (archiveStartMs != MoreThan30DaysSentinel)
+                        {
+                            foreach (AckRecord ack in entry.AckHistory)
+                            {
+                                if (ack.AckedAtMs >= archiveStartMs && ack.FloodStartMs != archiveStartMs)
+                                    ack.FloodStartMs = archiveStartMs;
+                            }
+                        }
+                        entry.Flood700ArchiveStartMs = archiveStartMs;
+                        updated = true;
+                        break;
+                }
+
+                if (updated)
+                {
+                    if (!SaveUserData(userData, out string saveErr))
+                        webContext.Log.WriteError("PlgThermalCamera: " + saveErr);
+                }
+            }
+        }
+
+        // Scans the minute archive backwards (expanding windows) to find when flooding began.
+        // Returns the UTC ms of the first flooded reading, 0 if flood not yet archived, or
+        // MoreThan30DaysSentinel if no transition was found within 30 days.
+        private static long ScanFloodStartMs(ScadaClient client, int cnlNum)
+        {
+            DateTime now = DateTime.UtcNow;
+            foreach (int hours in ScanWindowHours)
+            {
+                Trend trend = client.GetTrend(
+                    MinuteArchiveBit,
+                    new TimeRange(now.AddHours(-hours), now, true),
+                    cnlNum);
+
+                if (trend == null || trend.Points.Count == 0)
+                    continue;
+
+                // Find the LAST point that was NOT flooded (Stat > 0 && Val != 0).
+                int lastNormalIdx = -1;
+                for (int i = trend.Points.Count - 1; i >= 0; i--)
+                {
+                    TrendPoint p = trend.Points[i];
+                    if (p.Stat > 0 && p.Val != 0)
+                    {
+                        lastNormalIdx = i;
+                        break;
+                    }
+                }
+
+                if (lastNormalIdx >= 0)
+                {
+                    int floodIdx = lastNormalIdx + 1;
+                    if (floodIdx < trend.Points.Count)
+                    {
+                        // Flood started at this archive point.
+                        DateTime ts = trend.Points[floodIdx].Timestamp; // already UTC
+                        return new DateTimeOffset(ts, TimeSpan.Zero).ToUnixTimeMilliseconds();
+                    }
+                    // Most recent archived point is "normal" — flood not yet committed to archive.
+                    return 0;
+                }
+
+                // All points in window are flooded — try a wider window.
+                if (hours == ScanWindowHours[^1])
+                    return MoreThan30DaysSentinel;
+            }
+
+            return MoreThan30DaysSentinel;
+        }
+
+        // Scans the minute archive to find the last time the device was online (last heartbeat).
+        // The offline timer counts from that point forward.
+        private static long ScanOfflineStartMs(ScadaClient client, int cnlNum)
+        {
+            DateTime now = DateTime.UtcNow;
+            foreach (int hours in ScanWindowHours)
+            {
+                Trend trend = client.GetTrend(
+                    MinuteArchiveBit,
+                    new TimeRange(now.AddHours(-hours), now, true),
+                    cnlNum);
+
+                if (trend == null || trend.Points.Count == 0)
+                    continue;
+
+                // Find the LAST "online" point (Stat > 0 && Val != 0).
+                for (int i = trend.Points.Count - 1; i >= 0; i--)
+                {
+                    TrendPoint p = trend.Points[i];
+                    if (p.Stat > 0 && p.Val != 0)
+                    {
+                        // Offline started after this last heartbeat — use its timestamp.
+                        DateTime ts = p.Timestamp; // already UTC
+                        return new DateTimeOffset(ts, TimeSpan.Zero).ToUnixTimeMilliseconds();
+                    }
+                }
+
+                // No online point in window — expand.
+                if (hours == ScanWindowHours[^1])
+                    return MoreThan30DaysSentinel;
+            }
+
+            return MoreThan30DaysSentinel;
+        }
+
         /// <summary>
         /// Returns per-item timer start timestamps (UTC ms) for Offline, 200mm, 700mm.
-        /// Zero means the state is not active.
+        /// Special values: 0 = state not active; -1 = archive scan in progress; -2 = active > 30 days.
         /// </summary>
         public Dictionary<int, ItemTimers> GetTimers(IEnumerable<int> itemIds)
         {
@@ -451,18 +510,32 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                     {
                         result[id] = new ItemTimers
                         {
-                            OfflineStartMs = e.OfflineStartMs,
-                            Flood200StartMs = e.Flood200StartMs,
-                            Flood700StartMs = e.Flood700StartMs
+                            OfflineStartMs = MapTimerValue(e.OfflineArchiveStartMs, id, "offline"),
+                            Flood200StartMs = MapTimerValue(e.Flood200ArchiveStartMs, id, "flood200"),
+                            Flood700StartMs = MapTimerValue(e.Flood700ArchiveStartMs, id, "flood700")
                         };
                     }
                     else
                     {
-                        result[id] = new ItemTimers();
+                        result[id] = new ItemTimers
+                        {
+                            OfflineStartMs = scansInProgress.Contains((id, "offline")) ? -1 : 0,
+                            Flood200StartMs = scansInProgress.Contains((id, "flood200")) ? -1 : 0,
+                            Flood700StartMs = scansInProgress.Contains((id, "flood700")) ? -1 : 0
+                        };
                     }
                 }
                 return result;
             }
+        }
+
+        private long MapTimerValue(long storedMs, int itemId, string kind)
+        {
+            if (storedMs == MoreThan30DaysSentinel)
+                return -2; // "> 30d" sentinel for JS
+            if (storedMs == 0 && scansInProgress.Contains((itemId, kind)))
+                return -1; // scan in progress
+            return storedMs;
         }
 
         private static string FormatDuration(long ms)
@@ -501,8 +574,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                 if (!SaveUserData(userData, out errMsg))
                     return null;
 
-                // Post a chat message so the TK's chat log shows the acknowledgment
-                string duration = FormatDuration(rec.AckedAtMs - floodStartMs);
+                string duration = floodStartMs > 0 ? FormatDuration(rec.AckedAtMs - floodStartMs) : "?";
                 string sysText = $"Квитировано (время реагирования: {duration})\n{comment}";
                 AddSystemMessage(itemId, sysText, ChatMessageKind.Ack, ackedBy);
 
@@ -542,6 +614,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
 
     /// <summary>
     /// Per-item timer start timestamps returned to the client on every poll.
+    /// 0 = not active; -1 = scan in progress; -2 = active more than 30 days.
     /// </summary>
     public class ItemTimers
     {

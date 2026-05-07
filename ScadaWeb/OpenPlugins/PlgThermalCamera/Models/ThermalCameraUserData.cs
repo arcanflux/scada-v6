@@ -63,12 +63,9 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
                         {
                             Comment = GetAttrStr(node, "comment"),
                             IsCommissioned = GetAttrBool(node, "isCommissioned"),
-                            OfflineStartMs = GetAttrLong(node, "offlineStartMs"),
-                            Flood200StartMs = GetAttrLong(node, "flood200StartMs"),
-                            Flood700StartMs = GetAttrLong(node, "flood700StartMs"),
-                            OfflineClearPendingSinceMs = GetAttrLong(node, "offlineClearPendingSinceMs"),
-                            Flood200ClearPendingSinceMs = GetAttrLong(node, "flood200ClearPendingSinceMs"),
-                            Flood700ClearPendingSinceMs = GetAttrLong(node, "flood700ClearPendingSinceMs")
+                            OfflineArchiveStartMs = GetAttrLong(node, "offlineArchiveStartMs"),
+                            Flood200ArchiveStartMs = GetAttrLong(node, "flood200ArchiveStartMs"),
+                            Flood700ArchiveStartMs = GetAttrLong(node, "flood700ArchiveStartMs")
                         };
 
                         if (node.SelectNodes("Message") is XmlNodeList msgNodes)
@@ -145,15 +142,9 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
                     entryElem.SetAttribute("comment", kvp.Value.Comment ?? "");
                     entryElem.SetAttribute("isCommissioned",
                         kvp.Value.IsCommissioned.ToString().ToLowerInvariant());
-                    entryElem.SetAttribute("offlineStartMs", kvp.Value.OfflineStartMs.ToString());
-                    entryElem.SetAttribute("flood200StartMs", kvp.Value.Flood200StartMs.ToString());
-                    entryElem.SetAttribute("flood700StartMs", kvp.Value.Flood700StartMs.ToString());
-                    entryElem.SetAttribute("offlineClearPendingSinceMs",
-                        kvp.Value.OfflineClearPendingSinceMs.ToString());
-                    entryElem.SetAttribute("flood200ClearPendingSinceMs",
-                        kvp.Value.Flood200ClearPendingSinceMs.ToString());
-                    entryElem.SetAttribute("flood700ClearPendingSinceMs",
-                        kvp.Value.Flood700ClearPendingSinceMs.ToString());
+                    entryElem.SetAttribute("offlineArchiveStartMs", kvp.Value.OfflineArchiveStartMs.ToString());
+                    entryElem.SetAttribute("flood200ArchiveStartMs", kvp.Value.Flood200ArchiveStartMs.ToString());
+                    entryElem.SetAttribute("flood700ArchiveStartMs", kvp.Value.Flood700ArchiveStartMs.ToString());
 
                     foreach (ChatMessage msg in kvp.Value.Messages)
                     {
@@ -238,39 +229,22 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
         public bool IsCommissioned { get; set; }
 
         /// <summary>
-        /// UTC milliseconds when the device went Offline (0 = currently online).
-        /// Persisted so the timer survives page refresh and SCADA restart.
+        /// UTC milliseconds when the device went Offline, derived from the minute archive.
+        /// 0 = device is currently online (state not active).
         /// </summary>
-        public long OfflineStartMs { get; set; }
+        public long OfflineArchiveStartMs { get; set; }
 
         /// <summary>
-        /// UTC milliseconds when 200mm flooding started (0 = not flooded).
+        /// UTC milliseconds when 200mm flooding started, derived from the minute archive.
+        /// 0 = not flooded.
         /// </summary>
-        public long Flood200StartMs { get; set; }
+        public long Flood200ArchiveStartMs { get; set; }
 
         /// <summary>
-        /// UTC milliseconds when 700mm flooding started (0 = not flooded).
+        /// UTC milliseconds when 700mm flooding started, derived from the minute archive.
+        /// 0 = not flooded.
         /// </summary>
-        public long Flood700StartMs { get; set; }
-
-        /// <summary>
-        /// UTC milliseconds when the device first started reporting "online" while
-        /// the offline timer was still active. 0 = no pending clear. Used to debounce
-        /// transient channel readings during SCADA restart.
-        /// </summary>
-        public long OfflineClearPendingSinceMs { get; set; }
-
-        /// <summary>
-        /// UTC milliseconds when the channel first started reporting "not flooded 200mm"
-        /// while the 200mm timer was still active. 0 = no pending clear.
-        /// </summary>
-        public long Flood200ClearPendingSinceMs { get; set; }
-
-        /// <summary>
-        /// UTC milliseconds when the channel first started reporting "not flooded 700mm"
-        /// while the 700mm timer was still active. 0 = no pending clear.
-        /// </summary>
-        public long Flood700ClearPendingSinceMs { get; set; }
+        public long Flood700ArchiveStartMs { get; set; }
 
         /// <summary>
         /// Gets the chat message history for this item.

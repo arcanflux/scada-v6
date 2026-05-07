@@ -230,10 +230,10 @@ var thermalCamera = (function () {
             var aHas = hasFloodColumn(a), bHas = hasFloodColumn(b);
             if (aHas !== bHas) return aHas ? -1 : 1;   // no-data items always last
             var ta = timersByItem[a.id] || {}, tb = timersByItem[b.id] || {};
-            var da700 = ta.flood700StartMs > 0 ? (nowMs - ta.flood700StartMs) : 0;
-            var db700 = tb.flood700StartMs > 0 ? (nowMs - tb.flood700StartMs) : 0;
-            var da200 = ta.flood200StartMs > 0 ? (nowMs - ta.flood200StartMs) : 0;
-            var db200 = tb.flood200StartMs > 0 ? (nowMs - tb.flood200StartMs) : 0;
+            var da700 = ta.flood700StartMs > 0 ? (nowMs - ta.flood700StartMs) : ta.flood700StartMs < 0 ? Number.MAX_SAFE_INTEGER : 0;
+            var db700 = tb.flood700StartMs > 0 ? (nowMs - tb.flood700StartMs) : tb.flood700StartMs < 0 ? Number.MAX_SAFE_INTEGER : 0;
+            var da200 = ta.flood200StartMs > 0 ? (nowMs - ta.flood200StartMs) : ta.flood200StartMs < 0 ? Number.MAX_SAFE_INTEGER : 0;
+            var db200 = tb.flood200StartMs > 0 ? (nowMs - tb.flood200StartMs) : tb.flood200StartMs < 0 ? Number.MAX_SAFE_INTEGER : 0;
             if (da700 !== db700) return floodStateSortAsc ? da700 - db700 : db700 - da700;
             if (da200 !== db200) return floodStateSortAsc ? da200 - db200 : db200 - da200;
             return a.id - b.id;
@@ -270,8 +270,8 @@ var thermalCamera = (function () {
         items.sort(function (a, b) {
             var ta = timersByItem[a.id];
             var tb = timersByItem[b.id];
-            var da = (ta && ta.offlineStartMs > 0) ? (nowMs - ta.offlineStartMs) : 0;
-            var db = (tb && tb.offlineStartMs > 0) ? (nowMs - tb.offlineStartMs) : 0;
+            var da = (ta && ta.offlineStartMs > 0) ? (nowMs - ta.offlineStartMs) : (ta && ta.offlineStartMs < 0) ? Number.MAX_SAFE_INTEGER : 0;
+            var db = (tb && tb.offlineStartMs > 0) ? (nowMs - tb.offlineStartMs) : (tb && tb.offlineStartMs < 0) ? Number.MAX_SAFE_INTEGER : 0;
             if (da !== db) return onlineSortAsc ? da - db : db - da;
             return a.id - b.id;
         });
@@ -804,6 +804,18 @@ var thermalCamera = (function () {
         return pad(h) + ":" + pad(m) + ":" + pad(s);
     }
 
+    // Returns elapsed-time string for a timer start value received from server:
+    //   startMs > 0  → formatDuration(nowMs - startMs)
+    //   startMs === -1 → "..."  (archive scan in progress)
+    //   startMs === -2 → "> 30д"  (state active > 30 days, no transition found)
+    //   otherwise    → ""
+    function timerDisplay(startMs, nowMs) {
+        if (startMs > 0) return formatDuration(nowMs - startMs);
+        if (startMs === -1) return "...";
+        if (startMs === -2) return "> 30д";
+        return "";
+    }
+
     function timerTick() {
         var now = Date.now();
         for (var i = 0; i < items.length; i++) {
@@ -812,19 +824,19 @@ var thermalCamera = (function () {
             if (!t) continue;
 
             // Offline timer
-            if (t.offlineStartMs > 0) {
+            if (t.offlineStartMs !== 0) {
                 var el = document.getElementById("offlineTimer-" + id);
-                if (el) el.textContent = formatDuration(now - t.offlineStartMs);
+                if (el) el.textContent = timerDisplay(t.offlineStartMs, now);
             }
             // Flood 200mm timer
-            if (t.flood200StartMs > 0) {
+            if (t.flood200StartMs !== 0) {
                 var el200 = document.getElementById("flood200Timer-" + id);
-                if (el200) el200.textContent = formatDuration(now - t.flood200StartMs);
+                if (el200) el200.textContent = timerDisplay(t.flood200StartMs, now);
             }
             // Flood 700mm timer
-            if (t.flood700StartMs > 0) {
+            if (t.flood700StartMs !== 0) {
                 var el700 = document.getElementById("flood700Timer-" + id);
-                if (el700) el700.textContent = formatDuration(now - t.flood700StartMs);
+                if (el700) el700.textContent = timerDisplay(t.flood700StartMs, now);
             }
         }
         // Also update journal event elapsed timers
@@ -849,9 +861,9 @@ var thermalCamera = (function () {
             var t = timersByItem[item.id];
             if (!t) continue;
 
-            if (t.flood700StartMs > 0) {
+            if (t.flood700StartMs !== 0) {
                 activeFloodEvents[item.id] = { kind: "flood700", startMs: t.flood700StartMs, name: item.name };
-            } else if (t.flood200StartMs > 0) {
+            } else if (t.flood200StartMs !== 0) {
                 activeFloodEvents[item.id] = { kind: "flood200", startMs: t.flood200StartMs, name: item.name };
             } else {
                 delete activeFloodEvents[item.id];
@@ -1167,7 +1179,7 @@ var thermalCamera = (function () {
         for (var k = 0; k < list.length; k++) {
             var idStr2 = list[k].idStr;
             var ev2 = list[k].ev;
-            var elapsed = ev2.startMs > 0 ? formatDuration(now - ev2.startMs) : "";
+            var elapsed = timerDisplay(ev2.startMs, now);
             var timeStr = ev2.startMs > 0 ? formatChatTime(ev2.startMs) : "";
             var kindLabel = ev2.kind === "flood700" ? "700мм" : "200мм";
             var cls = "tc-je " + (ev2.kind === "flood700" ? "tc-je-700" : "tc-je-200");
@@ -1218,15 +1230,15 @@ var thermalCamera = (function () {
         for (var idStr in activeFloodEvents) {
             if (!activeFloodEvents.hasOwnProperty(idStr)) continue;
             var ev = activeFloodEvents[idStr];
-            if (!ev.startMs) continue;
+            if (ev.startMs === 0) continue;
             var el = document.getElementById("jev-elapsed-" + idStr);
-            if (el) el.textContent = formatDuration(now - ev.startMs);
+            if (el) el.textContent = timerDisplay(ev.startMs, now);
         }
         // Also update ack pending timers
         var ackEls = document.querySelectorAll(".tc-ack-elapsed");
         for (var i = 0; i < ackEls.length; i++) {
             var startMs = parseInt(ackEls[i].getAttribute("data-start")) || 0;
-            if (startMs > 0) ackEls[i].textContent = formatDuration(now - startMs);
+            if (startMs !== 0) ackEls[i].textContent = timerDisplay(startMs, now);
         }
     }
 
@@ -1282,7 +1294,7 @@ var thermalCamera = (function () {
         for (var ai = 0; ai < ackList.length; ai++) {
             var idStr = ackList[ai].idStr;
             var pa = ackList[ai].pa;
-            var elapsed = pa.flood700StartMs > 0 ? formatDuration(now - pa.flood700StartMs) : "";
+            var elapsed = timerDisplay(pa.flood700StartMs, now);
             var timeStr = pa.flood700StartMs > 0 ? formatChatTime(pa.flood700StartMs) : "";
 
             html += '<div class="tc-ack-item" data-item-id="' + idStr + '">' +
