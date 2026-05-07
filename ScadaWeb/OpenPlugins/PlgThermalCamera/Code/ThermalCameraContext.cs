@@ -36,11 +36,17 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         // Value 1L (1 ms after Unix epoch) is clearly not a real flood-start timestamp.
         private const long MoreThan30DaysSentinel = 1L;
 
+        // If a background scan does not complete within this period (e.g. server hang),
+        // it is evicted from scansInProgress so DetectFloodTransitions can retry.
+        private const long ScanTimeoutMs = 5 * 60 * 1000; // 5 minutes
+
         private readonly object lockObj = new();
         private ThermalCameraUserData cache;
         private readonly Dictionary<int, bool> lastFlood200State = [];
         private readonly Dictionary<int, bool> lastFlood700State = [];
         private readonly HashSet<(int itemId, string kind)> scansInProgress = [];
+        // UTC ms when each scan was started — used to detect stalled scans.
+        private readonly Dictionary<(int itemId, string kind), long> scanStartTimes = [];
 
         public string GetUserDataFilePath()
         {
@@ -347,6 +353,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
             var key = (itemId, kind);
             if (!scansInProgress.Add(key))
                 return; // scan already running for this item+kind
+            scanStartTimes[key] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             Task.Run(() => DoArchiveScan(itemId, cnlNum, kind, client, key));
         }
 
@@ -368,6 +375,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
             lock (lockObj)
             {
                 scansInProgress.Remove(key);
+                scanStartTimes.Remove(key);
 
                 // archiveStartMs == 0 means flood was not yet committed to archive — retry next poll.
                 if (archiveStartMs == 0)
@@ -533,8 +541,25 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         {
             if (storedMs == MoreThan30DaysSentinel)
                 return -2; // "> 30d" sentinel for JS
-            if (storedMs == 0 && scansInProgress.Contains((itemId, kind)))
-                return -1; // scan in progress
+            if (storedMs == 0)
+            {
+                var key = (itemId, kind);
+                if (scansInProgress.Contains(key))
+                {
+                    // Evict stalled scan so DetectFloodTransitions can retry.
+                    long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    if (scanStartTimes.TryGetValue(key, out long startMs) &&
+                        nowMs - startMs > ScanTimeoutMs)
+                    {
+                        scansInProgress.Remove(key);
+                        scanStartTimes.Remove(key);
+                        webContext.Log.WriteError(
+                            $"PlgThermalCamera: archive scan timed out for item {itemId}/{kind}, will retry");
+                        return 0;
+                    }
+                    return -1; // scan in progress
+                }
+            }
             return storedMs;
         }
 
