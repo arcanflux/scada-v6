@@ -3493,8 +3493,9 @@
                     let yy = ts.getFullYear();
                     let hh = String(ts.getHours()).padStart(2, '0');
                     let mi = String(ts.getMinutes()).padStart(2, '0');
+                    let ss = String(ts.getSeconds()).padStart(2, '0');
                     titleHtml = '<div class="map-chart-tooltip-title">' +
-                        dd + '.' + mm + '.' + yy + '&nbsp;&nbsp;' + hh + ':' + mi + '</div>';
+                        dd + '.' + mm + '.' + yy + '&nbsp;&nbsp;' + hh + ':' + mi + ':' + ss + '</div>';
                 }
 
                 // Build rows
