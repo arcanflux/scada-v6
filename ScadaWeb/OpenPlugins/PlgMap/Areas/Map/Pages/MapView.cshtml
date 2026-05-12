@@ -2748,44 +2748,30 @@
                 }
             }
 
-            // Append new data points to existing chart (no re-render)
             _appendChartData(chart, histData) {
-                let newTimestamps = histData.timestamps.map(t => new Date(t.ms));
+                let newTimestamps = histData.timestamps.map(t => t.ms);
                 let cnlToTrendIdx = {};
                 for (let i = 0; i < histData.cnlNums.length; i++) {
                     cnlToTrendIdx[histData.cnlNums[i]] = i;
                 }
 
                 for (let ds of chart.data.datasets) {
-                    let cnlNum = ds._cnlNum;
-                    let trendIdx = cnlToTrendIdx[cnlNum];
+                    let trendIdx = cnlToTrendIdx[ds._cnlNum];
                     if (trendIdx === undefined) continue;
 
                     let trend = histData.trends[trendIdx];
-                    // Find the last existing timestamp to avoid duplicates
-                    let lastExistingTs = ds.data.length > 0 ?
-                        (ds.data[ds.data.length - 1].x instanceof Date ?
-                            ds.data[ds.data.length - 1].x.getTime() :
-                            ds.data[ds.data.length - 1].x) : 0;
+                    let lastTs = ds.data.length > 0 ? ds.data[ds.data.length - 1].x : 0;
 
                     for (let idx = 0; idx < newTimestamps.length; idx++) {
                         let ts = newTimestamps[idx];
-                        if (ts.getTime() <= lastExistingTs) continue; // skip duplicates
+                        if (ts <= lastTs) continue;
 
                         let rec = trend[idx];
-                        let point;
                         if (ds._isStatus) {
-                            point = {
-                                x: ts,
-                                y: (rec && rec.d && rec.d.stat > 0 && rec.d.val >= 1) ? ds._bandTop : ds._bandBase
-                            };
+                            ds.data.push({ x: ts, y: (rec && rec.d && rec.d.stat > 0 && rec.d.val >= 1) ? ds._bandTop : ds._bandBase });
                         } else {
-                            point = {
-                                x: ts,
-                                y: (rec && rec.d && rec.d.stat > 0) ? rec.d.val : null
-                            };
+                            ds.data.push({ x: ts, y: (rec && rec.d && rec.d.stat > 0) ? rec.d.val : null });
                         }
-                        ds.data.push(point);
                     }
                 }
 
@@ -2860,22 +2846,47 @@
                     if (this._showStatusTimelines && def.statusChannels && def.statusChannels.length > 0) {
                         cnlNums = cnlNums.concat(def.statusChannels.map(c => c.cnlNum));
                     }
-                    // Load Chart.js library and fetch hist data in parallel
-                    let [, histData] = await Promise.all([
-                        this._loadChartJs(),
-                        this._fetchHistDataRange(cnlNums, this._chartStartTime, this._chartEndTime)
-                    ]);
 
-                    if (!histData) {
-                        body.innerHTML = '<div class="map-chart-loading">' + this._escapeHtml(this.t.noData) + '</div>';
-                        return;
+                    let optimalBit = this._chooseArchiveBit(this._chartStartTime, this._chartEndTime);
+                    this._chartArchiveBit = optimalBit;
+                    let useProgressive = optimalBit === 1 && ((this._chartEndTime - this._chartStartTime) > 6 * 3600000);
+
+                    if (useProgressive) {
+                        let [, coarseData] = await Promise.all([
+                            this._loadChartJs(),
+                            this._fetchHistDataRange(cnlNums, this._chartStartTime, this._chartEndTime, 2)
+                        ]);
+
+                        if (!coarseData) {
+                            body.innerHTML = '<div class="map-chart-loading">' + this._escapeHtml(this.t.noData) + '</div>';
+                            return;
+                        }
+
+                        body.innerHTML = '<div class="map-chart-canvas-wrap"><canvas id="mapCombinedCanvas"></canvas></div>';
+                        let canvas = document.getElementById("mapCombinedCanvas");
+                        this._renderCombinedChart(canvas, def, coarseData);
+
+                        this._fetchHistDataRange(cnlNums, this._chartStartTime, this._chartEndTime, 1).then(fineData => {
+                            if (fineData && this._activeChart && this._combinedMarkerIdx === markerIdx) {
+                                this._replaceChartData(this._activeChart, def, fineData);
+                            }
+                        });
+                    } else {
+                        let [, histData] = await Promise.all([
+                            this._loadChartJs(),
+                            this._fetchHistDataRange(cnlNums, this._chartStartTime, this._chartEndTime, optimalBit)
+                        ]);
+
+                        if (!histData) {
+                            body.innerHTML = '<div class="map-chart-loading">' + this._escapeHtml(this.t.noData) + '</div>';
+                            return;
+                        }
+
+                        body.innerHTML = '<div class="map-chart-canvas-wrap"><canvas id="mapCombinedCanvas"></canvas></div>';
+                        let canvas = document.getElementById("mapCombinedCanvas");
+                        this._renderCombinedChart(canvas, def, histData);
                     }
 
-                    body.innerHTML = '<div class="map-chart-canvas-wrap"><canvas id="mapCombinedCanvas"></canvas></div>';
-                    let canvas = document.getElementById("mapCombinedCanvas");
-                    this._renderCombinedChart(canvas, def, histData);
-
-                    // Start real-time updates if not paused
                     if (!this._chartRealtimePaused) {
                         this._startChartRealtime();
                     }
@@ -3484,12 +3495,11 @@
 
                 let isPnu = def.type === 'pnu';
                 let isTriangle = def.type === 'triangle';
-                let timestamps = histData.timestamps.map(t => new Date(t.ms));
+                let timestamps = histData.timestamps.map(t => t.ms);
                 let datasets = [];
 
-                // Track loaded data boundaries for pan-to-load
-                this._chartDataStart = timestamps.length > 0 ? timestamps[0].getTime() : Date.now();
-                this._chartDataEnd = timestamps.length > 0 ? timestamps[timestamps.length - 1].getTime() : Date.now();
+                this._chartDataStart = timestamps.length > 0 ? timestamps[0] : Date.now();
+                this._chartDataEnd = timestamps.length > 0 ? timestamps[timestamps.length - 1] : Date.now();
 
                 let cnlToTrendIdx = {};
                 for (let i = 0; i < histData.cnlNums.length; i++) {
@@ -3539,6 +3549,7 @@
                     datasets.push({
                         label: alias,
                         data: data,
+                        parsing: false,
                         borderColor: color,
                         backgroundColor: color + "20",
                         borderWidth: 1.5,
@@ -3567,6 +3578,7 @@
                         datasets.push({
                             label: vAlias,
                             data: vData,
+                            parsing: false,
                             borderColor: PNU_COLORS[2],
                             backgroundColor: PNU_COLORS[2] + "20",
                             borderWidth: 1.5,
@@ -3616,6 +3628,7 @@
                         datasets.push({
                             label: alias,
                             data: data,
+                            parsing: false,
                             borderColor: color,
                             backgroundColor: color + "40",
                             borderWidth: 0,
@@ -3655,6 +3668,7 @@
                         datasets.push({
                             label: alias,
                             data: data,
+                            parsing: false,
                             borderColor: color,
                             backgroundColor: color + "40",
                             borderWidth: 0,
@@ -3825,6 +3839,11 @@
                         interaction: { mode: 'index', intersect: false },
                         plugins: {
                             legend: { display: false },
+                            decimation: {
+                                enabled: true,
+                                algorithm: 'lttb',
+                                samples: 600
+                            },
                             tooltip: {
                                 enabled: false,
                                 external: function(ctx) {
@@ -3889,7 +3908,8 @@
                     let newEnd = new Date(this._chartDataStart);
                     let newStart = new Date(this._chartDataStart - fetchDurationMs);
 
-                    let histData = await this._fetchHistDataRange(this._chartCnlNums, newStart, newEnd);
+                    let panBit = this._chartArchiveBit || this._chooseArchiveBit(newStart, newEnd);
+                    let histData = await this._fetchHistDataRange(this._chartCnlNums, newStart, newEnd, panBit);
 
                     if (histData && histData.timestamps && histData.timestamps.length > 0) {
                         this._prependChartData(chart, histData);
@@ -3905,26 +3925,22 @@
             }
 
             _prependChartData(chart, histData) {
-                let newTimestamps = histData.timestamps.map(t => new Date(t.ms));
-
+                let newTimestamps = histData.timestamps.map(t => t.ms);
                 let cnlToTrendIdx = {};
                 for (let i = 0; i < histData.cnlNums.length; i++) {
                     cnlToTrendIdx[histData.cnlNums[i]] = i;
                 }
 
                 for (let ds of chart.data.datasets) {
-                    let cnlNum = ds._cnlNum;
-                    let trendIdx = cnlToTrendIdx[cnlNum];
+                    let trendIdx = cnlToTrendIdx[ds._cnlNum];
                     if (trendIdx === undefined) continue;
 
                     let trend = histData.trends[trendIdx];
                     let newPoints;
                     if (ds._isStatus) {
-                        let bandBase = ds._bandBase;
-                        let bandTop = ds._bandTop;
                         newPoints = trend.map((rec, idx) => ({
                             x: newTimestamps[idx],
-                            y: (rec && rec.d && rec.d.stat > 0 && rec.d.val >= 1) ? bandTop : bandBase
+                            y: (rec && rec.d && rec.d.stat > 0 && rec.d.val >= 1) ? ds._bandTop : ds._bandBase
                         }));
                     } else {
                         newPoints = trend.map((rec, idx) => ({
@@ -3933,13 +3949,47 @@
                         }));
                     }
 
-                    // Prepend new data (older) before existing data, skip duplicates
-                    let existingFirstX = ds.data.length > 0 ? ds.data[0].x.getTime() : Infinity;
-                    let filtered = newPoints.filter(p => p.x.getTime() < existingFirstX);
+                    let existingFirstX = ds.data.length > 0 ? ds.data[0].x : Infinity;
+                    let filtered = newPoints.filter(p => p.x < existingFirstX);
                     ds.data = filtered.concat(ds.data);
                 }
 
-                chart.update('none'); // update without animation for smooth experience
+                chart.update('none');
+            }
+
+            _replaceChartData(chart, def, histData) {
+                let timestamps = histData.timestamps.map(t => t.ms);
+                let cnlToTrendIdx = {};
+                for (let i = 0; i < histData.cnlNums.length; i++) {
+                    cnlToTrendIdx[histData.cnlNums[i]] = i;
+                }
+
+                for (let ds of chart.data.datasets) {
+                    let trendIdx = cnlToTrendIdx[ds._cnlNum];
+                    if (trendIdx === undefined) continue;
+                    let trend = histData.trends[trendIdx];
+
+                    if (ds._isStatus) {
+                        ds.data = trend.map((rec, idx) => ({
+                            x: timestamps[idx],
+                            y: (rec && rec.d && rec.d.stat > 0 && rec.d.val >= 1) ? ds._bandTop : ds._bandBase
+                        }));
+                    } else if (ds._scale) {
+                        ds.data = trend.map((rec, idx) => ({
+                            x: timestamps[idx],
+                            y: (rec && rec.d && rec.d.stat > 0) ? rec.d.val * ds._scale : null
+                        }));
+                    } else {
+                        ds.data = trend.map((rec, idx) => ({
+                            x: timestamps[idx],
+                            y: (rec && rec.d && rec.d.stat > 0) ? rec.d.val : null
+                        }));
+                    }
+                }
+
+                this._chartDataStart = timestamps.length > 0 ? timestamps[0] : this._chartDataStart;
+                this._chartDataEnd = timestamps.length > 0 ? timestamps[timestamps.length - 1] : this._chartDataEnd;
+                chart.update('none');
             }
 
             // --- Mini Chart Tooltip (hover per parameter, 1h range) ---
@@ -4359,11 +4409,17 @@
             }
 
             // --- Historical Data Fetch ---
-            async _fetchHistData(cnlNums, days) {
+            _chooseArchiveBit(startTime, endTime) {
+                let hours = (endTime.getTime() - startTime.getTime()) / 3600000;
+                if (hours > 72) return 2;
+                return 1;
+            }
+
+            async _fetchHistData(cnlNums, days, archiveBit) {
                 days = days || 1;
-                let cacheKey = cnlNums.join(",") + "_" + days;
+                if (archiveBit === undefined) archiveBit = 1;
+                let cacheKey = archiveBit + "_" + cnlNums.join(",") + "_" + days;
                 let cached = this._chartCache[cacheKey];
-                // 60s cache for 1h data, 5min for longer periods
                 let cacheMs = days <= 1 / 24 ? 60000 : 300000;
                 if (cached && (Date.now() - cached.time) < cacheMs) {
                     return cached.data;
@@ -4373,7 +4429,7 @@
                 let startTime = new Date(endTime.getTime() - days * 24 * 60 * 60 * 1000);
 
                 let url = this._mainApiRoot() + "GetHistData" +
-                    "?archiveBit=1" +
+                    "?archiveBit=" + archiveBit +
                     "&startTime=" + encodeURIComponent(startTime.toISOString()) +
                     "&endTime=" + encodeURIComponent(endTime.toISOString()) +
                     "&endInclusive=true" +
@@ -4394,19 +4450,19 @@
                 return null;
             }
 
-            async _fetchHistDataRange(cnlNums, startTime, endTime) {
+            async _fetchHistDataRange(cnlNums, startTime, endTime, archiveBit) {
                 let startMs = startTime.getTime();
                 let endMs = endTime.getTime();
-                let cacheKey = cnlNums.join(",") + "_" + startMs + "_" + endMs;
+                if (archiveBit === undefined) archiveBit = this._chooseArchiveBit(startTime, endTime);
+                let cacheKey = archiveBit + "_" + cnlNums.join(",") + "_" + startMs + "_" + endMs;
                 let cached = this._chartCache[cacheKey];
-                // 30s cache for short ranges, 5min for longer
                 let cacheMs = (endMs - startMs) <= 24 * 3600 * 1000 ? 30000 : 300000;
                 if (cached && (Date.now() - cached.time) < cacheMs) {
                     return cached.data;
                 }
 
                 let url = this._mainApiRoot() + "GetHistData" +
-                    "?archiveBit=1" +
+                    "?archiveBit=" + archiveBit +
                     "&startTime=" + encodeURIComponent(startTime.toISOString()) +
                     "&endTime=" + encodeURIComponent(endTime.toISOString()) +
                     "&endInclusive=true" +
