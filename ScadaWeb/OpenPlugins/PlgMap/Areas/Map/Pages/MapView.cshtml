@@ -1026,23 +1026,6 @@
             font-size: 0.95em;
         }
 
-        .map-chart-status-legend {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 6px 18px;
-            padding: 2px 16px 6px;
-            flex-shrink: 0;
-        }
-
-        .map-chart-status-legend-item {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 15px;
-            color: #666;
-        }
-
         /* Date Range Picker */
         .map-daterange-wrapper {
             position: relative;
@@ -1368,73 +1351,63 @@
         }
 
         /* Combined chart tooltip */
-        .map-chart-tooltip {
-            position: absolute;
-            pointer-events: none;
-            background: rgba(255, 255, 255, 0.75);
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.18);
-            padding: 14px 18px;
+        .map-chart-live-legend {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px 16px;
+            padding: 6px 16px;
             font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
-            z-index: 10;
-            min-width: 220px;
-            transition: opacity 0.15s ease;
+            font-size: 15px;
+            min-height: 28px;
+            border-bottom: 1px solid #e8e8e8;
         }
-
-        .map-chart-tooltip-title {
-            font-size: 16px;
+        .map-chart-live-legend-ts {
             font-weight: 700;
             color: #222;
-            margin-bottom: 10px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid #e0e0e0;
+            white-space: nowrap;
+            margin-right: 4px;
         }
-
-        .map-chart-tooltip-row {
-            display: flex;
+        .map-chart-live-legend-item {
+            display: inline-flex;
             align-items: center;
-            gap: 10px;
-            padding: 4px 0;
-            font-size: 15px;
-        }
-
-        .map-chart-tooltip-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-
-        .map-chart-tooltip-label {
-            color: #555;
-            flex: 1;
-        }
-
-        .map-chart-tooltip-value {
-            font-weight: 700;
-            color: #111;
-            text-align: right;
+            gap: 5px;
             white-space: nowrap;
         }
-
-        .map-chart-tooltip-unit {
+        .map-chart-live-legend-line {
+            vertical-align: middle;
+        }
+        .map-chart-live-legend-alias {
+            color: #555;
+        }
+        .map-chart-live-legend-val {
+            font-weight: 700;
+            color: #111;
+        }
+        .map-chart-live-legend-unit {
             font-weight: 400;
             color: #888;
-            margin-left: 3px;
+            margin-left: 2px;
         }
-
-        .map-chart-tooltip-status {
+        .map-chart-live-legend-statuses {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px 16px;
+            padding: 2px 16px 6px;
+            font-size: 14px;
+        }
+        .map-chart-live-legend-status-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+        }
+        .map-chart-live-legend-status-val {
             font-weight: 600;
         }
-
-        .map-chart-tooltip-status.on {
-            color: #2e7d32;
-        }
-
-        .map-chart-tooltip-status.off {
-            color: #999;
-        }
+        .map-chart-live-legend-status-val.on { color: #2e7d32; }
+        .map-chart-live-legend-status-val.off { color: #999; }
 
         /* Pan-to-load indicator (inline in toolbar) */
         .map-chart-pan-loading {
@@ -2902,18 +2875,6 @@
                     let canvas = document.getElementById("mapCombinedCanvas");
                     this._renderCombinedChart(canvas, def, histData);
 
-                    // Add status legend above the canvas (like parameter names in a line below)
-                    if (this._statusLegendItems && this._statusLegendItems.length > 0) {
-                        let legendHtml = '<div class="map-chart-status-legend">';
-                        for (let item of this._statusLegendItems) {
-                            legendHtml += '<span class="map-chart-status-legend-item">' +
-                                '<svg width="30" height="3" style="vertical-align:middle"><line x1="0" y1="1.5" x2="30" y2="1.5" stroke="' + item.color + '" stroke-width="3"/></svg> ' +
-                                this._escapeHtml(item.alias) + '</span>';
-                        }
-                        legendHtml += '</div>';
-                        let canvasWrap = body.querySelector('.map-chart-canvas-wrap');
-                        canvasWrap.insertAdjacentHTML('beforebegin', legendHtml);
-                    }
                     // Start real-time updates if not paused
                     if (!this._chartRealtimePaused) {
                         this._startChartRealtime();
@@ -3466,27 +3427,21 @@
 
             _renderCombinedTooltip(ctx) {
                 let tooltipModel = ctx.tooltip;
-                let chartArea = ctx.chart.chartArea;
-                let canvasEl = ctx.chart.canvas;
-                let wrap = canvasEl.parentElement;
+                let tsEl = document.getElementById('mapChartLLTime');
 
-                // Get or create tooltip element
-                let el = wrap.querySelector('.map-chart-tooltip');
-                if (!el) {
-                    el = document.createElement('div');
-                    el.className = 'map-chart-tooltip';
-                    wrap.appendChild(el);
-                }
-
-                // Hide if no tooltip
-                if (tooltipModel.opacity === 0) {
-                    el.style.opacity = '0';
+                if (!tooltipModel || tooltipModel.opacity === 0) {
+                    if (tsEl) tsEl.textContent = '--';
+                    for (let i = 0; i < (this._chartDatasetCount || 0); i++) {
+                        let el = document.getElementById('mapChartLLVal' + i);
+                        if (el) {
+                            el.textContent = '--';
+                            el.className = el.className.replace(/ on| off/g, '') + ' off';
+                        }
+                    }
                     return;
                 }
 
-                // Build title (full date + time)
-                let titleHtml = '';
-                if (tooltipModel.dataPoints && tooltipModel.dataPoints.length > 0) {
+                if (tsEl && tooltipModel.dataPoints && tooltipModel.dataPoints.length > 0) {
                     let ts = new Date(tooltipModel.dataPoints[0].parsed.x);
                     let dd = String(ts.getDate()).padStart(2, '0');
                     let mm = String(ts.getMonth() + 1).padStart(2, '0');
@@ -3494,60 +3449,31 @@
                     let hh = String(ts.getHours()).padStart(2, '0');
                     let mi = String(ts.getMinutes()).padStart(2, '0');
                     let ss = String(ts.getSeconds()).padStart(2, '0');
-                    titleHtml = '<div class="map-chart-tooltip-title">' +
-                        dd + '.' + mm + '.' + yy + '&nbsp;&nbsp;' + hh + ':' + mi + ':' + ss + '</div>';
+                    tsEl.textContent = dd + '.' + mm + '.' + yy + '  ' + hh + ':' + mi + ':' + ss;
                 }
 
-                // Build rows
-                let rowsHtml = '';
                 for (let dp of tooltipModel.dataPoints) {
                     let ds = ctx.chart.data.datasets[dp.datasetIndex];
-                    let color = ds.borderColor || '#333';
+                    let el = document.getElementById('mapChartLLVal' + dp.datasetIndex);
+                    if (!el) continue;
 
                     if (ds._isStatus) {
                         let active = dp.parsed.y > ds._bandBase;
-                        rowsHtml += '<div class="map-chart-tooltip-row">' +
-                            '<span class="map-chart-tooltip-dot" style="background:' + color + ';border-radius:2px"></span>' +
-                            '<span class="map-chart-tooltip-label">' + this._escapeHtml(ds.label) + '</span>' +
-                            '<span class="map-chart-tooltip-status ' + (active ? 'on' : 'off') + '">' +
-                            (active ? 'Вкл' : 'Выкл') + '</span></div>';
+                        el.textContent = active ? 'Вкл' : 'Выкл';
+                        el.className = 'map-chart-live-legend-status-val ' + (active ? 'on' : 'off');
                     } else {
                         let val = dp.parsed.y;
-                        if (val === null || val === undefined) continue;
-                        let valStr;
-                        if (ds._scale && typeof val === 'number') {
-                            valStr = (val / ds._scale).toFixed(1);
-                        } else {
-                            valStr = typeof val === 'number' ? val.toFixed(2) : String(val);
+                        if (val === null || val === undefined) {
+                            el.textContent = '--';
+                            continue;
                         }
-                        let unit = ds._unit || '';
-                        rowsHtml += '<div class="map-chart-tooltip-row">' +
-                            '<span class="map-chart-tooltip-dot" style="background:' + color + '"></span>' +
-                            '<span class="map-chart-tooltip-label">' + this._escapeHtml(ds.label) + '</span>' +
-                            '<span class="map-chart-tooltip-value">' + valStr +
-                            '<span class="map-chart-tooltip-unit">' + this._escapeHtml(unit) + '</span></span></div>';
+                        if (ds._scale && typeof val === 'number') {
+                            el.textContent = (val / ds._scale).toFixed(1);
+                        } else {
+                            el.textContent = typeof val === 'number' ? val.toFixed(2) : String(val);
+                        }
                     }
                 }
-
-                el.innerHTML = titleHtml + rowsHtml;
-                el.style.opacity = '1';
-
-                // Position: prefer right side of cursor, flip to left if not enough space
-                let caretX = tooltipModel.caretX;
-                let caretY = tooltipModel.caretY;
-                let tooltipWidth = el.offsetWidth;
-                let tooltipHeight = el.offsetHeight;
-                let wrapWidth = wrap.offsetWidth;
-
-                let left = caretX + 16;
-                if (left + tooltipWidth > wrapWidth - 10) {
-                    left = caretX - tooltipWidth - 16;
-                }
-                let top = caretY - tooltipHeight / 2;
-                top = Math.max(0, Math.min(top, wrap.offsetHeight - tooltipHeight));
-
-                el.style.left = left + 'px';
-                el.style.top = top + 'px';
             }
 
             _renderCombinedChart(canvas, def, histData) {
@@ -3851,6 +3777,41 @@
                     }
                 }
 
+                // Build live legend (fixed bar above canvas — replaces floating tooltip + Chart.js legend)
+                this._chartDatasetCount = datasets.length;
+                let llHtml = '<div class="map-chart-live-legend" id="mapChartLiveLegend">';
+                llHtml += '<span class="map-chart-live-legend-ts" id="mapChartLLTime">--</span>';
+                for (let i = 0; i < datasets.length; i++) {
+                    let ds = datasets[i];
+                    if (ds._isStatus) continue;
+                    let color = ds.borderColor || '#333';
+                    let dashed = ds.borderDash ? ' stroke-dasharray="6 3"' : '';
+                    llHtml += '<span class="map-chart-live-legend-item">' +
+                        '<svg class="map-chart-live-legend-line" width="30" height="3"><line x1="0" y1="1.5" x2="30" y2="1.5" stroke="' + color + '" stroke-width="2"' + dashed + '/></svg>' +
+                        '<span class="map-chart-live-legend-alias">' + this._escapeHtml(ds.label) + '</span>' +
+                        '<span class="map-chart-live-legend-val" id="mapChartLLVal' + i + '">--</span>' +
+                        '<span class="map-chart-live-legend-unit">' + this._escapeHtml(ds._unit || '') + '</span>' +
+                        '</span>';
+                }
+                llHtml += '</div>';
+                let hasStatusDS = datasets.some(ds => ds._isStatus);
+                if (hasStatusDS) {
+                    llHtml += '<div class="map-chart-live-legend-statuses" id="mapChartLLStatuses">';
+                    for (let i = 0; i < datasets.length; i++) {
+                        let ds = datasets[i];
+                        if (!ds._isStatus) continue;
+                        let color = ds.borderColor || '#333';
+                        llHtml += '<span class="map-chart-live-legend-status-item">' +
+                            '<svg width="30" height="3" style="vertical-align:middle"><line x1="0" y1="1.5" x2="30" y2="1.5" stroke="' + color + '" stroke-width="3"/></svg>' +
+                            '<span class="map-chart-live-legend-alias">' + this._escapeHtml(ds.label) + '</span>' +
+                            '<span class="map-chart-live-legend-status-val off" id="mapChartLLVal' + i + '">--</span>' +
+                            '</span>';
+                    }
+                    llHtml += '</div>';
+                }
+                let llTarget = canvas.parentElement;
+                llTarget.insertAdjacentHTML('beforebegin', llHtml);
+
                 this._activeChart = new Chart(canvas, {
                     type: 'line',
                     data: { datasets: datasets },
@@ -3863,16 +3824,7 @@
                         transitions: { active: { animation: { duration: 0 } } },
                         interaction: { mode: 'index', intersect: false },
                         plugins: {
-                            legend: {
-                                position: 'top',
-                                labels: {
-                                    usePointStyle: true, pointStyle: 'line', boxWidth: 30, font: { size: 15 },
-                                    filter: function(item, chartData) {
-                                        let ds = chartData.datasets[item.datasetIndex];
-                                        return !ds._isStatus;
-                                    }
-                                }
-                            },
+                            legend: { display: false },
                             tooltip: {
                                 enabled: false,
                                 external: function(ctx) {
