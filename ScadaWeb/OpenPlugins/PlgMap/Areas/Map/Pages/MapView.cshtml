@@ -2768,7 +2768,9 @@
 
                         let rec = trend[idx];
                         if (ds._isStatus) {
-                            ds.data.push({ x: ts, y: (rec && rec.d && rec.d.stat > 0 && rec.d.val >= 1) ? ds._bandTop : ds._bandBase });
+                            let active = rec && rec.d && rec.d.stat > 0 &&
+                                (ds._invertStatus ? rec.d.val === 0 : rec.d.val >= 1);
+                            ds.data.push({ x: ts, y: active ? ds._bandTop : ds._bandBase });
                         } else {
                             ds.data.push({ x: ts, y: (rec && rec.d && rec.d.stat > 0) ? rec.d.val : null });
                         }
@@ -3641,6 +3643,7 @@
                             yAxisID: 'yTemp',
                             _cnlNum: sch.cnlNum,
                             _isStatus: true,
+                            _invertStatus: true,
                             _bandBase: bandBase,
                             _bandTop: bandTop
                         });
@@ -3940,7 +3943,8 @@
                     if (ds._isStatus) {
                         newPoints = trend.map((rec, idx) => ({
                             x: newTimestamps[idx],
-                            y: (rec && rec.d && rec.d.stat > 0 && rec.d.val >= 1) ? ds._bandTop : ds._bandBase
+                            y: (rec && rec.d && rec.d.stat > 0 &&
+                                (ds._invertStatus ? rec.d.val === 0 : rec.d.val >= 1)) ? ds._bandTop : ds._bandBase
                         }));
                     } else {
                         newPoints = trend.map((rec, idx) => ({
@@ -3972,7 +3976,8 @@
                     if (ds._isStatus) {
                         ds.data = trend.map((rec, idx) => ({
                             x: timestamps[idx],
-                            y: (rec && rec.d && rec.d.stat > 0 && rec.d.val >= 1) ? ds._bandTop : ds._bandBase
+                            y: (rec && rec.d && rec.d.stat > 0 &&
+                                (ds._invertStatus ? rec.d.val === 0 : rec.d.val >= 1)) ? ds._bandTop : ds._bandBase
                         }));
                     } else if (ds._scale) {
                         ds.data = trend.map((rec, idx) => ({
