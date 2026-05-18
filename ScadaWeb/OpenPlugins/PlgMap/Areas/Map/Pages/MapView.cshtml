@@ -1835,19 +1835,29 @@
                 });
             }
 
-            _getPnuHydroTest(def) {
+            // Find a PNU channel by alias pattern (case-insensitive substring match)
+            _findPnuCh(def, ...patterns) {
                 let ch = def.channels || [];
-                if (!ch[1] || !ch[2]) return false;
-                let pSuc = this.curDataMap[ch[1].cnlNum];
-                let pDis = this.curDataMap[ch[2].cnlNum];
+                for (let p of patterns) {
+                    let lp = p.toLowerCase();
+                    let found = ch.find(c => (c.alias || '').toLowerCase().includes(lp));
+                    if (found) return found;
+                }
+                return null;
+            }
+
+            _getPnuHydroTest(def) {
+                let pSucCh = this._findPnuCh(def, 'р всас', 'p всас', 'p vsas');
+                let pDisCh = this._findPnuCh(def, 'р напор', 'p напор', 'p napor');
+                let pSuc = pSucCh ? this.curDataMap[pSucCh.cnlNum] : null;
+                let pDis = pDisCh ? this.curDataMap[pDisCh.cnlNum] : null;
                 if (!pSuc || pSuc.stat <= 0 || !pDis || pDis.stat <= 0) return false;
                 return (pDis.val - pSuc.val) > 1;
             }
 
             _getPnuConnectivity(def) {
-                let ch = def.channels || [];
-                if (!ch[7]) return false;
-                let rec = this.curDataMap[ch[7].cnlNum];
+                let connCh = this._findPnuCh(def, 'связь', 'connect', 'online');
+                let rec = connCh ? this.curDataMap[connCh.cnlNum] : null;
                 return !!(rec && rec.stat > 0 && rec.val >= 1);
             }
 
@@ -2693,7 +2703,6 @@
             _buildPnuPopupHtml(def) {
                 let markerIdx = this.markerEntries.findIndex(e => e.def === def);
                 if (markerIdx < 0) markerIdx = this.markers.indexOf(def);
-                let ch = def.channels || [];
                 let html = '';
 
                 // Name + connectivity icon (WiFi symbol)
@@ -2701,7 +2710,7 @@
                 let connColor = connected ? '#4caf50' : '#d32f2f';
                 let connIcon = '<span class="map-pnu-connectivity" data-pnu-conn>' +
                     '<svg width="20" height="20" viewBox="0 0 24 24" fill="' + connColor + '">' +
-                    '<path d="M1 9l2 2c5.523-5.523 14.477-5.523 20 0l2-2C18.312 2.312 5.688 2.312 1 9z"/>' +
+                    '<path d="M1 9l2 2c5.523-5.523 14.477-5.523 20 0l2-2C18.312 2.312 5.312 2.312 1 9z"/>' +
                     '<path d="M5 13l2 2c2.761-2.761 7.239-2.761 10 0l2-2C15.521 9.521 8.479 9.521 5 13z"/>' +
                     '<path d="M9 17l3 3 3-3c-1.657-1.657-4.343-1.657-6 0z"/>' +
                     '</svg></span>';
@@ -2717,24 +2726,32 @@
                 html += '<div class="map-pnu-hydro-box' + (hydroTest ? ' active' : '') + '" data-pnu-hydro>' +
                     this._escapeHtml(this.t.hydroTestActive) + '</div>';
 
-                // Parameter rows: G, P всас, Р напор, Р байпас + valve dots inline + bypass bar
-                let vSucRec = ch[5] ? this.curDataMap[ch[5].cnlNum] : null;
-                let vDisRec = ch[6] ? this.curDataMap[ch[6].cnlNum] : null;
-                let valveRec = ch[4] ? this.curDataMap[ch[4].cnlNum] : null;
+                // Find channels by alias (order-independent)
+                let chG       = this._findPnuCh(def, 'g', 'rashod', 'расход');
+                let chPSuc    = this._findPnuCh(def, 'р всас', 'p всас', 'p vsas');
+                let chPDis    = this._findPnuCh(def, 'р напор', 'p напор', 'p napor');
+                let chPByp    = this._findPnuCh(def, 'р байпас', 'p байпас', 'p baypas');
+                let chVSuc    = this._findPnuCh(def, 'клапан всас');
+                let chVDis    = this._findPnuCh(def, 'клапан напор');
+                let chVByp    = this._findPnuCh(def, 'клапан байпас', 'клапан %');
+
+                let vSucRec = chVSuc ? this.curDataMap[chVSuc.cnlNum] : null;
+                let vDisRec = chVDis ? this.curDataMap[chVDis.cnlNum] : null;
+                let valveRec = chVByp ? this.curDataMap[chVByp.cnlNum] : null;
                 let valveText = (valveRec && valveRec.stat > 0) ? (valveRec.text || valveRec.val.toFixed(1)) : '--';
                 let valvePercent = (valveRec && valveRec.stat > 0) ? Math.max(0, Math.min(100, valveRec.val)) : 0;
                 let valveBarColor = (valveRec && valveRec.stat > 0) ? this._getValveColor(valvePercent) : '#e0e0e0';
                 let vDotColor = (rec) => (!rec || rec.stat <= 0) ? '#bbb' : (rec.val >= 1 ? '#4caf50' : '#d32f2f');
 
                 let paramDefs = [
-                    { idx: 0, unit: this.t.flowRateUnit, dotRec: null },
-                    { idx: 1, unit: this.t.pressureUnit, dotRec: vSucRec, dotAttr: 'data-pnu-vsuc' },
-                    { idx: 2, unit: this.t.pressureUnit, dotRec: vDisRec, dotAttr: 'data-pnu-vdis' },
-                    { idx: 3, unit: this.t.pressureUnit, dotRec: null }
+                    { ch: chG,    unit: this.t.flowRateUnit, dotRec: null },
+                    { ch: chPSuc, unit: this.t.pressureUnit, dotRec: vSucRec, dotAttr: 'data-pnu-vsuc' },
+                    { ch: chPDis, unit: this.t.pressureUnit, dotRec: vDisRec, dotAttr: 'data-pnu-vdis' },
+                    { ch: chPByp, unit: this.t.pressureUnit, dotRec: null }
                 ];
                 html += '<table class="map-pnu-params">';
                 for (let pd of paramDefs) {
-                    let c = ch[pd.idx];
+                    let c = pd.ch;
                     if (!c) continue;
                     let rec = this.curDataMap[c.cnlNum];
                     let valText = rec ? this._escapeHtml(rec.text) : '--';
@@ -2748,7 +2765,7 @@
                         '<td class="unit">' + this._escapeHtml(pd.unit) + '</td></tr>';
                 }
                 // Bypass valve % bar row
-                if (ch[4]) {
+                if (chVByp) {
                     html += '<tr>' +
                         '<td class="alias bypass-alias-td">' + this._escapeHtml(this.t.valveBypass) + '</td>' +
                         '<td colspan="3" class="bypass-bar-td">' +
@@ -2768,24 +2785,26 @@
             }
 
             _updatePnuPopupInPlace(popupEl, def) {
+                // Update all parameter values via data-cnl attributes
                 let ch = def.channels || [];
-                // Parameter values (ch[0]-[3])
-                for (let i = 0; i < 4; i++) {
-                    if (!ch[i]) continue;
-                    let el = popupEl.querySelector('[data-cnl="' + ch[i].cnlNum + '"]');
-                    let rec = this.curDataMap[ch[i].cnlNum];
+                for (let c of ch) {
+                    let el = popupEl.querySelector('[data-cnl="' + c.cnlNum + '"]');
+                    let rec = this.curDataMap[c.cnlNum];
                     if (el && rec) el.textContent = rec.text || '--';
                 }
-                // Valve dots (ch[5] → P всас row, ch[6] → Р напор row)
-                let vSucRec = ch[5] ? this.curDataMap[ch[5].cnlNum] : null;
-                let vDisRec = ch[6] ? this.curDataMap[ch[6].cnlNum] : null;
+                // Valve dots (by alias)
+                let chVSuc = this._findPnuCh(def, 'клапан всас');
+                let chVDis = this._findPnuCh(def, 'клапан напор');
+                let chVByp = this._findPnuCh(def, 'клапан байпас', 'клапан %');
+                let vSucRec = chVSuc ? this.curDataMap[chVSuc.cnlNum] : null;
+                let vDisRec = chVDis ? this.curDataMap[chVDis.cnlNum] : null;
                 let vDotColor = (rec) => (!rec || rec.stat <= 0) ? '#bbb' : (rec.val >= 1 ? '#4caf50' : '#d32f2f');
                 let vSucDot = popupEl.querySelector('[data-pnu-vsuc]');
                 if (vSucDot) vSucDot.style.background = vDotColor(vSucRec);
                 let vDisDot = popupEl.querySelector('[data-pnu-vdis]');
                 if (vDisDot) vDisDot.style.background = vDotColor(vDisRec);
-                // Bypass valve % bar (ch[4])
-                let valveRec = ch[4] ? this.curDataMap[ch[4].cnlNum] : null;
+                // Bypass valve % bar
+                let valveRec = chVByp ? this.curDataMap[chVByp.cnlNum] : null;
                 let valveText = (valveRec && valveRec.stat > 0) ? (valveRec.text || valveRec.val.toFixed(1)) : '--';
                 let vBypassEl = popupEl.querySelector('[data-pnu-vbypass]');
                 if (vBypassEl) vBypassEl.textContent = valveText + ' %';
@@ -3704,10 +3723,14 @@
                 let PNU_COLORS = ['#1f77b4', '#d32f2f', '#2ca02c']; // P suc=blue, P dis=red, Valve=green
 
                 if (isPnu) {
-                    // PNU: ch[1]=P всас, ch[2]=Р напор as lines; ch[4]=Valve% scaled
-                    chartChannels = [def.channels[1], def.channels[2]].filter(Boolean);
+                    // PNU: P всас + Р напор as lines; bypass valve % scaled
+                    let _pSuc = this._findPnuCh(def, 'р всас', 'p всас', 'p vsas');
+                    let _pDis = this._findPnuCh(def, 'р напор', 'p напор', 'p napor');
+                    let _vByp = this._findPnuCh(def, 'клапан байпас', 'клапан %');
+                    chartChannels = [_pSuc, _pDis].filter(Boolean);
                     allCnlNums = chartChannels.map(c => c.cnlNum);
-                    if (def.channels[4]) allCnlNums.push(def.channels[4].cnlNum);
+                    if (_vByp) allCnlNums.push(_vByp.cnlNum);
+                    def._chartVByp = _vByp;
                 } else if (isTriangle) {
                     chartChannels = [def.channels[1], def.channels[0]].filter(Boolean);
                     allCnlNums = chartChannels.map(c => c.cnlNum);
@@ -3759,8 +3782,8 @@
                 }
 
                 // PNU: valve % as a scaled line on the pressure axis (0-100% mapped to 0-25)
-                if (isPnu && def.channels[4]) {
-                    let vCh = def.channels[4];
+                if (isPnu && def._chartVByp) {
+                    let vCh = def._chartVByp;
                     let vAlias = vCh.alias || (this.t.channel + vCh.cnlNum);
                     let vTrendIdx = cnlToTrendIdx[vCh.cnlNum];
                     if (vTrendIdx !== undefined) {
