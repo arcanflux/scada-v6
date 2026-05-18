@@ -56,5 +56,7 @@
     <Phrase key="ValveClosed">Closed</Phrase>
     <Phrase key="ValveBypass">Bypass valve</Phrase>
     <Phrase key="FlowRateUnit">t/h</Phrase>
+    <Phrase key="TicketsLabel">Tickets</Phrase>
+    <Phrase key="NoActiveTickets">No active tickets</Phrase>
   </Dictionary>
 </PlgMapDictionaries>

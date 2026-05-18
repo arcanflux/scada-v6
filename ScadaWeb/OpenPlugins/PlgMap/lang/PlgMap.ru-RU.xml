@@ -56,5 +56,7 @@
     <Phrase key="ValveClosed">Закр</Phrase>
     <Phrase key="ValveBypass">Клапан байпаса</Phrase>
     <Phrase key="FlowRateUnit">т/ч</Phrase>
+    <Phrase key="TicketsLabel">Заявки</Phrase>
+    <Phrase key="NoActiveTickets">Нет активных заявок</Phrase>
   </Dictionary>
 </PlgMapDictionaries>

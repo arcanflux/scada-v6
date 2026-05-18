@@ -608,6 +608,95 @@
             left: calc(50% + 180px);
             z-index: 1000;
         }
+
+        /* Tickets panel button (right of Statuses) */
+        .map-ticket-btn {
+            position: absolute;
+            top: 10px;
+            left: calc(50% + 295px);
+            z-index: 1000;
+        }
+        .map-ticket-btn button {
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            padding: 8px 14px;
+            font-size: 14px;
+            font-weight: 600;
+            border: 2px solid rgba(0,0,0,0.2);
+            border-radius: 4px;
+            background: #fff;
+            cursor: pointer;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .map-ticket-btn button:hover {
+            background: #f5f5f5;
+        }
+        .map-ticket-btn button .ticket-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #f0ad4e;
+            color: #7c4c00;
+            font-size: 11px;
+            font-weight: 700;
+            min-width: 18px;
+            height: 18px;
+            border-radius: 9px;
+            padding: 0 5px;
+        }
+        .map-ticket-btn button .ticket-count.hidden {
+            display: none;
+        }
+        .map-ticket-panel {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 4px;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            min-width: 280px;
+            max-width: 420px;
+            max-height: 420px;
+            overflow-y: auto;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            font-size: 13px;
+        }
+        .map-ticket-panel.show {
+            display: block;
+        }
+        .map-ticket-panel-empty {
+            padding: 16px;
+            text-align: center;
+            color: #999;
+        }
+        .map-ticket-panel-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+        }
+        .map-ticket-panel-item:hover {
+            background: #fffbeb;
+        }
+        .map-ticket-panel-item:last-child {
+            border-bottom: none;
+        }
+        .map-ticket-panel-name {
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 3px;
+        }
+        .map-ticket-panel-text {
+            color: #7c4c00;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
         .map-status-btn button {
             font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
             padding: 8px 14px;
@@ -1578,7 +1667,9 @@
                 valveOpen: "@Html.Raw(Model.JsDict.ValveOpen)",
                 valveClosed: "@Html.Raw(Model.JsDict.ValveClosed)",
                 valveBypass: "@Html.Raw(Model.JsDict.ValveBypass)",
-                flowRateUnit: "@Html.Raw(Model.JsDict.FlowRateUnit)"
+                flowRateUnit: "@Html.Raw(Model.JsDict.FlowRateUnit)",
+                ticketsLabel: "@Html.Raw(Model.JsDict.TicketsLabel)",
+                noActiveTickets: "@Html.Raw(Model.JsDict.NoActiveTickets)"
             };
 
             constructor(options) {
@@ -1857,18 +1948,27 @@
                 return result;
             }
 
-            // Reconstruct ticket text from 99 consecutive channels (each stores one char code)
+            // Reconstruct ticket text from 99 consecutive channels.
+            // Supports two encoding modes:
+            //   • val > 0  → char code (integer drivers)
+            //   • val == 0 → read rec.text directly (DrvPostgre string channels)
             _getTicketText(def) {
                 if (!def.ticketCnlNum) return '';
-                let text = '';
+                let parts = [];
                 for (let i = 0; i < 99; i++) {
                     let rec = this.curDataMap[def.ticketCnlNum + i];
                     if (!rec || rec.stat <= 0) break;
                     let code = Math.round(rec.val);
-                    if (code <= 0) break;
-                    text += String.fromCharCode(code);
+                    if (code > 0) {
+                        parts.push(String.fromCharCode(code));
+                    } else if (rec.text && rec.text.trim().length > 0 && rec.text.trim() !== '0') {
+                        // Driver stores the character directly in the formatted text field
+                        parts.push(rec.text.trim());
+                    } else {
+                        break;
+                    }
                 }
-                return text;
+                return parts.join('');
             }
 
             // Check if at least one parameter channel has valid signal
@@ -2053,6 +2153,7 @@
                 this._initChartOverlay();
                 this._initMiniChartTooltip();
                 this._initStatusPanel();
+                this._initTicketPanel();
                 this._initGradientPanel();
                 this._initMarkerFilter();
                 this._refreshData();
@@ -2392,6 +2493,67 @@
                             this._escapeHtml(d.alias) + '</span>';
                     }
                     html += '</div></div>';
+                }
+                panel.innerHTML = html;
+            }
+
+            // --- Tickets Panel ---
+            _initTicketPanel() {
+                let btn = document.getElementById("mapTicketBtn");
+                let panel = document.getElementById("mapTicketPanel");
+                if (!btn || !panel) return;
+
+                btn.addEventListener("click", () => {
+                    panel.classList.toggle("show");
+                });
+
+                document.addEventListener("click", (ev) => {
+                    if (!ev.target.closest(".map-ticket-btn")) {
+                        panel.classList.remove("show");
+                    }
+                });
+
+                panel.addEventListener("click", (ev) => {
+                    let item = ev.target.closest(".map-ticket-panel-item");
+                    if (!item || !item.dataset.markerId) return;
+                    let id = parseInt(item.dataset.markerId, 10);
+                    let entry = this.markerEntries.find(e => e.id === id);
+                    if (entry) {
+                        this.map.setView(entry.leafletMarker.getLatLng(), 15);
+                        entry.leafletMarker.openPopup();
+                    }
+                });
+            }
+
+            _updateTicketPanel() {
+                let panel = document.getElementById("mapTicketPanel");
+                let countEl = document.getElementById("mapTicketCount");
+                if (!panel || !countEl) return;
+
+                let ticketEntries = [];
+                for (let entry of this.markerEntries) {
+                    let text = this._getTicketText(entry.def);
+                    if (text) {
+                        ticketEntries.push({ entry, text });
+                    }
+                }
+
+                if (ticketEntries.length === 0) {
+                    countEl.classList.add("hidden");
+                    panel.innerHTML = '<div class="map-ticket-panel-empty">' +
+                        this._escapeHtml(this.t.noActiveTickets) + '</div>';
+                    return;
+                }
+
+                countEl.textContent = ticketEntries.length;
+                countEl.classList.remove("hidden");
+
+                let html = '';
+                for (let te of ticketEntries) {
+                    html += '<div class="map-ticket-panel-item" data-marker-id="' + te.entry.id + '">';
+                    html += '<div class="map-ticket-panel-name">' + this._escapeHtml(te.entry.def.name) + '</div>';
+                    html += '<div class="map-ticket-panel-text">' + this._escapeHtml(te.text) + '</div>';
+                    html += '</div>';
                 }
                 panel.innerHTML = html;
             }
@@ -3777,13 +3939,9 @@
 
                 let xTickCallback = function(value, index, ticksArr) {
                     let ts = new Date(ticksArr[index].value);
-                    // Determine visible range dynamically (supports zoom)
-                    let xScale = self._activeChart?.scales?.x;
-                    let visibleMs = xScale
-                        ? (xScale.max - xScale.min)
-                        : (self._chartEndTime.getTime() - self._chartStartTime.getTime());
+                    // `this` is the Chart.js scale object — always valid, even during initial render
+                    let visibleMs = this.max - this.min;
                     let showSecs = visibleMs <= 3600000;  // <= 1 hour: show seconds
-                    let showDate = visibleMs > 86400000;  // > 1 day: prepend date
                     let timeStr = showSecs ? self._fmtTimeSec(ts) : self._fmtTime(ts);
                     if (index === 0) return self._fmtDate(ts) + ' ' + timeStr;
                     let prevTs = new Date(ticksArr[index - 1].value);
@@ -4638,6 +4796,7 @@
                 }
 
                 this._updateStatusPanel();
+                this._updateTicketPanel();
             }
 
             // Returns aggregate marker color based on how many channels are working.
@@ -4730,6 +4889,14 @@
         <span id="mapStatusCount" class="status-count hidden">0</span>
     </button>
     <div id="mapStatusPanel" class="map-status-panel"></div>
+</div>
+
+<div class="map-ticket-btn">
+    <button id="mapTicketBtn">
+        @Model.JsDict.TicketsLabel
+        <span id="mapTicketCount" class="ticket-count hidden">0</span>
+    </button>
+    <div id="mapTicketPanel" class="map-ticket-panel"></div>
 </div>
 
 <div class="map-gradient-btn">
