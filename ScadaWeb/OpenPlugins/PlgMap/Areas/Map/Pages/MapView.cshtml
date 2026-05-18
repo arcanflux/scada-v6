@@ -601,22 +601,22 @@
             color: #333;
         }
 
-        /* Status panel button + dropdown (right of search bar) */
-        .map-status-btn {
+        /* Toolbar buttons row (right of search bar) */
+        .map-toolbar-right {
             position: absolute;
             top: 10px;
             left: calc(50% + 180px);
             z-index: 1000;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+        .map-toolbar-right > div {
+            position: relative;
         }
 
-        /* Tickets panel button (right of Statuses) */
-        .map-ticket-btn {
-            position: absolute;
-            top: 10px;
-            left: calc(50% + 295px);
-            z-index: 1000;
-        }
-        .map-ticket-btn button {
+        /* Shared button style for toolbar */
+        .map-toolbar-right button {
             font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
             padding: 8px 14px;
             font-size: 14px;
@@ -630,16 +630,18 @@
             display: flex;
             align-items: center;
             gap: 6px;
+            white-space: nowrap;
         }
-        .map-ticket-btn button:hover {
+        .map-toolbar-right button:hover {
             background: #f5f5f5;
         }
-        .map-ticket-btn button .ticket-count {
+
+        /* Badge shared styles */
+        .map-toolbar-right .status-count,
+        .map-toolbar-right .ticket-count {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            background: #f0ad4e;
-            color: #7c4c00;
             font-size: 11px;
             font-weight: 700;
             min-width: 18px;
@@ -647,91 +649,22 @@
             border-radius: 9px;
             padding: 0 5px;
         }
-        .map-ticket-btn button .ticket-count.hidden {
-            display: none;
-        }
-        .map-ticket-panel {
-            display: none;
-            position: absolute;
-            top: 100%;
-            left: 0;
-            margin-top: 4px;
-            background: #fff;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
-            min-width: 280px;
-            max-width: 420px;
-            max-height: 420px;
-            overflow-y: auto;
-            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
-            font-size: 13px;
-        }
-        .map-ticket-panel.show {
-            display: block;
-        }
-        .map-ticket-panel-empty {
-            padding: 16px;
-            text-align: center;
-            color: #999;
-        }
-        .map-ticket-panel-item {
-            padding: 8px 12px;
-            border-bottom: 1px solid #f0f0f0;
-            cursor: pointer;
-        }
-        .map-ticket-panel-item:hover {
-            background: #fffbeb;
-        }
-        .map-ticket-panel-item:last-child {
-            border-bottom: none;
-        }
-        .map-ticket-panel-name {
-            font-weight: 600;
-            color: #1a1a1a;
-            margin-bottom: 3px;
-        }
-        .map-ticket-panel-text {
-            color: #7c4c00;
-            font-size: 12px;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-        .map-status-btn button {
-            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
-            padding: 8px 14px;
-            font-size: 14px;
-            font-weight: 600;
-            border: 2px solid rgba(0,0,0,0.2);
-            border-radius: 4px;
-            background: #fff;
-            cursor: pointer;
-            box-shadow: 0 1px 5px rgba(0,0,0,0.2);
-            color: #333;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .map-status-btn button:hover {
-            background: #f5f5f5;
-        }
-        .map-status-btn button .status-count {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
+        .map-toolbar-right .status-count {
             background: #d32f2f;
             color: #fff;
-            font-size: 11px;
-            font-weight: 700;
-            min-width: 18px;
-            height: 18px;
-            border-radius: 9px;
-            padding: 0 5px;
         }
-        .map-status-btn button .status-count.hidden {
+        .map-toolbar-right .ticket-count {
+            background: #f0ad4e;
+            color: #7c4c00;
+        }
+        .map-toolbar-right .status-count.hidden,
+        .map-toolbar-right .ticket-count.hidden {
             display: none;
         }
-        .map-status-panel {
+
+        /* Dropdown panels shared */
+        .map-status-panel,
+        .map-ticket-panel {
             display: none;
             position: absolute;
             top: 100%;
@@ -748,10 +681,15 @@
             font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
             font-size: 13px;
         }
-        .map-status-panel.show {
+        .map-ticket-panel {
+            max-width: 420px;
+        }
+        .map-status-panel.show,
+        .map-ticket-panel.show {
             display: block;
         }
-        .map-status-panel-empty {
+        .map-status-panel-empty,
+        .map-ticket-panel-empty {
             padding: 16px;
             text-align: center;
             color: #999;
@@ -793,28 +731,31 @@
             flex-shrink: 0;
         }
 
-        /* Gradient channel toggle panel */
-        .map-gradient-btn {
-            position: absolute;
-            top: 10px;
-            left: calc(50% + 320px);
-            z-index: 1000;
-        }
-        .map-gradient-btn button {
-            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
-            padding: 8px 14px;
-            font-size: 14px;
-            font-weight: 600;
-            border: 2px solid rgba(0,0,0,0.2);
-            border-radius: 4px;
-            background: #fff;
+        /* Ticket panel items */
+        .map-ticket-panel-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f0f0f0;
             cursor: pointer;
-            box-shadow: 0 1px 5px rgba(0,0,0,0.2);
-            color: #333;
         }
-        .map-gradient-btn button:hover {
-            background: #f5f5f5;
+        .map-ticket-panel-item:hover {
+            background: #fffbeb;
         }
+        .map-ticket-panel-item:last-child {
+            border-bottom: none;
+        }
+        .map-ticket-panel-name {
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 3px;
+        }
+        .map-ticket-panel-text {
+            color: #7c4c00;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* Gradient channel toggle panel */
         .map-gradient-btn button.active {
             border-color: #0073aa;
             background: #e8f4fc;
@@ -1950,27 +1891,35 @@
 
             // Reconstruct ticket text from 99 consecutive channels.
             // Supports two encoding modes:
-            // Reads ticket text from SCADA channels. Two modes:
-            //   • String mode (DrvPostgre): rec.val == 0, rec.text holds the full string.
-            //     The first channel contains the entire ticket text — no need to scan further.
-            //   • Char-code mode: each channel's rec.val is a Unicode char code (> 0).
-            //     Up to 99 consecutive channels are concatenated.
+            // Reads ticket text from SCADA channels.
+            // DrvPostgre String type: ~4 chars packed per channel's double val.
+            // The formatter decodes each channel to a text chunk in rec.text.
+            // We detect the mode by checking if first rec.text is non-numeric (> 1 char).
             _getTicketText(def) {
                 if (!def.ticketCnlNum) return '';
                 let firstRec = this.curDataMap[def.ticketCnlNum];
                 if (!firstRec || firstRec.stat <= 0) return '';
 
-                let firstCode = Math.round(firstRec.val);
+                let firstText = (firstRec.text || '').trim();
+                let isTextMode = firstText.length > 1 && isNaN(Number(firstText));
 
-                // String mode: val is 0 (non-numeric channel), text holds the full string
-                if (firstCode <= 0) {
-                    let t = (firstRec.text || '').trim();
-                    return (t && t !== '0') ? t : '';
+                if (isTextMode) {
+                    // DrvPostgre String: concatenate rec.text from all ticket channels
+                    let parts = [];
+                    for (let i = 0; i < 99; i++) {
+                        let rec = this.curDataMap[def.ticketCnlNum + i];
+                        if (!rec || rec.stat <= 0) break;
+                        let t = rec.text;
+                        if (t == null || t === '') break;
+                        parts.push(t);
+                    }
+                    let result = parts.join('').trim();
+                    return (result && result !== '0') ? result : '';
                 }
 
-                // Char-code mode: scan up to 99 consecutive channels
-                let parts = [String.fromCharCode(firstCode)];
-                for (let i = 1; i < 99; i++) {
+                // Char-code mode: each channel val = one Unicode char code
+                let parts = [];
+                for (let i = 0; i < 99; i++) {
                     let rec = this.curDataMap[def.ticketCnlNum + i];
                     if (!rec || rec.stat <= 0) break;
                     let code = Math.round(rec.val);
@@ -4892,25 +4841,25 @@
     <div id="mapSearchResults" class="map-search-results"></div>
 </div>
 
-<div class="map-status-btn">
-    <button id="mapStatusBtn">
-        @Model.JsDict.StatusesLabel
-        <span id="mapStatusCount" class="status-count hidden">0</span>
-    </button>
-    <div id="mapStatusPanel" class="map-status-panel"></div>
-</div>
-
-<div class="map-ticket-btn">
-    <button id="mapTicketBtn">
-        @Model.JsDict.TicketsLabel
-        <span id="mapTicketCount" class="ticket-count hidden">0</span>
-    </button>
-    <div id="mapTicketPanel" class="map-ticket-panel"></div>
-</div>
-
-<div class="map-gradient-btn">
-    <button id="mapGradientBtn">@Model.JsDict.GradientLabel</button>
-    <div id="mapGradientPanel" class="map-gradient-panel"></div>
+<div class="map-toolbar-right">
+    <div class="map-status-btn">
+        <button id="mapStatusBtn">
+            @Model.JsDict.StatusesLabel
+            <span id="mapStatusCount" class="status-count hidden">0</span>
+        </button>
+        <div id="mapStatusPanel" class="map-status-panel"></div>
+    </div>
+    <div class="map-ticket-btn">
+        <button id="mapTicketBtn">
+            @Model.JsDict.TicketsLabel
+            <span id="mapTicketCount" class="ticket-count hidden">0</span>
+        </button>
+        <div id="mapTicketPanel" class="map-ticket-panel"></div>
+    </div>
+    <div class="map-gradient-btn">
+        <button id="mapGradientBtn">@Model.JsDict.GradientLabel</button>
+        <div id="mapGradientPanel" class="map-gradient-panel"></div>
+    </div>
 </div>
 
 <div id="divMapContainer" class="map-container"
