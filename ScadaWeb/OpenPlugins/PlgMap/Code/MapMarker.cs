@@ -120,6 +120,18 @@ namespace Scada.Web.Plugins.PlgMap.Code
         /// </summary>
         public List<MarkerChannelGroup> ExtraChannelGroups { get; } = [];
 
+        /// <summary>
+        /// Gets or sets the base channel number for the ticket (request) text. 0 means no ticket.
+        /// Channels TicketCnlNum through TicketCnlNum + TicketCnlCount - 1 encode the text,
+        /// one character code per channel value.
+        /// </summary>
+        public int TicketCnlNum { get; set; }
+
+        /// <summary>
+        /// Number of consecutive channels used to encode ticket text.
+        /// </summary>
+        public const int TicketCnlCount = 99;
+
 
         /// <summary>
         /// Loads the marker from an XML node (new compact format).
@@ -177,6 +189,11 @@ namespace Scada.Web.Plugins.PlgMap.Code
                     Alias = stNode.Attributes?["alias"]?.Value ?? ""
                 });
             }
+
+            // load ticket channel
+            XmlNode ticketNode = node.SelectSingleNode("Ticket");
+            if (ticketNode != null)
+                marker.TicketCnlNum = int.TryParse(ticketNode.Attributes?["cnlNum"]?.Value, out int tnc) ? tnc : 0;
 
             // load extra channel groups (shown in secondary "more" popup)
             XmlNode extraNode = node.SelectSingleNode("ExtraChannels");
@@ -282,6 +299,13 @@ namespace Scada.Web.Plugins.PlgMap.Code
                     });
                 }
             }
+
+            // parse ticket channel
+            XmlNode ticketNode2 = node.SelectSingleNode("Ticket");
+            if (ticketNode2 != null)
+                marker.TicketCnlNum = int.TryParse(ticketNode2.Attributes?["cnlNum"]?.Value, out int tnc3) ? tnc3 : 0;
+            else
+                marker.TicketCnlNum = int.TryParse(node.SelectSingleNode("TicketCnlNum")?.InnerText, out int tnc4) ? tnc4 : 0;
 
             // parse ExtraChannels > Group > ExtraItem elements (secondary popup channels)
             XmlNode extrasNode = node.SelectSingleNode("ExtraChannels");

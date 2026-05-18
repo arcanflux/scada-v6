@@ -92,6 +92,13 @@ namespace Scada.Web.Plugins.PlgMap.Code
                 // real-time coordinate channels
                 AddCnlNum(marker.LatCnlNum);
                 AddCnlNum(marker.LonCnlNum);
+
+                // ticket text channels
+                if (marker.TicketCnlNum > 0)
+                {
+                    for (int i = 0; i < MapMarker.TicketCnlCount; i++)
+                        AddCnlNum(marker.TicketCnlNum + i);
+                }
             }
             catch
             {

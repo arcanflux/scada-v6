@@ -19,6 +19,8 @@
       <!-- Optional: photo from SCADA Views storage (relative to Views folder) -->
       <!-- <Photo>Photo/tp-o53.jpg</Photo> -->
       <StatusCnlNum>0</StatusCnlNum>
+      <!-- Optional: ticket/request text encoded as char codes across 99 channels -->
+      <!-- <Ticket cnlNum="1200"/> -->
       <Data>
         <DataItem cnlNum="1020">T1</DataItem>
         <DataItem cnlNum="1021">T2</DataItem>

@@ -186,6 +186,7 @@ namespace Scada.Web.Plugins.PlgMap.Controllers
                     Photo = string.IsNullOrEmpty(m.Photo) ? null : m.Photo,
                     StatusCnlNum = m.StatusCnlNum,
                     LinkViewID = m.LinkViewID,
+                    TicketCnlNum = m.TicketCnlNum,
                     Channels = [.. m.Channels.Select(c => new ChannelDto
                     {
                         CnlNum = c.CnlNum,

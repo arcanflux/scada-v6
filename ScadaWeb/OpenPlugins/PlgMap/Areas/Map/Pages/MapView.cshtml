@@ -420,6 +420,45 @@
             background: #f1f8e9;
         }
 
+        .map-popup-ticket-box {
+            position: relative;
+            margin: 6px 0 4px;
+            padding: 6px 14px;
+            border: 2px solid #f0ad4e;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 600;
+            text-align: center;
+            color: #b45309;
+            background: #fffbeb;
+            cursor: default;
+            user-select: none;
+        }
+
+        .map-popup-ticket-tooltip {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: #fff;
+            padding: 7px 11px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 400;
+            white-space: pre-wrap;
+            max-width: 240px;
+            text-align: left;
+            pointer-events: none;
+            z-index: 2000;
+            word-break: break-word;
+        }
+
+        .map-popup-ticket-box:hover .map-popup-ticket-tooltip {
+            display: block;
+        }
+
         .map-pnu-params .dot-cell {
             padding: 0 4px;
             width: 20px;
@@ -1594,6 +1633,13 @@
                 return hh + ':' + mi;
             }
 
+            _fmtTimeSec(d) {
+                let hh = String(d.getHours()).padStart(2, '0');
+                let mi = String(d.getMinutes()).padStart(2, '0');
+                let ss = String(d.getSeconds()).padStart(2, '0');
+                return hh + ':' + mi + ':' + ss;
+            }
+
             // --- Resource loading ---
             _loadLeafletCss() {
                 return new Promise((resolve) => {
@@ -1788,6 +1834,41 @@
                     b = Math.round(78 * (1 - t) + 80 * t);
                 }
                 return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+            }
+
+            // Insert null points at data gaps so Chart.js doesn't draw connecting lines.
+            // Computes expected interval from the first data pairs; inserts null when gap > 5× median.
+            _insertGapNulls(data) {
+                if (data.length < 3) return data;
+                let n = Math.min(20, data.length - 1);
+                let intervals = [];
+                for (let i = 0; i < n; i++) intervals.push(data[i + 1].x - data[i].x);
+                intervals.sort((a, b) => a - b);
+                let median = intervals[Math.floor(intervals.length / 2)];
+                if (median <= 0) return data;
+                let threshold = median * 5;
+                let result = [];
+                for (let i = 0; i < data.length; i++) {
+                    result.push(data[i]);
+                    if (i < data.length - 1 && data[i + 1].x - data[i].x > threshold) {
+                        result.push({ x: data[i].x + median, y: null });
+                    }
+                }
+                return result;
+            }
+
+            // Reconstruct ticket text from 99 consecutive channels (each stores one char code)
+            _getTicketText(def) {
+                if (!def.ticketCnlNum) return '';
+                let text = '';
+                for (let i = 0; i < 99; i++) {
+                    let rec = this.curDataMap[def.ticketCnlNum + i];
+                    if (!rec || rec.stat <= 0) break;
+                    let code = Math.round(rec.val);
+                    if (code <= 0) break;
+                    text += String.fromCharCode(code);
+                }
+                return text;
             }
 
             // Check if at least one parameter channel has valid signal
@@ -2339,7 +2420,6 @@
 
             // --- Popups (clean fonts, button for combined chart) ---
             _buildPopupHtml(def) {
-                let statusDots = this._getStatusDots(def);
                 let html = '';
 
                 // Name + photo button row
@@ -2350,21 +2430,13 @@
                     html += '<span class="map-popup-name">' + this._escapeHtml(def.name) + '</span>';
                 }
 
-                // Status dots horizontal row under name
-                let POPUP_STATUS_COLORS = ["#f0ad4e", "#f57c00", "#d32f2f", "#ff9800", "#7b1fa2"];
-                if (statusDots.length > 0) {
-                    html += '<div class="map-popup-header-dots">';
-                    for (let si = 0; si < statusDots.length; si++) {
-                        let d = statusDots[si];
-                        let severityColor = POPUP_STATUS_COLORS[si % POPUP_STATUS_COLORS.length];
-                        let dotColor = d.on ? severityColor : "#bbb";
-                        html += '<span class="map-popup-status-dot" style="background:' + dotColor + '" ' +
-                            'onmouseenter="mapViewInstance._showMiniChart(event, ' + d.cnlNum + ', \'' +
-                                this._escapeHtml(d.alias).replace(/'/g, "\\'") + '\', \'' + dotColor + '\', \'above\')" ' +
-                            'onmouseleave="mapViewInstance._scheduleMiniChartHide()"' +
-                            '></span>';
-                    }
-                    html += '</div>';
+                // Ticket banner (replaces status dots)
+                let ticketText = this._getTicketText(def);
+                if (ticketText) {
+                    html += '<div class="map-popup-ticket-box">' +
+                        'Заявка' +
+                        '<div class="map-popup-ticket-tooltip">' + this._escapeHtml(ticketText) + '</div>' +
+                        '</div>';
                 }
 
                 if (def.descr) {
@@ -3541,10 +3613,10 @@
                     if (trendIdx === undefined) continue;
 
                     let trend = histData.trends[trendIdx];
-                    let data = trend.map((rec, idx) => ({
+                    let data = this._insertGapNulls(trend.map((rec, idx) => ({
                         x: timestamps[idx],
                         y: (rec && rec.d && rec.d.stat > 0) ? rec.d.val : null
-                    }));
+                    })));
 
                     let axisGroup = isPnu ? "pressure" : isTriangle ? "temp" : this._getAxisGroup(alias);
                     let unit = isPnu ? this.t.pressureUnit : axisGroup === "pressure" ? this.t.pressureUnit : "°C";
@@ -3573,10 +3645,10 @@
                     let vTrendIdx = cnlToTrendIdx[vCh.cnlNum];
                     if (vTrendIdx !== undefined) {
                         let vTrend = histData.trends[vTrendIdx];
-                        let vData = vTrend.map((rec, idx) => ({
+                        let vData = this._insertGapNulls(vTrend.map((rec, idx) => ({
                             x: timestamps[idx],
                             y: (rec && rec.d && rec.d.stat > 0) ? rec.d.val * 0.25 : null
-                        }));
+                        })));
                         datasets.push({
                             label: vAlias,
                             data: vData,
@@ -3692,23 +3764,12 @@
                 }
 
                 let self = this;
-                // Determine visible time range to pick appropriate axis format
-                let rangeDurationMs = this._chartEndTime.getTime() - this._chartStartTime.getTime();
-                let isShortRange = rangeDurationMs <= 24 * 60 * 60 * 1000; // <= 1 day
 
-                let xTimeFormats = isShortRange ? {
-                    millisecond: 'HH:mm',
-                    second: 'HH:mm',
+                let xTimeFormats = {
+                    millisecond: 'HH:mm:ss',
+                    second: 'HH:mm:ss',
                     minute: 'HH:mm',
                     hour: 'HH:mm',
-                    day: 'dd.MM',
-                    week: 'dd.MM',
-                    month: 'MM.yyyy'
-                } : {
-                    millisecond: 'dd.MM HH:mm',
-                    second: 'dd.MM HH:mm',
-                    minute: 'dd.MM HH:mm',
-                    hour: 'dd.MM HH:mm',
                     day: 'dd.MM',
                     week: 'dd.MM',
                     month: 'MM.yyyy'
@@ -3716,14 +3777,20 @@
 
                 let xTickCallback = function(value, index, ticksArr) {
                     let ts = new Date(ticksArr[index].value);
-                    // First tick always shows date + time
-                    if (index === 0) return self._fmtDate(ts) + ' ' + self._fmtTime(ts);
-                    // Show date again only when the day changes from previous tick
+                    // Determine visible range dynamically (supports zoom)
+                    let xScale = self._activeChart?.scales?.x;
+                    let visibleMs = xScale
+                        ? (xScale.max - xScale.min)
+                        : (self._chartEndTime.getTime() - self._chartStartTime.getTime());
+                    let showSecs = visibleMs <= 3600000;  // <= 1 hour: show seconds
+                    let showDate = visibleMs > 86400000;  // > 1 day: prepend date
+                    let timeStr = showSecs ? self._fmtTimeSec(ts) : self._fmtTime(ts);
+                    if (index === 0) return self._fmtDate(ts) + ' ' + timeStr;
                     let prevTs = new Date(ticksArr[index - 1].value);
                     if (ts.getDate() !== prevTs.getDate() || ts.getMonth() !== prevTs.getMonth()) {
-                        return self._fmtDate(ts) + ' ' + self._fmtTime(ts);
+                        return self._fmtDate(ts) + ' ' + timeStr;
                     }
-                    return self._fmtTime(ts);
+                    return timeStr;
                 };
 
                 let scales = {
@@ -4580,17 +4647,17 @@
                 let channels = def.channels || [];
                 if (channels.length === 0) return "#999";
 
-                let total = channels.length;
-                let working = 0;
+                let anyWorking = false;
                 for (let ch of channels) {
                     let rec = this.curDataMap[ch.cnlNum];
-                    // stat > 0 means the channel has a defined status (working)
-                    if (rec && rec.stat > 0) working++;
+                    if (rec && rec.stat > 0) { anyWorking = true; break; }
                 }
 
-                if (working === 0) return "#999";      // gray - none working
-                if (working < total) return "#f0ad4e";  // amber - partial
-                return "#3388ff";                        // blue - all working
+                if (!anyWorking) return "#999";  // gray — no connection
+
+                if (this._getTicketText(def)) return "#f0ad4e";  // amber — active ticket
+
+                return "#3388ff";  // blue — normal
             }
 
             _escapeHtml(text) {
