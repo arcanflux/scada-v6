@@ -1950,23 +1950,32 @@
 
             // Reconstruct ticket text from 99 consecutive channels.
             // Supports two encoding modes:
-            //   • val > 0  → char code (integer drivers)
-            //   • val == 0 → read rec.text directly (DrvPostgre string channels)
+            // Reads ticket text from SCADA channels. Two modes:
+            //   • String mode (DrvPostgre): rec.val == 0, rec.text holds the full string.
+            //     The first channel contains the entire ticket text — no need to scan further.
+            //   • Char-code mode: each channel's rec.val is a Unicode char code (> 0).
+            //     Up to 99 consecutive channels are concatenated.
             _getTicketText(def) {
                 if (!def.ticketCnlNum) return '';
-                let parts = [];
-                for (let i = 0; i < 99; i++) {
+                let firstRec = this.curDataMap[def.ticketCnlNum];
+                if (!firstRec || firstRec.stat <= 0) return '';
+
+                let firstCode = Math.round(firstRec.val);
+
+                // String mode: val is 0 (non-numeric channel), text holds the full string
+                if (firstCode <= 0) {
+                    let t = (firstRec.text || '').trim();
+                    return (t && t !== '0') ? t : '';
+                }
+
+                // Char-code mode: scan up to 99 consecutive channels
+                let parts = [String.fromCharCode(firstCode)];
+                for (let i = 1; i < 99; i++) {
                     let rec = this.curDataMap[def.ticketCnlNum + i];
                     if (!rec || rec.stat <= 0) break;
                     let code = Math.round(rec.val);
-                    if (code > 0) {
-                        parts.push(String.fromCharCode(code));
-                    } else if (rec.text && rec.text.trim().length > 0 && rec.text.trim() !== '0') {
-                        // Driver stores the character directly in the formatted text field
-                        parts.push(rec.text.trim());
-                    } else {
-                        break;
-                    }
+                    if (code <= 0) break;
+                    parts.push(String.fromCharCode(code));
                 }
                 return parts.join('');
             }
