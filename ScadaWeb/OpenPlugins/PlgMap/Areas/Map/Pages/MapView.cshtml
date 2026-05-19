@@ -2831,10 +2831,13 @@
                     this._activeChart = null;
                 }
                 this._chartPanLoading = false;
+                this._refineLoading = false;
+                clearTimeout(this._refineTimer);
                 this._chartDataStart = null;
                 this._chartDataEnd = null;
                 this._chartCnlNums = null;
                 this._chartMarkerDef = null;
+                this._chartArchiveBit = null;
                 // Stop real-time chart updates
                 this._stopChartRealtime();
                 // Reset date range so next open starts fresh
@@ -3070,6 +3073,7 @@
                         this._fetchHistDataRange(cnlNums, this._chartStartTime, this._chartEndTime, 1).then(fineData => {
                             if (fineData && this._activeChart && this._combinedMarkerIdx === markerIdx) {
                                 this._replaceChartData(this._activeChart, def, fineData);
+                                this._chartArchiveBit = 1;
                             }
                         });
                     } else {
@@ -4051,6 +4055,7 @@
                                     onPanComplete: function({ chart }) {
                                         self._chartAtLiveEdge = self._checkIfAtLiveEdge(chart);
                                         self._onChartPanComplete(chart);
+                                        self._scheduleRefineByZoom(chart);
                                     }
                                 },
                                 zoom: {
@@ -4060,6 +4065,7 @@
                                     mode: 'x',
                                     onZoomComplete: function({ chart }) {
                                         self._chartAtLiveEdge = self._checkIfAtLiveEdge(chart);
+                                        self._scheduleRefineByZoom(chart);
                                     }
                                 },
                                 limits: {
@@ -4113,6 +4119,71 @@
                 } finally {
                     this._chartPanLoading = false;
                     let el = document.getElementById("mapChartToolbar").querySelector(".map-chart-pan-loading");
+                    if (el) el.remove();
+                }
+            }
+
+            // --- Zoom-driven refinement: reload data with appropriate resolution
+            // when the visible range crosses an archive threshold (1h/3d) ---
+            _scheduleRefineByZoom(chart) {
+                clearTimeout(this._refineTimer);
+                this._refineTimer = setTimeout(() => this._refineDataForVisibleRange(chart), 300);
+            }
+
+            async _refineDataForVisibleRange(chart) {
+                if (!chart || !this._chartCnlNums || !this._chartMarkerDef) return;
+                if (this._refineLoading) return;
+
+                let xScale = chart.scales.x;
+                if (!xScale) return;
+
+                let visStart = new Date(xScale.min);
+                let visEnd = new Date(xScale.max);
+                let neededBit = this._chooseArchiveBit(visStart, visEnd);
+
+                // If resolution matches current and visible range is within loaded data, nothing to do
+                let visStartMs = xScale.min;
+                let visEndMs = xScale.max;
+                let withinLoaded = visStartMs >= this._chartDataStart && visEndMs <= this._chartDataEnd;
+                if (neededBit === this._chartArchiveBit && withinLoaded) return;
+
+                this._refineLoading = true;
+                let toolbar = document.getElementById("mapChartToolbar");
+                let loadingEl = document.createElement("div");
+                loadingEl.className = "map-chart-pan-loading";
+                loadingEl.textContent = this._escapeHtml(this.t.loading);
+                loadingEl.animate([{ opacity: 1 }, { opacity: 0.6 }, { opacity: 1 }],
+                    { duration: 800, iterations: Infinity });
+                if (toolbar) toolbar.appendChild(loadingEl);
+
+                try {
+                    // Expand fetch slightly beyond visible range so panning doesn't immediately retrigger
+                    let span = visEndMs - visStartMs;
+                    let pad = span * 0.5;
+                    let fetchStart = new Date(Math.max(visStartMs - pad, visStartMs - span));
+                    let fetchEnd = new Date(visEndMs + pad);
+
+                    let histData = await this._fetchHistDataRange(
+                        this._chartCnlNums, fetchStart, fetchEnd, neededBit);
+
+                    if (histData && histData.timestamps && histData.timestamps.length > 0) {
+                        // Preserve current zoom by saving and restoring x scale bounds
+                        let savedMin = xScale.min;
+                        let savedMax = xScale.max;
+                        this._replaceChartData(chart, this._chartMarkerDef, histData);
+                        this._chartArchiveBit = neededBit;
+                        // Restore zoom to the visible range that triggered the refine
+                        if (chart.options.scales.x) {
+                            chart.options.scales.x.min = savedMin;
+                            chart.options.scales.x.max = savedMax;
+                        }
+                        chart.update('none');
+                    }
+                } catch (err) {
+                    console.error("Refine-by-zoom error:", err);
+                } finally {
+                    this._refineLoading = false;
+                    let el = toolbar ? toolbar.querySelector(".map-chart-pan-loading") : null;
                     if (el) el.remove();
                 }
             }
