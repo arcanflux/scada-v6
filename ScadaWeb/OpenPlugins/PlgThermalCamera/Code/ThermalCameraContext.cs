@@ -40,6 +40,11 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         // it is evicted from scansInProgress so DetectFloodTransitions can retry.
         private const long ScanTimeoutMs = 5 * 60 * 1000; // 5 minutes
 
+        // Flood-clear debounce window: ArchiveStartMs is only reset after the sensor has
+        // reported "not flooded" continuously for this long.  Shorter gaps are treated as
+        // sensor glitches and the existing flood episode (and its acknowledgment) is kept.
+        private const long OneDayMs = 24L * 60 * 60 * 1000;
+
         private readonly object lockObj = new();
         private ThermalCameraUserData cache;
         private readonly Dictionary<int, bool> lastFlood200State = [];
@@ -289,19 +294,31 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                         }
                     }
 
-                    // 200mm flood
+                    // 200mm flood — 24-hour debounce before resetting start timestamp.
+                    // Brief sensor glitches (< 24h clear) keep the original flood start and
+                    // any existing acknowledgment intact. Only a genuine 24h+ gap resets everything.
                     if (cur.Flood200HasValue)
                     {
                         bool prevKnown = lastFlood200State.TryGetValue(item.Id, out bool prev);
                         if (cur.Flood200)
                         {
-                            if (!prev && prevKnown)
+                            if (entry.Flood200LastClearMs != 0)
                             {
+                                // Flood returned within the 24h grace window — sensor glitch.
+                                // Cancel the clear timer; ArchiveStartMs and any ack remain valid.
+                                entry.Flood200LastClearMs = 0;
+                                dirty = true;
+                                // No new chat message — it's still the same flood episode.
+                            }
+                            else if (!prev && prevKnown)
+                            {
+                                // Genuine new flood start (either fresh, or after 24h+ gap).
                                 AddSystemMessage(item.Id,
                                     "Зафиксировано затопление 200мм — " +
                                     (string.IsNullOrEmpty(item.Name) ? "объект ТК" : item.Name),
                                     ChatMessageKind.Flood200);
                             }
+
                             // Give a previously wrong "> 30д" result one retry with the
                             // improved scan algorithm (which can find the start when
                             // no pre-flood dry points exist in the archive).
@@ -313,32 +330,59 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                             }
                             if (entry.Flood200ArchiveStartMs == 0 && item.Flood200CnlNum > 0)
                                 TriggerArchiveScan(item.Id, item.Flood200CnlNum, "flood200");
+
                             lastFlood200State[item.Id] = true;
                         }
                         else
                         {
                             if (entry.Flood200ArchiveStartMs != 0)
                             {
-                                entry.Flood200ArchiveStartMs = 0;
+                                long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                                if (entry.Flood200LastClearMs == 0)
+                                {
+                                    // First poll with no flood — start the 24h grace timer.
+                                    entry.Flood200LastClearMs = nowMs;
+                                    dirty = true;
+                                }
+                                else if (nowMs - entry.Flood200LastClearMs >= OneDayMs)
+                                {
+                                    // Genuinely clear for 24h+ — reset flood episode.
+                                    entry.Flood200ArchiveStartMs = 0;
+                                    entry.Flood200LastClearMs = 0;
+                                    dirty = true;
+                                }
+                                // else: within 24h grace — keep waiting
+                            }
+                            else if (entry.Flood200LastClearMs != 0)
+                            {
+                                // ArchiveStartMs already 0 (scan pending), clear orphaned timer.
+                                entry.Flood200LastClearMs = 0;
                                 dirty = true;
                             }
+
                             lastFlood200State[item.Id] = false;
                         }
                     }
 
-                    // 700mm flood
+                    // 700mm flood — same 24-hour debounce logic as 200mm.
                     if (cur.Flood700HasValue)
                     {
                         bool prevKnown = lastFlood700State.TryGetValue(item.Id, out bool prev);
                         if (cur.Flood700)
                         {
-                            if (!prev && prevKnown)
+                            if (entry.Flood700LastClearMs != 0)
+                            {
+                                entry.Flood700LastClearMs = 0;
+                                dirty = true;
+                            }
+                            else if (!prev && prevKnown)
                             {
                                 AddSystemMessage(item.Id,
                                     "ТРЕВОГА: затопление 700мм — " +
                                     (string.IsNullOrEmpty(item.Name) ? "объект ТК" : item.Name),
                                     ChatMessageKind.Flood700);
                             }
+
                             if (entry.Flood700ArchiveStartMs == MoreThan30DaysSentinel &&
                                 sentinelsReset.Add((item.Id, "flood700")))
                             {
@@ -347,15 +391,32 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                             }
                             if (entry.Flood700ArchiveStartMs == 0 && item.Flood700CnlNum > 0)
                                 TriggerArchiveScan(item.Id, item.Flood700CnlNum, "flood700");
+
                             lastFlood700State[item.Id] = true;
                         }
                         else
                         {
                             if (entry.Flood700ArchiveStartMs != 0)
                             {
-                                entry.Flood700ArchiveStartMs = 0;
+                                long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                                if (entry.Flood700LastClearMs == 0)
+                                {
+                                    entry.Flood700LastClearMs = nowMs;
+                                    dirty = true;
+                                }
+                                else if (nowMs - entry.Flood700LastClearMs >= OneDayMs)
+                                {
+                                    entry.Flood700ArchiveStartMs = 0;
+                                    entry.Flood700LastClearMs = 0;
+                                    dirty = true;
+                                }
+                            }
+                            else if (entry.Flood700LastClearMs != 0)
+                            {
+                                entry.Flood700LastClearMs = 0;
                                 dirty = true;
                             }
+
                             lastFlood700State[item.Id] = false;
                         }
                     }

@@ -65,7 +65,9 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
                             IsCommissioned = GetAttrBool(node, "isCommissioned"),
                             OfflineArchiveStartMs = GetAttrLong(node, "offlineArchiveStartMs"),
                             Flood200ArchiveStartMs = GetAttrLong(node, "flood200ArchiveStartMs"),
-                            Flood700ArchiveStartMs = GetAttrLong(node, "flood700ArchiveStartMs")
+                            Flood700ArchiveStartMs = GetAttrLong(node, "flood700ArchiveStartMs"),
+                            Flood200LastClearMs = GetAttrLong(node, "flood200LastClearMs"),
+                            Flood700LastClearMs = GetAttrLong(node, "flood700LastClearMs")
                         };
 
                         if (node.SelectNodes("Message") is XmlNodeList msgNodes)
@@ -145,6 +147,8 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
                     entryElem.SetAttribute("offlineArchiveStartMs", kvp.Value.OfflineArchiveStartMs.ToString());
                     entryElem.SetAttribute("flood200ArchiveStartMs", kvp.Value.Flood200ArchiveStartMs.ToString());
                     entryElem.SetAttribute("flood700ArchiveStartMs", kvp.Value.Flood700ArchiveStartMs.ToString());
+                    entryElem.SetAttribute("flood200LastClearMs", kvp.Value.Flood200LastClearMs.ToString());
+                    entryElem.SetAttribute("flood700LastClearMs", kvp.Value.Flood700LastClearMs.ToString());
 
                     foreach (ChatMessage msg in kvp.Value.Messages)
                     {
@@ -245,6 +249,19 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
         /// 0 = not flooded.
         /// </summary>
         public long Flood700ArchiveStartMs { get; set; }
+
+        /// <summary>
+        /// UTC ms when 200mm flood last cleared (sensor went non-flooded).
+        /// 0 = flood is currently active or the clear timer has expired.
+        /// Used to implement a 24-hour debounce so brief sensor glitches don't
+        /// invalidate the existing flood start timestamp and its acknowledgment.
+        /// </summary>
+        public long Flood200LastClearMs { get; set; }
+
+        /// <summary>
+        /// UTC ms when 700mm flood last cleared. See <see cref="Flood200LastClearMs"/>.
+        /// </summary>
+        public long Flood700LastClearMs { get; set; }
 
         /// <summary>
         /// Gets the chat message history for this item.
