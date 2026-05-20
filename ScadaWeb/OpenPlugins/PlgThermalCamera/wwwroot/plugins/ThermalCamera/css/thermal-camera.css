@@ -1617,7 +1617,8 @@ td.tc-col-flooding:hover {
     color: #e2e8f0;
     padding: 3px 8px;
     border-radius: 4px;
-    font-size: 11px;
+    font-size: 0.75rem;
+    font-weight: 500;
     pointer-events: none;
     z-index: 9999;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
@@ -1626,7 +1627,6 @@ td.tc-col-flooding:hover {
 
 .tc-today-badge-label {
     opacity: 0.75;
-    font-weight: 400;
 }
 
 .tc-today-badge-count {

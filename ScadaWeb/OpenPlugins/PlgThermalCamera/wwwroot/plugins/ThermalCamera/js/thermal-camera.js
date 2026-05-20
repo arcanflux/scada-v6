@@ -631,7 +631,7 @@ var thermalCamera = (function () {
         if (!todayBadgeEl) return;
         var cnt = countTodayFloodItems();
         todayBadgeEl.innerHTML =
-            '<span class="tc-today-badge-label">Сработало сегодня</span>' +
+            '<span class="tc-today-badge-label">Сработало за 24ч.</span>' +
             '<span class="tc-today-badge-count">' + cnt + '</span>';
     }
 
