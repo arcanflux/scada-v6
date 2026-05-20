@@ -3712,12 +3712,14 @@
                 }
 
                 let chartChannels, allCnlNums;
-                let PNU_COLORS = ['#1f77b4', '#d32f2f', '#2ca02c']; // P suc=blue, P dis=red, Valve=green
+                let PNU_COLORS = ['#1f77b4', '#d32f2f', '#9467bd']; // P suc=blue, P dis=red, P bypass=purple
 
                 if (isPnu) {
-                    // ch[1]=P всас, ch[2]=Р напор as lines; ch[6]=Клапан байпас% scaled
-                    chartChannels = [def.channels[1], def.channels[2]].filter(Boolean);
+                    // ch[1]=P всас, ch[2]=Р напор, ch[3]=P байпас as lines;
+                    // ch[0]=G scaled ×0.1, ch[6]=Клапан байпас% scaled
+                    chartChannels = [def.channels[1], def.channels[2], def.channels[3]].filter(Boolean);
                     allCnlNums = chartChannels.map(c => c.cnlNum);
+                    if (def.channels[0]) allCnlNums.push(def.channels[0].cnlNum);
                     if (def.channels[6]) allCnlNums.push(def.channels[6].cnlNum);
                 } else if (isTriangle) {
                     chartChannels = [def.channels[1], def.channels[0]].filter(Boolean);
@@ -3769,6 +3771,37 @@
                     });
                 }
 
+                // PNU: G (расход) as a scaled line on the pressure axis (real value ÷10)
+                if (isPnu && def.channels[0]) {
+                    let gCh = def.channels[0];
+                    let gAlias = gCh.alias || (this.t.channel + gCh.cnlNum);
+                    let gTrendIdx = cnlToTrendIdx[gCh.cnlNum];
+                    if (gTrendIdx !== undefined) {
+                        let gTrend = histData.trends[gTrendIdx];
+                        let gData = this._insertGapNulls(gTrend.map((rec, idx) => ({
+                            x: timestamps[idx],
+                            y: (rec && rec.d && rec.d.stat > 0) ? rec.d.val * 0.1 : null
+                        })));
+                        datasets.push({
+                            label: gAlias,
+                            data: gData,
+                            parsing: false,
+                            borderColor: '#ff7f0e',
+                            backgroundColor: '#ff7f0e20',
+                            borderWidth: 1.5,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            tension: 0.3,
+                            fill: false,
+                            spanGaps: false,
+                            yAxisID: "yPressure",
+                            _cnlNum: gCh.cnlNum,
+                            _unit: this.t.flowRateUnit,
+                            _scale: 0.1
+                        });
+                    }
+                }
+
                 // PNU: valve % as a scaled line on the pressure axis (0-100% mapped to 0-25)
                 if (isPnu && def.channels[6]) {
                     let vCh = def.channels[6];
@@ -3784,8 +3817,8 @@
                             label: vAlias,
                             data: vData,
                             parsing: false,
-                            borderColor: PNU_COLORS[2],
-                            backgroundColor: PNU_COLORS[2] + "20",
+                            borderColor: '#2ca02c',
+                            backgroundColor: '#2ca02c20',
                             borderWidth: 1.5,
                             borderDash: [6, 3],
                             pointRadius: 0,
@@ -4206,6 +4239,11 @@
                             x: newTimestamps[idx],
                             y: (rec && rec.d && rec.d.stat > 0 &&
                                 (ds._invertStatus ? rec.d.val === 0 : rec.d.val >= 1)) ? ds._bandTop : ds._bandBase
+                        }));
+                    } else if (ds._scale) {
+                        newPoints = trend.map((rec, idx) => ({
+                            x: newTimestamps[idx],
+                            y: (rec && rec.d && rec.d.stat > 0) ? rec.d.val * ds._scale : null
                         }));
                     } else {
                         newPoints = trend.map((rec, idx) => ({
