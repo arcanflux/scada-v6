@@ -99,6 +99,7 @@ var thermalCamera = (function () {
         loadAckHistory();
         initFloodHoverTooltip();
         initTodayBadge();
+        positionJournal();
         initPhotoModal();
         requestData();
         startAutoUpdate();
