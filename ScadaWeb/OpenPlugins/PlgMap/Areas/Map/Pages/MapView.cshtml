@@ -435,28 +435,36 @@
             user-select: none;
         }
 
-        .map-popup-ticket-tooltip {
+        .map-ticket-tooltip {
             display: none;
-            position: absolute;
-            bottom: calc(100% + 6px);
-            left: 0;
-            width: max-content;
-            max-width: 100%;
-            background: #333;
-            color: #fff;
-            padding: 7px 11px;
+            position: fixed;
+            z-index: 3000;
+            background: #fff;
+            border: 1px solid #ccc;
             border-radius: 6px;
-            font-size: 13px;
-            font-weight: 400;
-            white-space: pre-wrap;
-            text-align: left;
-            pointer-events: none;
-            z-index: 2000;
-            word-break: break-word;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            padding: 10px 14px;
+            width: 300px;
         }
 
-        .map-popup-ticket-box:hover .map-popup-ticket-tooltip {
+        .map-ticket-tooltip.show {
             display: block;
+        }
+
+        .map-ticket-tooltip-title {
+            font-weight: 600;
+            font-size: 15px;
+            margin-bottom: 6px;
+            color: #b45309;
+        }
+
+        .map-ticket-tooltip-body {
+            font-size: 14px;
+            font-weight: 400;
+            color: #333;
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.4;
         }
 
         .map-pnu-params .dot-cell {
@@ -1610,7 +1618,8 @@
                 valveBypass: "@Html.Raw(Model.JsDict.ValveBypass)",
                 flowRateUnit: "@Html.Raw(Model.JsDict.FlowRateUnit)",
                 ticketsLabel: "@Html.Raw(Model.JsDict.TicketsLabel)",
-                noActiveTickets: "@Html.Raw(Model.JsDict.NoActiveTickets)"
+                noActiveTickets: "@Html.Raw(Model.JsDict.NoActiveTickets)",
+                openTicket: "@Html.Raw(Model.JsDict.OpenTicket)"
             };
 
             constructor(options) {
@@ -2115,6 +2124,7 @@
                 this._initSearch();
                 this._initChartOverlay();
                 this._initMiniChartTooltip();
+                this._initTicketTooltip();
                 this._initStatusPanel();
                 this._initTicketPanel();
                 this._initGradientPanel();
@@ -2558,9 +2568,11 @@
                 // Ticket banner (replaces status dots)
                 let ticketText = this._getTicketText(def);
                 if (ticketText) {
-                    html += '<div class="map-popup-ticket-box">' +
-                        'Заявка' +
-                        '<div class="map-popup-ticket-tooltip">' + this._escapeHtml(ticketText) + '</div>' +
+                    html += '<div class="map-popup-ticket-box" ' +
+                        'onmouseenter="mapViewInstance._showTicketTooltip(event)" ' +
+                        'onmouseleave="mapViewInstance._scheduleTicketHide()">' +
+                        this._escapeHtml(this.t.openTicket) +
+                        '<span class="map-popup-ticket-data" style="display:none">' + this._escapeHtml(ticketText) + '</span>' +
                         '</div>';
                 }
 
@@ -4455,6 +4467,57 @@
                 }
             }
 
+            // --- Ticket Tooltip (hover, side popup left of marker popup) ---
+            _initTicketTooltip() {
+                let tip = document.getElementById("mapTicketTooltip");
+                if (!tip) return;
+                tip.addEventListener("mouseenter", () => clearTimeout(this._ticketHideTimer));
+                tip.addEventListener("mouseleave", () => this._hideTicketTooltip());
+            }
+
+            _showTicketTooltip(event) {
+                clearTimeout(this._ticketHideTimer);
+                let box = event.currentTarget;
+                let dataEl = box.querySelector(".map-popup-ticket-data");
+                let text = dataEl ? dataEl.textContent : "";
+
+                let tip = document.getElementById("mapTicketTooltip");
+                document.getElementById("mapTicketTooltipTitle").textContent = this.t.openTicket;
+                document.getElementById("mapTicketTooltipBody").textContent = text;
+
+                let popup = box.closest(".leaflet-popup");
+                let contentWrap = popup ? popup.querySelector(".leaflet-popup-content-wrapper") : null;
+                let popupRect = (contentWrap || popup || box).getBoundingClientRect();
+
+                // Measure actual size
+                tip.style.visibility = "hidden";
+                tip.classList.add("show");
+                let tipWidth = tip.offsetWidth;
+                let tipHeight = tip.offsetHeight;
+                tip.classList.remove("show");
+                tip.style.visibility = "";
+
+                // Left of popup, fallback right
+                let left = popupRect.left - tipWidth - 6;
+                if (left < 8) left = popupRect.right + 6;
+                let top = popupRect.top + (popupRect.height / 2) - (tipHeight / 2);
+                if (top < 8) top = 8;
+                if (top + tipHeight > window.innerHeight - 8) top = window.innerHeight - tipHeight - 8;
+
+                tip.style.left = left + "px";
+                tip.style.top = top + "px";
+                tip.classList.add("show");
+            }
+
+            _scheduleTicketHide() {
+                this._ticketHideTimer = setTimeout(() => this._hideTicketTooltip(), 300);
+            }
+
+            _hideTicketTooltip() {
+                let tip = document.getElementById("mapTicketTooltip");
+                if (tip) tip.classList.remove("show");
+            }
+
             // --- Extra Channels Popup (secondary "more" popup) ---
             _toggleExtraPopup(event, markerIdx) {
                 event.stopPropagation();
@@ -5007,6 +5070,12 @@
 <div id="mapMiniChartTooltip" class="map-minichart-tooltip">
     <div id="mapMiniChartTitle" class="map-minichart-title"></div>
     <div id="mapMiniChartBody"></div>
+</div>
+
+<!-- Ticket Tooltip (hover) -->
+<div id="mapTicketTooltip" class="map-ticket-tooltip">
+    <div id="mapTicketTooltipTitle" class="map-ticket-tooltip-title"></div>
+    <div id="mapTicketTooltipBody" class="map-ticket-tooltip-body"></div>
 </div>
 
 <!-- Extra Channels Popup (secondary popup from "more" button) -->

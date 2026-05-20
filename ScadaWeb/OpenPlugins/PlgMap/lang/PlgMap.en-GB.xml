@@ -58,5 +58,6 @@
     <Phrase key="FlowRateUnit">t/h</Phrase>
     <Phrase key="TicketsLabel">Tickets</Phrase>
     <Phrase key="NoActiveTickets">No active tickets</Phrase>
+    <Phrase key="OpenTicket">Open ticket</Phrase>
   </Dictionary>
 </PlgMapDictionaries>

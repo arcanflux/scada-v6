@@ -58,5 +58,6 @@
     <Phrase key="FlowRateUnit">т/ч</Phrase>
     <Phrase key="TicketsLabel">Заявки</Phrase>
     <Phrase key="NoActiveTickets">Нет активных заявок</Phrase>
+    <Phrase key="OpenTicket">Открытая заявка</Phrase>
   </Dictionary>
 </PlgMapDictionaries>
