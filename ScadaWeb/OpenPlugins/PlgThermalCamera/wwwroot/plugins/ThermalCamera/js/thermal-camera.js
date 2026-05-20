@@ -14,8 +14,9 @@ var thermalCamera = (function () {
     var searchQuery = "";
     var selectedDistricts = {};
 
-    // "Сработало сегодня" badge (above left edge of journal panel)
+    // "Сработало за 24ч." badge (blue header, above left edge of journal panel)
     var todayBadgeEl = null;
+    var todayTooltipEl = null;
 
     // Chat state
     // chatByItem[itemId] = array of message objects {id, timestampMs, author, text, kind}
@@ -606,34 +607,69 @@ var thermalCamera = (function () {
         });
     }
 
-    // ---- "Сработало сегодня" badge — counts unique TKs with any flood chat
+    // ---- "Сработало за 24ч." badge — unique TKs with any flood chat
     //      message (kind flood200 or flood700) in the last 24 hours. ----
 
-    function countTodayFloodItems() {
+    // Returns [{ id, name }] for TKs flooded in the last 24h, ordered the same
+    // way the "Активные события" journal orders its rows (by flood start time,
+    // honoring journalEventsSortAsc) so the two lists never look contradictory.
+    function getTodayFloodList() {
         var cutoff = Date.now() - 24 * 60 * 60 * 1000;
-        var seen = {};
+        var byId = {};
         for (var idStr in chatByItem) {
             if (!chatByItem.hasOwnProperty(idStr)) continue;
             var msgs = chatByItem[idStr];
+            var latestFloodMs = 0;
             for (var i = 0; i < msgs.length; i++) {
                 var m = msgs[i];
                 if ((m.kind === "flood200" || m.kind === "flood700") && m.timestampMs > cutoff) {
-                    seen[idStr] = true;
-                    break;
+                    if (m.timestampMs > latestFloodMs) latestFloodMs = m.timestampMs;
                 }
             }
+            if (latestFloodMs > 0) {
+                var id = parseInt(idStr);
+                var item = findItemById(id);
+                // Prefer the active flood start so order matches the journal exactly
+                // for currently-active events; fall back to the latest flood message.
+                var ev = activeFloodEvents[idStr];
+                var sortMs = (ev && ev.startMs > 0) ? ev.startMs : latestFloodMs;
+                byId[id] = { id: id, name: item ? item.name : ("ТК #" + id), sortMs: sortMs };
+            }
         }
-        var cnt = 0;
-        for (var k in seen) { if (seen.hasOwnProperty(k)) cnt++; }
-        return cnt;
+        var list = [];
+        for (var k in byId) { if (byId.hasOwnProperty(k)) list.push(byId[k]); }
+        list.sort(function (a, b) {
+            return journalEventsSortAsc ? a.sortMs - b.sortMs : b.sortMs - a.sortMs;
+        });
+        return list;
+    }
+
+    function buildTodayTooltipHtml() {
+        var list = getTodayFloodList();
+        if (!list.length)
+            return '<div class="tc-today-tt-empty">Нет сработавших ТК за 24ч.</div>';
+        var html = '<div class="tc-today-tt-title">Сработало за 24ч. (' + list.length + ')</div>' +
+                   '<div class="tc-today-tt-list">';
+        for (var i = 0; i < list.length; i++)
+            html += '<div class="tc-today-tt-item">' + escapeHtml(list[i].name) + '</div>';
+        return html + '</div>';
     }
 
     function updateTodayBadge() {
         if (!todayBadgeEl) return;
-        var cnt = countTodayFloodItems();
         todayBadgeEl.innerHTML =
             '<span class="tc-today-badge-label">Сработало за 24ч.</span>' +
-            '<span class="tc-today-badge-count">' + cnt + '</span>';
+            '<span class="tc-today-badge-count">' + getTodayFloodList().length + '</span>';
+        // Refresh the open tooltip in place so a live event updates it immediately.
+        if (todayTooltipEl && todayTooltipEl.style.display === "block")
+            todayTooltipEl.innerHTML = buildTodayTooltipHtml();
+    }
+
+    function positionTodayTooltip() {
+        if (!todayBadgeEl || !todayTooltipEl) return;
+        var bRect = todayBadgeEl.getBoundingClientRect();
+        todayTooltipEl.style.left = bRect.left + "px";
+        todayTooltipEl.style.top = (bRect.bottom + 4) + "px";
     }
 
     function initTodayBadge() {
@@ -641,6 +677,31 @@ var thermalCamera = (function () {
         todayBadgeEl.id = "tcTodayBadge";
         todayBadgeEl.className = "tc-today-badge";
         document.body.appendChild(todayBadgeEl);
+
+        todayTooltipEl = document.createElement("div");
+        todayTooltipEl.id = "tcTodayTooltip";
+        todayTooltipEl.className = "tc-today-tooltip";
+        todayTooltipEl.style.display = "none";
+        document.body.appendChild(todayTooltipEl);
+
+        // Hover-persistent tooltip: a short hide delay lets the cursor travel
+        // from the badge onto the tooltip so the user can scroll a long list.
+        var hideTimer = null;
+        function cancelHide() { if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } }
+        function showTip() {
+            cancelHide();
+            todayTooltipEl.innerHTML = buildTodayTooltipHtml();
+            todayTooltipEl.style.display = "block";
+            positionTodayTooltip();
+        }
+        function scheduleHide() {
+            hideTimer = setTimeout(function () { todayTooltipEl.style.display = "none"; }, 150);
+        }
+        todayBadgeEl.addEventListener("mouseenter", showTip);
+        todayBadgeEl.addEventListener("mouseleave", scheduleHide);
+        todayTooltipEl.addEventListener("mouseenter", cancelHide);
+        todayTooltipEl.addEventListener("mouseleave", scheduleHide);
+
         updateTodayBadge();
     }
 
@@ -1159,11 +1220,14 @@ var thermalCamera = (function () {
             if (timeEl) {
                 timeEl.style.left = (wInnerRight - panelWidth / 2 - headerRect.left) + "px";
             }
-            // "Сработало сегодня" badge — just above the left edge of the journal panel
+            // "Сработало за 24ч." badge — in the blue header, vertically centered,
+            // anchored to the left edge of the journal column.
             if (todayBadgeEl) {
                 todayBadgeEl.style.left = (wInnerRight - panelWidth + 2) + "px";
-                todayBadgeEl.style.top  = jRect.bottom + "px";
-                todayBadgeEl.style.transform = "translateY(calc(-100% - 4px))";
+                todayBadgeEl.style.top  = (headerRect.top + headerRect.height / 2) + "px";
+                todayBadgeEl.style.transform = "translateY(-50%)";
+                if (todayTooltipEl && todayTooltipEl.style.display === "block")
+                    positionTodayTooltip();
             }
         }
 

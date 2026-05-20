@@ -1595,44 +1595,78 @@ td.tc-col-flooding:hover {
 /* Flood cell hover tooltip — monthly flood count */
 .tc-flood-count-tooltip {
     position: fixed;
-    background: rgba(26, 32, 44, 0.95);
-    color: #e2e8f0;
+    background: rgba(255, 255, 255, 0.98);
+    color: #2d3748;
+    border: 1px solid #cbd5e0;
     padding: 8px 12px;
     border-radius: 6px;
     font-size: 13px;
     pointer-events: none;
     z-index: 10001;
     white-space: pre-line;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     line-height: 1.6;
 }
 
-/* "Сработало сегодня" — persistent badge above left edge of journal panel */
+/* "Сработало за 24ч." — badge in the blue header, left edge of journal column.
+   Transparent so it blends with the neighbouring header stat blocks. */
 .tc-today-badge {
     position: fixed;
     display: flex;
     align-items: center;
     gap: 6px;
-    background: rgba(26, 32, 44, 0.92);
-    color: #e2e8f0;
-    padding: 3px 8px;
-    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.65);
     font-size: 0.75rem;
     font-weight: 500;
-    pointer-events: none;
+    pointer-events: auto;
+    cursor: help;
     z-index: 9999;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
     white-space: nowrap;
 }
 
-.tc-today-badge-label {
-    opacity: 0.75;
-}
-
 .tc-today-badge-count {
-    font-size: 13px;
+    font-size: 0.85rem;
     font-weight: 700;
     color: #f6ad55;
     min-width: 14px;
     text-align: right;
+}
+
+/* Hover tooltip: scrollable list of TKs flooded in the last 24h (light theme). */
+.tc-today-tooltip {
+    position: fixed;
+    background: rgba(255, 255, 255, 0.98);
+    color: #2d3748;
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+    font-size: 13px;
+    z-index: 10002;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    max-height: 60vh;
+    overflow-y: auto;
+    min-width: 150px;
+    padding: 6px 0;
+}
+
+.tc-today-tt-title {
+    font-weight: 600;
+    color: #1a202c;
+    padding: 2px 12px 6px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.tc-today-tt-item {
+    padding: 3px 12px;
+    white-space: nowrap;
+}
+
+.tc-today-tt-item:hover {
+    background: #f7fafc;
+}
+
+.tc-today-tt-empty {
+    padding: 6px 12px;
+    color: #718096;
+    font-style: italic;
 }
