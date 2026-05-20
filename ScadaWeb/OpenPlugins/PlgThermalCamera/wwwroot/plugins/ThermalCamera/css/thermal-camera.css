@@ -1665,6 +1665,12 @@ td.tc-col-flooding:hover {
     background: #f7fafc;
 }
 
+/* TKs that fired in the last 24h but are no longer active in the journal
+   (recovered or went offline) — dimmed to show the difference. */
+.tc-today-tt-item-inactive {
+    color: #a0aec0;
+}
+
 .tc-today-tt-empty {
     padding: 6px 12px;
     color: #718096;

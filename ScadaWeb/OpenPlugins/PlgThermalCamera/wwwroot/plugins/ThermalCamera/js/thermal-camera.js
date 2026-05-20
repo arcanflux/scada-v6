@@ -633,7 +633,12 @@ var thermalCamera = (function () {
                 // for currently-active events; fall back to the latest flood message.
                 var ev = activeFloodEvents[idStr];
                 var sortMs = (ev && ev.startMs > 0) ? ev.startMs : latestFloodMs;
-                byId[id] = { id: id, name: item ? item.name : ("ТК #" + id), sortMs: sortMs };
+                byId[id] = {
+                    id: id,
+                    name: item ? item.name : ("ТК #" + id),
+                    sortMs: sortMs,
+                    active: !!ev   // currently shown in "Активные события"
+                };
             }
         }
         var list = [];
@@ -650,8 +655,10 @@ var thermalCamera = (function () {
             return '<div class="tc-today-tt-empty">Нет сработавших ТК за 24ч.</div>';
         var html = '<div class="tc-today-tt-title">Сработало за 24ч. (' + list.length + ')</div>' +
                    '<div class="tc-today-tt-list">';
-        for (var i = 0; i < list.length; i++)
-            html += '<div class="tc-today-tt-item">' + escapeHtml(list[i].name) + '</div>';
+        for (var i = 0; i < list.length; i++) {
+            var cls = "tc-today-tt-item" + (list[i].active ? "" : " tc-today-tt-item-inactive");
+            html += '<div class="' + cls + '">' + escapeHtml(list[i].name) + '</div>';
+        }
         return html + '</div>';
     }
 
