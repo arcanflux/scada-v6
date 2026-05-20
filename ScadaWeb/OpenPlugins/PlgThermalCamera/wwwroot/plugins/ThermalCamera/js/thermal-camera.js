@@ -14,6 +14,9 @@ var thermalCamera = (function () {
     var searchQuery = "";
     var selectedDistricts = {};
 
+    // "Сработало сегодня" badge (above left edge of journal panel)
+    var todayBadgeEl = null;
+
     // Chat state
     // chatByItem[itemId] = array of message objects {id, timestampMs, author, text, kind}
     var chatByItem = {};
@@ -95,6 +98,7 @@ var thermalCamera = (function () {
         initJournal();
         loadAckHistory();
         initFloodHoverTooltip();
+        initTodayBadge();
         initPhotoModal();
         requestData();
         startAutoUpdate();
@@ -599,6 +603,44 @@ var thermalCamera = (function () {
                 floodHoverTooltipEl.style.display = "none";
             }
         });
+    }
+
+    // ---- "Сработало сегодня" badge — counts unique TKs with any flood chat
+    //      message (kind flood200 or flood700) in the last 24 hours. ----
+
+    function countTodayFloodItems() {
+        var cutoff = Date.now() - 24 * 60 * 60 * 1000;
+        var seen = {};
+        for (var idStr in chatByItem) {
+            if (!chatByItem.hasOwnProperty(idStr)) continue;
+            var msgs = chatByItem[idStr];
+            for (var i = 0; i < msgs.length; i++) {
+                var m = msgs[i];
+                if ((m.kind === "flood200" || m.kind === "flood700") && m.timestampMs > cutoff) {
+                    seen[idStr] = true;
+                    break;
+                }
+            }
+        }
+        var cnt = 0;
+        for (var k in seen) { if (seen.hasOwnProperty(k)) cnt++; }
+        return cnt;
+    }
+
+    function updateTodayBadge() {
+        if (!todayBadgeEl) return;
+        var cnt = countTodayFloodItems();
+        todayBadgeEl.innerHTML =
+            '<span class="tc-today-badge-label">Сработало сегодня</span>' +
+            '<span class="tc-today-badge-count">' + cnt + '</span>';
+    }
+
+    function initTodayBadge() {
+        todayBadgeEl = document.createElement("div");
+        todayBadgeEl.id = "tcTodayBadge";
+        todayBadgeEl.className = "tc-today-badge";
+        document.body.appendChild(todayBadgeEl);
+        updateTodayBadge();
     }
 
     function requestData() {
@@ -1116,6 +1158,12 @@ var thermalCamera = (function () {
             if (timeEl) {
                 timeEl.style.left = (wInnerRight - panelWidth / 2 - headerRect.left) + "px";
             }
+            // "Сработало сегодня" badge — just above the left edge of the journal panel
+            if (todayBadgeEl) {
+                todayBadgeEl.style.left = (wInnerRight - panelWidth) + "px";
+                todayBadgeEl.style.top  = jRect.bottom + "px";
+                todayBadgeEl.style.transform = "translateY(calc(-100% - 4px))";
+            }
         }
 
         // Search width — end at right edge of Address column
@@ -1504,6 +1552,8 @@ var thermalCamera = (function () {
                 scrollChatToBottom(id);
             }
         }
+
+        updateTodayBadge();
     }
 
     function updateChatPreview(itemId) {
