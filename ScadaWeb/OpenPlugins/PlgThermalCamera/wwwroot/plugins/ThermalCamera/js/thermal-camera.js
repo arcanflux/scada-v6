@@ -970,6 +970,7 @@ var thermalCamera = (function () {
             }
         }
         renderJournalEvents();
+        updateTodayBadge();
     }
 
     function updateAckedItems(result) {
