@@ -36,6 +36,11 @@
     <Phrase key="StatusesLabel">Статусы</Phrase>
     <Phrase key="GradientLabel">Градиент</Phrase>
     <Phrase key="GradientOff">Выкл</Phrase>
+    <Phrase key="GradientCtpSection">ЦТП</Phrase>
+    <Phrase key="GradientTkSection">ТК</Phrase>
+    <Phrase key="GradientNormal">Норма</Phrase>
+    <Phrase key="GradientFlood200">200мм</Phrase>
+    <Phrase key="GradientFlood700">700мм</Phrase>
     <Phrase key="Start">Начало</Phrase>
     <Phrase key="End">Конец</Phrase>
     <Phrase key="StartDateTime">Дата и время начала</Phrase>

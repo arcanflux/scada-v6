@@ -821,6 +821,18 @@
             border-radius: 50%;
             background: #0073aa;
         }
+        .map-gradient-section-header {
+            padding: 4px 14px 2px;
+            font-weight: 700;
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .map-gradient-divider {
+            border-top: 1px solid #e0e0e0;
+            margin: 4px 0;
+        }
         .map-gradient-legend {
             margin: 8px 14px 4px;
             height: 10px;
@@ -1599,6 +1611,11 @@
                 statusesLabel: "@Html.Raw(Model.JsDict.StatusesLabel)",
                 gradientLabel: "@Html.Raw(Model.JsDict.GradientLabel)",
                 gradientOff: "@Html.Raw(Model.JsDict.GradientOff)",
+                gradientCtpSection: "@Html.Raw(Model.JsDict.GradientCtpSection)",
+                gradientTkSection: "@Html.Raw(Model.JsDict.GradientTkSection)",
+                gradientNormal: "@Html.Raw(Model.JsDict.GradientNormal)",
+                gradientFlood200: "@Html.Raw(Model.JsDict.GradientFlood200)",
+                gradientFlood700: "@Html.Raw(Model.JsDict.GradientFlood700)",
                 start: "@Html.Raw(Model.JsDict.Start)",
                 end: "@Html.Raw(Model.JsDict.End)",
                 startDateTime: "@Html.Raw(Model.JsDict.StartDateTime)",
@@ -1802,8 +1819,21 @@
                 return { active: false, color: null };
             }
 
-            // Triangle marker color based on flood state:
-            // gray=no signal, blue=ok, yellow=200mm flood, red=700mm flood
+            _matchesTriangleFilter(def) {
+                if (!this._activeTriangleFilter) return true;
+                let ch = def.channels || [];
+                let f700 = ch[3] ? this.curDataMap[ch[3].cnlNum] : null;
+                let f200 = ch[2] ? this.curDataMap[ch[2].cnlNum] : null;
+                let has700 = f700 && f700.stat > 0 && f700.val === 0;
+                let has200 = f200 && f200.stat > 0 && f200.val === 0;
+                switch (this._activeTriangleFilter) {
+                    case 'normal': return !has200 && !has700;
+                    case '200mm': return has200 && !has700;
+                    case '700mm': return has700;
+                    default: return true;
+                }
+            }
+
             _getTriangleMarkerColor(def) {
                 let channels = def.channels || [];
                 if (channels.length === 0) return "#999";
@@ -2228,15 +2258,21 @@
 
             // --- Gradient Panel ---
             _activeGradientAlias = null;
+            _activeTriangleFilter = null; // null, 'normal', '200mm', '700mm'
 
             _initGradientPanel() {
                 let btn = document.getElementById("mapGradientBtn");
                 let panel = document.getElementById("mapGradientPanel");
                 if (!btn || !panel) return;
 
-                // Collect unique temperature channel aliases (T1, T2, T3) across all markers
+                let types = new Set(this.markerEntries.map(e => e.def.type || 'circle'));
+                this._hasCircleMarkers = types.has('circle');
+                this._hasTriangleMarkers = types.has('triangle');
+
+                // Collect ЦТП gradient aliases (T1, T2, T3) from circle markers only
                 let tempAliases = new Set();
                 for (let entry of this.markerEntries) {
+                    if ((entry.def.type || 'circle') !== 'circle') continue;
                     for (let ch of (entry.def.channels || [])) {
                         let a = (ch.alias || "").toUpperCase();
                         if (a === "T1" || a === "T2" || a === "T3") {
@@ -2246,8 +2282,8 @@
                 }
                 this._gradientAliases = [...tempAliases].sort();
 
-                if (this._gradientAliases.length === 0) {
-                    btn.style.display = "none";
+                if (!this._hasCircleMarkers && !this._hasTriangleMarkers) {
+                    btn.parentElement.style.display = "none";
                     return;
                 }
 
@@ -2261,48 +2297,99 @@
                         panel.classList.remove("show");
                     }
                 });
+
+                this._updateGradientVisibility();
+            }
+
+            _updateGradientVisibility() {
+                let btn = document.getElementById("mapGradientBtn");
+                if (!btn) return;
+                let f = this._markerFilter;
+                let show = false;
+                if (f === 'all') show = this._hasCircleMarkers || this._hasTriangleMarkers;
+                else if (f === 'circle') show = this._hasCircleMarkers;
+                else if (f === 'triangle') show = this._hasTriangleMarkers;
+                btn.parentElement.style.display = show ? '' : 'none';
+            }
+
+            _updateGradientBtnText() {
+                let btn = document.getElementById("mapGradientBtn");
+                if (!btn) return;
+                let parts = [];
+                if (this._activeGradientAlias) parts.push(this._activeGradientAlias);
+                if (this._activeTriangleFilter) {
+                    let labels = { normal: this.t.gradientNormal, '200mm': this.t.gradientFlood200, '700mm': this.t.gradientFlood700 };
+                    parts.push(labels[this._activeTriangleFilter] || this._activeTriangleFilter);
+                }
+                if (parts.length > 0) {
+                    btn.classList.add("active");
+                    btn.textContent = this.t.gradientLabel + ': ' + parts.join(' + ');
+                } else {
+                    btn.classList.remove("active");
+                    btn.textContent = this.t.gradientLabel;
+                }
             }
 
             _buildGradientPanel() {
                 let panel = document.getElementById("mapGradientPanel");
+                let f = this._markerFilter;
+                let showCtp = (f === 'all' || f === 'circle') && this._hasCircleMarkers;
+                let showTk = (f === 'all' || f === 'triangle') && this._hasTriangleMarkers;
                 let html = '';
 
-                // "Off" option
-                html += '<div class="map-gradient-item' + (!this._activeGradientAlias ? ' selected' : '') + '" data-alias="">' +
-                    '<span class="radio"></span>' + this._escapeHtml(this.t.gradientOff) + '</div>';
-
-                for (let alias of this._gradientAliases) {
-                    let sel = this._activeGradientAlias === alias ? ' selected' : '';
-                    html += '<div class="map-gradient-item' + sel + '" data-alias="' + this._escapeHtml(alias) + '">' +
-                        '<span class="radio"></span>' + this._escapeHtml(alias) + '</div>';
+                // ЦТП section
+                if (showCtp) {
+                    if (showTk) html += '<div class="map-gradient-section-header">' + this._escapeHtml(this.t.gradientCtpSection) + '</div>';
+                    html += '<div class="map-gradient-item' + (!this._activeGradientAlias ? ' selected' : '') + '" data-section="ctp" data-alias="">' +
+                        '<span class="radio"></span>' + this._escapeHtml(this.t.gradientOff) + '</div>';
+                    for (let alias of this._gradientAliases) {
+                        let sel = this._activeGradientAlias === alias ? ' selected' : '';
+                        html += '<div class="map-gradient-item' + sel + '" data-section="ctp" data-alias="' + this._escapeHtml(alias) + '">' +
+                            '<span class="radio"></span>' + this._escapeHtml(alias) + '</div>';
+                    }
+                    if (this._activeGradientAlias) {
+                        let gl = this._getGradientLimits(this._activeGradientAlias);
+                        html += '<div class="map-gradient-legend"></div>';
+                        html += '<div class="map-gradient-legend-labels"><span>' + gl.min + '°C</span><span>' + gl.max + '°C</span></div>';
+                    }
                 }
 
-                // Gradient legend bar
-                if (this._activeGradientAlias) {
-                    let gl = this._getGradientLimits(this._activeGradientAlias);
-                    html += '<div class="map-gradient-legend"></div>';
-                    html += '<div class="map-gradient-legend-labels"><span>' + gl.min + '°C</span><span>' + gl.max + '°C</span></div>';
+                // ТК section
+                if (showTk) {
+                    if (showCtp) html += '<div class="map-gradient-divider"></div>';
+                    if (showCtp) html += '<div class="map-gradient-section-header">' + this._escapeHtml(this.t.gradientTkSection) + '</div>';
+                    let tkOptions = [
+                        { key: '', label: this.t.gradientOff },
+                        { key: 'normal', label: this.t.gradientNormal },
+                        { key: '200mm', label: this.t.gradientFlood200 },
+                        { key: '700mm', label: this.t.gradientFlood700 }
+                    ];
+                    for (let opt of tkOptions) {
+                        let sel = (this._activeTriangleFilter || '') === opt.key ? ' selected' : '';
+                        html += '<div class="map-gradient-item' + sel + '" data-section="tk" data-tkfilter="' + opt.key + '">' +
+                            '<span class="radio"></span>' + this._escapeHtml(opt.label) + '</div>';
+                    }
                 }
 
                 panel.innerHTML = html;
 
-                // Bind clicks
-                panel.querySelectorAll('.map-gradient-item').forEach(item => {
+                // Bind ЦТП clicks
+                panel.querySelectorAll('.map-gradient-item[data-section="ctp"]').forEach(item => {
                     item.addEventListener('click', () => {
-                        let alias = item.dataset.alias;
-                        this._activeGradientAlias = alias || null;
-
-                        let btn = document.getElementById("mapGradientBtn");
-                        if (this._activeGradientAlias) {
-                            btn.classList.add("active");
-                            btn.textContent = this.t.gradientLabel + ': ' + this._activeGradientAlias;
-                        } else {
-                            btn.classList.remove("active");
-                            btn.textContent = this.t.gradientLabel;
-                        }
-
+                        this._activeGradientAlias = item.dataset.alias || null;
+                        this._updateGradientBtnText();
                         this._buildGradientPanel();
                         this._refreshAllMarkerIcons();
+                    });
+                });
+
+                // Bind ТК clicks
+                panel.querySelectorAll('.map-gradient-item[data-section="tk"]').forEach(item => {
+                    item.addEventListener('click', () => {
+                        this._activeTriangleFilter = item.dataset.tkfilter || null;
+                        this._updateGradientBtnText();
+                        this._buildGradientPanel();
+                        this._applyMarkerFilter();
                     });
                 });
             }
@@ -2376,7 +2463,13 @@
 
                 panel.querySelectorAll('.map-marker-filter-item').forEach(item => {
                     item.addEventListener('click', () => {
-                        this._markerFilter = item.dataset.filter;
+                        let newFilter = item.dataset.filter;
+                        this._markerFilter = newFilter;
+
+                        if (newFilter === 'triangle' || newFilter === 'pnu') this._activeGradientAlias = null;
+                        if (newFilter === 'circle' || newFilter === 'pnu') this._activeTriangleFilter = null;
+                        this._updateGradientBtnText();
+
                         this._applyMarkerFilter();
                         this._buildMarkerFilterPanel();
                         panel.classList.remove("show");
@@ -2389,6 +2482,10 @@
                     let mType = entry.def.type || 'circle';
                     let visible = this._markerFilter === 'all' || this._markerFilter === mType;
 
+                    if (visible && mType === 'triangle' && this._activeTriangleFilter) {
+                        visible = this._matchesTriangleFilter(entry.def);
+                    }
+
                     if (visible) {
                         if (!this.map.hasLayer(entry.leafletMarker)) {
                             entry.leafletMarker.addTo(this.map);
@@ -2399,6 +2496,9 @@
                         }
                     }
                 }
+                this._updateStatusPanel();
+                this._updateTicketPanel();
+                this._updateGradientVisibility();
             }
 
             _updateStatusPanel() {
@@ -2505,6 +2605,10 @@
 
                 let ticketEntries = [];
                 for (let entry of this.markerEntries) {
+                    let mType = entry.def.type || 'circle';
+                    let f = this._markerFilter;
+                    if (f !== 'all' && f !== mType) continue;
+
                     let text = this._getTicketText(entry.def);
                     if (text) {
                         ticketEntries.push({ entry, text });
@@ -4935,8 +5039,7 @@
                     }
                 }
 
-                this._updateStatusPanel();
-                this._updateTicketPanel();
+                this._applyMarkerFilter();
             }
 
             // Returns aggregate marker color based on how many channels are working.
