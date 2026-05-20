@@ -615,34 +615,23 @@ var thermalCamera = (function () {
     // honoring journalEventsSortAsc) so the two lists never look contradictory.
     function getTodayFloodList() {
         var cutoff = Date.now() - 24 * 60 * 60 * 1000;
-        var byId = {};
-        for (var idStr in chatByItem) {
-            if (!chatByItem.hasOwnProperty(idStr)) continue;
-            var msgs = chatByItem[idStr];
-            var latestFloodMs = 0;
-            for (var i = 0; i < msgs.length; i++) {
-                var m = msgs[i];
-                if ((m.kind === "flood200" || m.kind === "flood700") && m.timestampMs > cutoff) {
-                    if (m.timestampMs > latestFloodMs) latestFloodMs = m.timestampMs;
-                }
-            }
-            if (latestFloodMs > 0) {
-                var id = parseInt(idStr);
-                var item = findItemById(id);
-                // Prefer the active flood start so order matches the journal exactly
-                // for currently-active events; fall back to the latest flood message.
-                var ev = activeFloodEvents[idStr];
-                var sortMs = (ev && ev.startMs > 0) ? ev.startMs : latestFloodMs;
-                byId[id] = {
-                    id: id,
-                    name: item ? item.name : ("ТК #" + id),
-                    sortMs: sortMs,
-                    active: !!ev   // currently shown in "Активные события"
-                };
+        var list = [];
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            var t = timersByItem[item.id];
+            if (!t) continue;
+            // Use the highest-severity flood start that is currently active (> 0)
+            var startMs = t.flood700StartMs > 0 ? t.flood700StartMs :
+                          t.flood200StartMs > 0 ? t.flood200StartMs : 0;
+            if (startMs > 0 && startMs > cutoff) {
+                list.push({
+                    id: item.id,
+                    name: item.name,
+                    sortMs: startMs,
+                    active: !!onlineByItem[item.id]   // gray when item is offline
+                });
             }
         }
-        var list = [];
-        for (var k in byId) { if (byId.hasOwnProperty(k)) list.push(byId[k]); }
         list.sort(function (a, b) {
             return journalEventsSortAsc ? a.sortMs - b.sortMs : b.sortMs - a.sortMs;
         });
