@@ -1160,7 +1160,7 @@ var thermalCamera = (function () {
             }
             // "Сработало сегодня" badge — just above the left edge of the journal panel
             if (todayBadgeEl) {
-                todayBadgeEl.style.left = (wInnerRight - panelWidth) + "px";
+                todayBadgeEl.style.left = (wInnerRight - panelWidth + 2) + "px";
                 todayBadgeEl.style.top  = jRect.bottom + "px";
                 todayBadgeEl.style.transform = "translateY(calc(-100% - 4px))";
             }
