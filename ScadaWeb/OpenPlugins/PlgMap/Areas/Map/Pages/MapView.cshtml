@@ -1855,18 +1855,21 @@
 
             _getValveColor(percent) {
                 let p = Math.max(0, Math.min(100, percent));
-                let r, g, b;
-                if (p <= 50) {
-                    let t = p / 50;
-                    r = Math.round(211 * (1 - t) + 240 * t);
-                    g = Math.round(47 * (1 - t) + 173 * t);
-                    b = Math.round(47 * (1 - t) + 78 * t);
-                } else {
-                    let t = (p - 50) / 50;
-                    r = Math.round(240 * (1 - t) + 76 * t);
-                    g = Math.round(173 * (1 - t) + 175 * t);
-                    b = Math.round(78 * (1 - t) + 80 * t);
-                }
+                const stops = [
+                    [0,   229, 57,  53],
+                    [30,  92,  107, 192],
+                    [50,  41,  182, 246],
+                    [70,  38,  198, 218],
+                    [100, 102, 187, 106]
+                ];
+                let i = 0;
+                while (i < stops.length - 2 && p > stops[i + 1][0]) i++;
+                let [p0, r0, g0, b0] = stops[i];
+                let [p1, r1, g1, b1] = stops[i + 1];
+                let t = (p - p0) / (p1 - p0);
+                let r = Math.round(r0 + (r1 - r0) * t);
+                let g = Math.round(g0 + (g1 - g0) * t);
+                let b = Math.round(b0 + (b1 - b0) * t);
                 return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
             }
 
