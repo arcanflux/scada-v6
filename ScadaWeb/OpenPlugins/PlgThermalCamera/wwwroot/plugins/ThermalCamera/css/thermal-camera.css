@@ -1616,7 +1616,7 @@ td.tc-col-flooding:hover {
     align-items: center;
     gap: 6px;
     color: rgba(255, 255, 255, 0.65);
-    font-size: 0.75rem;
+    font-size: 1.5rem;
     font-weight: 500;
     pointer-events: auto;
     cursor: help;
@@ -1625,10 +1625,10 @@ td.tc-col-flooding:hover {
 }
 
 .tc-today-badge-count {
-    font-size: 0.85rem;
+    font-size: 1.7rem;
     font-weight: 700;
     color: #f6ad55;
-    min-width: 14px;
+    min-width: 28px;
     text-align: right;
 }
 
@@ -1639,7 +1639,7 @@ td.tc-col-flooding:hover {
     color: #2d3748;
     border: 1px solid #cbd5e0;
     border-radius: 6px;
-    font-size: 13px;
+    font-size: 26px;
     z-index: 10002;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     max-height: 60vh;
