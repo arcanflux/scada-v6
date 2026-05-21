@@ -4,6 +4,9 @@
 var thermalCamera = (function () {
     var UPDATE_INTERVAL = 1000;
     var CHAT_PREVIEW_LEN = 60;
+    // Events younger than this are hidden from the journal and ack queue to
+    // suppress phantom floods triggered by device restarts or brief glitches.
+    var FLOOD_CONFIRM_DELAY_MS = 10 * 60 * 1000;
 
     var items = [];
     var userData = {};
@@ -614,7 +617,8 @@ var thermalCamera = (function () {
     // way the "Активные события" journal orders its rows (by flood start time,
     // honoring journalEventsSortAsc) so the two lists never look contradictory.
     function getTodayFloodList() {
-        var cutoff = Date.now() - 24 * 60 * 60 * 1000;
+        var now = Date.now();
+        var cutoff = now - 24 * 60 * 60 * 1000;
         var list = [];
         for (var i = 0; i < items.length; i++) {
             var item = items[i];
@@ -623,7 +627,8 @@ var thermalCamera = (function () {
             // Use the highest-severity flood start that is currently active (> 0)
             var startMs = t.flood700StartMs > 0 ? t.flood700StartMs :
                           t.flood200StartMs > 0 ? t.flood200StartMs : 0;
-            if (startMs > 0 && startMs > cutoff) {
+            // Only count confirmed events (older than FLOOD_CONFIRM_DELAY_MS) within 24h
+            if (startMs > 0 && startMs > cutoff && now - startMs >= FLOOD_CONFIRM_DELAY_MS) {
                 list.push({
                     id: item.id,
                     name: item.name,
@@ -1269,6 +1274,8 @@ var thermalCamera = (function () {
             var ev = activeFloodEvents[idStr];
             if (ev.kind === "flood200" && !journalFilter.show200) continue;
             if (ev.kind === "flood700" && !journalFilter.show700) continue;
+            // Hide events younger than the confirmation delay (suppress post-restart phantoms)
+            if (ev.startMs > 0 && now - ev.startMs < FLOOD_CONFIRM_DELAY_MS) continue;
             var item = findItemById(parseInt(idStr));
             if (item && selectedDistricts[item.districtNumber || 0] !== true) continue;
             if (searchQuery) {
@@ -1384,6 +1391,8 @@ var thermalCamera = (function () {
         for (var idStr in pendingAckItems) {
             if (!pendingAckItems.hasOwnProperty(idStr)) continue;
             var pa0 = pendingAckItems[idStr];
+            // Hide ack requests younger than the confirmation delay
+            if (pa0.flood700StartMs > 0 && now - pa0.flood700StartMs < FLOOD_CONFIRM_DELAY_MS) continue;
             var item = findItemById(parseInt(idStr));
             if (item && selectedDistricts[item.districtNumber || 0] !== true) continue;
             if (searchQuery) {
