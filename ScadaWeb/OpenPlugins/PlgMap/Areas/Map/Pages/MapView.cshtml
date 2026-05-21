@@ -2312,6 +2312,12 @@
                 btn.parentElement.style.display = show ? '' : 'none';
             }
 
+            _updateTicketVisibility() {
+                let btn = document.getElementById("mapTicketBtn");
+                if (!btn) return;
+                btn.parentElement.style.display = this._markerFilter === 'pnu' ? 'none' : '';
+            }
+
             _updateGradientBtnText() {
                 let btn = document.getElementById("mapGradientBtn");
                 if (!btn) return;
@@ -2499,6 +2505,7 @@
                 this._updateStatusPanel();
                 this._updateTicketPanel();
                 this._updateGradientVisibility();
+                this._updateTicketVisibility();
             }
 
             _updateStatusPanel() {
