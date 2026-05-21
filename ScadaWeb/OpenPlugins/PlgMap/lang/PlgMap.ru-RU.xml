@@ -9,11 +9,11 @@
     <Phrase key="NoMapFilesFound">Не найдены файлы карт (.map) в хранилище</Phrase>
   </Dictionary>
   <Dictionary key="Scada.Web.Plugins.PlgMap.Code.MapMarker">
-    <Phrase key="Status">Статус</Phrase>
+    <Phrase key="Status">Состояния</Phrase>
   </Dictionary>
   <Dictionary key="Scada.Web.Plugins.PlgMap.Areas.Map.Pages.MapView">
     <Phrase key="PageTitle">Карта</Phrase>
-    <Phrase key="SearchPlaceholder">Поиск маркеров...</Phrase>
+    <Phrase key="SearchPlaceholder">Поиск объектов...</Phrase>
     <Phrase key="ChartTitle">Графики</Phrase>
     <Phrase key="Loading">Загрузка...</Phrase>
   </Dictionary>
