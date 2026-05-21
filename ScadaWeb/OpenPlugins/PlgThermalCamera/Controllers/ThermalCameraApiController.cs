@@ -118,6 +118,13 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
 
                     long flood700StartMs = timers.TryGetValue(item.Id, out ItemTimers t) ? t.Flood700StartMs : 0;
 
+                    // Only surface confirmed floods: a committed start timestamp (> 0) or the
+                    // ">30 days" sentinel (-2). Unconfirmed states (0 = pending the 10-min
+                    // confirmation delay, -1 = scan in progress) are withheld so post-restart
+                    // phantom floods never enter the acknowledgment queue.
+                    if (flood700StartMs <= 0 && flood700StartMs != -2)
+                        continue;
+
                     AckRecord existingAck = null;
                     if (flood700StartMs > 0 && userData.Entries.TryGetValue(item.Id, out UserDataEntry entry))
                         existingAck = entry.AckHistory.FirstOrDefault(a => a.FloodStartMs == flood700StartMs);

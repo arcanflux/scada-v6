@@ -45,6 +45,12 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         // sensor glitches and the existing flood episode (and its acknowledgment) is kept.
         private const long OneDayMs = 24L * 60 * 60 * 1000;
 
+        // Confirmation delay: a flood must be continuously active in the archive for at
+        // least this long before it is recorded. Suppresses brief phantom floods (e.g. a
+        // sensor blip right after a device reboot) from ever reaching the active-events
+        // journal, the acknowledgment queue, or the "fired in 24h" badge.
+        private const long FloodConfirmDelayMs = 10L * 60 * 1000; // 10 minutes
+
         private readonly object lockObj = new();
         private ThermalCameraUserData cache;
         private readonly Dictionary<int, bool> lastFlood200State = [];
@@ -60,6 +66,10 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         // Without this, parallel scans corrupt the transaction ID on the shared
         // ScadaClient and the server rejects requests with "неверный идентификатор транзакции".
         private readonly SemaphoreSlim scanSemaphore = new(1, 1);
+        // Flood starts found by a scan but still younger than FloodConfirmDelayMs.
+        // Keyed by (itemId, kind). Committed by DetectFloodTransitions once they age past
+        // the delay; discarded if the flood clears or the device goes offline first.
+        private readonly Dictionary<(int itemId, string kind), long> floodPendingStartMs = [];
 
         public string GetUserDataFilePath()
         {
@@ -284,6 +294,11 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                     {
                         if (!cur.IsOnline)
                         {
+                            // Device offline — drop any unconfirmed flood so a stale pending
+                            // start cannot be committed when the device returns.
+                            floodPendingStartMs.Remove((item.Id, "flood200"));
+                            floodPendingStartMs.Remove((item.Id, "flood700"));
+
                             if (entry.OfflineArchiveStartMs == 0 && item.OnlineCnlNum > 0)
                                 TriggerArchiveScan(item.Id, item.OnlineCnlNum, "offline");
                         }
@@ -329,12 +344,29 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                                 dirty = true;
                             }
                             if (entry.Flood200ArchiveStartMs == 0 && item.Flood200CnlNum > 0)
-                                TriggerArchiveScan(item.Id, item.Flood200CnlNum, "flood200");
+                            {
+                                if (floodPendingStartMs.TryGetValue((item.Id, "flood200"), out long pend200))
+                                {
+                                    // Scanned already — commit once the flood ages past the delay.
+                                    if (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - pend200 >= FloodConfirmDelayMs &&
+                                        CommitFloodStart(entry, item.Id, "flood200", pend200))
+                                    {
+                                        dirty = true;
+                                    }
+                                }
+                                else
+                                {
+                                    TriggerArchiveScan(item.Id, item.Flood200CnlNum, "flood200");
+                                }
+                            }
 
                             lastFlood200State[item.Id] = true;
                         }
                         else
                         {
+                            // Flood cleared before confirmation — discard the unconfirmed phantom.
+                            floodPendingStartMs.Remove((item.Id, "flood200"));
+
                             if (entry.Flood200ArchiveStartMs != 0)
                             {
                                 long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -390,12 +422,29 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                                 dirty = true;
                             }
                             if (entry.Flood700ArchiveStartMs == 0 && item.Flood700CnlNum > 0)
-                                TriggerArchiveScan(item.Id, item.Flood700CnlNum, "flood700");
+                            {
+                                if (floodPendingStartMs.TryGetValue((item.Id, "flood700"), out long pend700))
+                                {
+                                    // Scanned already — commit once the flood ages past the delay.
+                                    if (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - pend700 >= FloodConfirmDelayMs &&
+                                        CommitFloodStart(entry, item.Id, "flood700", pend700))
+                                    {
+                                        dirty = true;
+                                    }
+                                }
+                                else
+                                {
+                                    TriggerArchiveScan(item.Id, item.Flood700CnlNum, "flood700");
+                                }
+                            }
 
                             lastFlood700State[item.Id] = true;
                         }
                         else
                         {
+                            // Flood cleared before confirmation — discard the unconfirmed phantom.
+                            floodPendingStartMs.Remove((item.Id, "flood700"));
+
                             if (entry.Flood700ArchiveStartMs != 0)
                             {
                                 long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -490,21 +539,10 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                         updated = true;
                         break;
                     case "flood200" when entry.Flood200ArchiveStartMs == 0:
-                        entry.Flood200ArchiveStartMs = archiveStartMs;
-                        updated = true;
+                        updated = ConfirmOrPendFloodStart(entry, itemId, "flood200", archiveStartMs);
                         break;
                     case "flood700" when entry.Flood700ArchiveStartMs == 0:
-                        // Variant B migration: align existing ack records to the archive-derived start.
-                        if (archiveStartMs != MoreThan30DaysSentinel)
-                        {
-                            foreach (AckRecord ack in entry.AckHistory)
-                            {
-                                if (ack.AckedAtMs >= archiveStartMs && ack.FloodStartMs != archiveStartMs)
-                                    ack.FloodStartMs = archiveStartMs;
-                            }
-                        }
-                        entry.Flood700ArchiveStartMs = archiveStartMs;
-                        updated = true;
+                        updated = ConfirmOrPendFloodStart(entry, itemId, "flood700", archiveStartMs);
                         break;
                 }
 
@@ -514,6 +552,54 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                         webContext.Log.WriteError("PlgThermalCamera: " + saveErr);
                 }
             }
+        }
+
+        // Decides, when a scan returns a flood start, whether to commit it immediately or
+        // hold it pending until it has been active for FloodConfirmDelayMs. The ">30 days"
+        // sentinel is always committed (clearly a real long-running flood, not a phantom).
+        // Must be called inside lockObj. Returns true if the entry was modified.
+        private bool ConfirmOrPendFloodStart(UserDataEntry entry, int itemId, string kind, long archiveStartMs)
+        {
+            bool confirmed = archiveStartMs == MoreThan30DaysSentinel
+                || DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - archiveStartMs >= FloodConfirmDelayMs;
+
+            if (confirmed)
+                return CommitFloodStart(entry, itemId, kind, archiveStartMs);
+
+            // Too fresh — remember it; DetectFloodTransitions commits it once it ages past
+            // the delay, or discards it if the flood clears / the device goes offline first.
+            floodPendingStartMs[(itemId, kind)] = archiveStartMs;
+            return false;
+        }
+
+        // Commits a confirmed flood start to the entry. Must be called inside lockObj.
+        // Returns true if the entry was modified.
+        private bool CommitFloodStart(UserDataEntry entry, int itemId, string kind, long archiveStartMs)
+        {
+            floodPendingStartMs.Remove((itemId, kind));
+
+            if (kind == "flood200")
+            {
+                if (entry.Flood200ArchiveStartMs != 0)
+                    return false;
+                entry.Flood200ArchiveStartMs = archiveStartMs;
+                return true;
+            }
+
+            if (entry.Flood700ArchiveStartMs != 0)
+                return false;
+
+            // Variant B migration: align existing ack records to the archive-derived start.
+            if (archiveStartMs != MoreThan30DaysSentinel)
+            {
+                foreach (AckRecord ack in entry.AckHistory)
+                {
+                    if (ack.AckedAtMs >= archiveStartMs && ack.FloodStartMs != archiveStartMs)
+                        ack.FloodStartMs = archiveStartMs;
+                }
+            }
+            entry.Flood700ArchiveStartMs = archiveStartMs;
+            return true;
         }
 
         // Scans the minute archive backwards (expanding windows) to find when flooding began.
