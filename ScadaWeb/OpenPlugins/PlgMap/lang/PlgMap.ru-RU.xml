@@ -42,6 +42,7 @@
     <Phrase key="GradientFlood200">200мм</Phrase>
     <Phrase key="GradientFlood700">700мм</Phrase>
     <Phrase key="FilterLabel">Фильтр</Phrase>
+    <Phrase key="HeatmapAndFilter">Тепловая карта и Фильтр</Phrase>
     <Phrase key="Start">Начало</Phrase>
     <Phrase key="End">Конец</Phrase>
     <Phrase key="StartDateTime">Начало графика</Phrase>

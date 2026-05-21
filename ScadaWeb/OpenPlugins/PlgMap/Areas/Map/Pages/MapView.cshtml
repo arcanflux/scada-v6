@@ -1624,6 +1624,7 @@
                 gradientFlood200: "@Html.Raw(Model.JsDict.GradientFlood200)",
                 gradientFlood700: "@Html.Raw(Model.JsDict.GradientFlood700)",
                 filterLabel: "@Html.Raw(Model.JsDict.FilterLabel)",
+                heatmapAndFilter: "@Html.Raw(Model.JsDict.HeatmapAndFilter)",
                 start: "@Html.Raw(Model.JsDict.Start)",
                 end: "@Html.Raw(Model.JsDict.End)",
                 startDateTime: "@Html.Raw(Model.JsDict.StartDateTime)",
@@ -2332,7 +2333,7 @@
                 let f = this._markerFilter;
                 let baseLabel;
                 if (f === 'triangle') baseLabel = this.t.filterLabel;
-                else if (f === 'all' && this._hasCircleMarkers && this._hasTriangleMarkers) baseLabel = this.t.gradientLabel + ' и ' + this.t.filterLabel;
+                else if (f === 'all' && this._hasCircleMarkers && this._hasTriangleMarkers) baseLabel = this.t.heatmapAndFilter;
                 else baseLabel = this.t.gradientLabel;
                 let parts = [];
                 if (this._activeGradientAlias) parts.push(this._activeGradientAlias);
