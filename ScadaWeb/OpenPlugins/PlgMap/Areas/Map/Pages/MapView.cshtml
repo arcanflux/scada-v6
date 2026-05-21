@@ -1623,6 +1623,7 @@
                 gradientNormal: "@Html.Raw(Model.JsDict.GradientNormal)",
                 gradientFlood200: "@Html.Raw(Model.JsDict.GradientFlood200)",
                 gradientFlood700: "@Html.Raw(Model.JsDict.GradientFlood700)",
+                filterLabel: "@Html.Raw(Model.JsDict.FilterLabel)",
                 start: "@Html.Raw(Model.JsDict.Start)",
                 end: "@Html.Raw(Model.JsDict.End)",
                 startDateTime: "@Html.Raw(Model.JsDict.StartDateTime)",
@@ -2328,6 +2329,7 @@
             _updateGradientBtnText() {
                 let btn = document.getElementById("mapGradientBtn");
                 if (!btn) return;
+                let baseLabel = this._markerFilter === 'triangle' ? this.t.filterLabel : this.t.gradientLabel;
                 let parts = [];
                 if (this._activeGradientAlias) parts.push(this._activeGradientAlias);
                 if (this._activeTriangleFilter) {
@@ -2336,10 +2338,10 @@
                 }
                 if (parts.length > 0) {
                     btn.classList.add("active");
-                    btn.textContent = this.t.gradientLabel + ': ' + parts.join(' + ');
+                    btn.textContent = baseLabel + ': ' + parts.join(' + ');
                 } else {
                     btn.classList.remove("active");
-                    btn.textContent = this.t.gradientLabel;
+                    btn.textContent = baseLabel;
                 }
             }
 
