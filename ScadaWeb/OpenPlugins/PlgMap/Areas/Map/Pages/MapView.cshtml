@@ -2329,7 +2329,11 @@
             _updateGradientBtnText() {
                 let btn = document.getElementById("mapGradientBtn");
                 if (!btn) return;
-                let baseLabel = this._markerFilter === 'triangle' ? this.t.filterLabel : this.t.gradientLabel;
+                let f = this._markerFilter;
+                let baseLabel;
+                if (f === 'triangle') baseLabel = this.t.filterLabel;
+                else if (f === 'all' && this._hasCircleMarkers && this._hasTriangleMarkers) baseLabel = this.t.gradientLabel + ' и ' + this.t.filterLabel;
+                else baseLabel = this.t.gradientLabel;
                 let parts = [];
                 if (this._activeGradientAlias) parts.push(this._activeGradientAlias);
                 if (this._activeTriangleFilter) {
