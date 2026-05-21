@@ -2753,6 +2753,17 @@
                     html += '<div class="map-popup-descr">' + this._escapeHtml(def.descr) + '</div>';
                 }
 
+                // Ticket banner (full width across both zones)
+                let ticketText = this._getTicketText(def);
+                if (ticketText) {
+                    html += '<div class="map-popup-ticket-box" ' +
+                        'onmouseenter="mapViewInstance._showTicketTooltip(event)" ' +
+                        'onmouseleave="mapViewInstance._scheduleTicketHide()">' +
+                        this._escapeHtml(this.t.openTicket) +
+                        '<span class="map-popup-ticket-data" style="display:none">' + this._escapeHtml(ticketText) + '</span>' +
+                        '</div>';
+                }
+
                 // Two zones side by side: 200mm and 700mm
                 let t200 = ch[0] ? this.curDataMap[ch[0].cnlNum] : null;
                 let t700 = ch[1] ? this.curDataMap[ch[1].cnlNum] : null;
