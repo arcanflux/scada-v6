@@ -37,6 +37,9 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         private TreeNode pendingSingleNode;               // a node to select alone if no dragging occurs
         private bool treeEventsWired;                     // the explorer tree events are attached
         private DateTime lastDragScrollUtc;               // the time of the last auto-scroll during a drag
+        private TreeNode dropMarkerNode;                  // the node next to which the drop marker is drawn
+        private bool dropMarkerAfter;                     // the drop marker is below the node
+        private bool dropMarkerShown;                     // the drop marker is currently visible
 
 
         /// <summary>
@@ -328,6 +331,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             tree.DragEnter += ExplorerTree_DragEnter;
             tree.DragOver += ExplorerTree_DragOver;
             tree.DragDrop += ExplorerTree_DragDrop;
+            tree.DragLeave += ExplorerTree_DragLeave;
             tree.MouseDown += ExplorerTree_MouseDown;
             tree.MouseUp += ExplorerTree_MouseUp;
             tree.KeyDown += ExplorerTree_KeyDown;
@@ -617,6 +621,85 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             {
                 e.Effect = DragDropEffects.Move;
             }
+
+            // show an insertion marker between adjacent lines or devices
+            if (e.Effect == DragDropEffects.Move && target != null &&
+                (target.TagIs(CommNodeType.Line) || target.TagIs(CommNodeType.Device)))
+            {
+                UpdateDropMarker(target, point.Y > target.Bounds.Top + target.Bounds.Height / 2);
+            }
+            else
+            {
+                UpdateDropMarker(null, false);
+            }
+        }
+
+        /// <summary>
+        /// Updates the insertion marker position and redraws it if it changed.
+        /// </summary>
+        private void UpdateDropMarker(TreeNode node, bool after)
+        {
+            if (dropMarkerNode == node && dropMarkerAfter == after && dropMarkerShown == (node != null))
+                return;
+
+            dropMarkerNode = node;
+            dropMarkerAfter = after;
+            dropMarkerShown = node != null;
+
+            // repaint to erase the previous marker, then draw the new one on top
+            ExplorerTree.Invalidate();
+            ExplorerTree.Update();
+
+            if (dropMarkerShown)
+                DrawDropMarker();
+        }
+
+        /// <summary>
+        /// Hides the insertion marker.
+        /// </summary>
+        private void ClearDropMarker()
+        {
+            if (dropMarkerShown || dropMarkerNode != null)
+            {
+                dropMarkerNode = null;
+                dropMarkerShown = false;
+                ExplorerTree.Invalidate();
+                ExplorerTree.Update();
+            }
+        }
+
+        /// <summary>
+        /// Draws a horizontal insertion line with arrow heads at the marked position.
+        /// </summary>
+        private void DrawDropMarker()
+        {
+            if (!dropMarkerShown || dropMarkerNode == null)
+                return;
+
+            Rectangle bounds = dropMarkerNode.Bounds;
+            int y = dropMarkerAfter ? bounds.Bottom : bounds.Top;
+            int left = bounds.Left;
+            int right = Math.Max(bounds.Right + 8, ExplorerTree.ClientSize.Width - 2);
+            const int half = 4; // half-height of the end arrows
+
+            using Graphics graphics = ExplorerTree.CreateGraphics();
+            using Pen pen = new(SystemColors.ControlText, 2);
+            using SolidBrush brush = new(SystemColors.ControlText);
+
+            graphics.DrawLine(pen, left + half, y, right - half, y);
+            graphics.FillPolygon(brush, new[]
+            {
+                new Point(left, y - half), new Point(left + half, y), new Point(left, y + half)
+            });
+            graphics.FillPolygon(brush, new[]
+            {
+                new Point(right, y - half), new Point(right - half, y), new Point(right, y + half)
+            });
+        }
+
+        private void ExplorerTree_DragLeave(object sender, EventArgs e)
+        {
+            ClearDropMarker();
         }
 
         /// <summary>
@@ -682,6 +765,8 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
 
         private void ExplorerTree_DragDrop(object sender, DragEventArgs e)
         {
+            ClearDropMarker();
+
             if (selectedNodes.Count == 0)
                 return;
 
