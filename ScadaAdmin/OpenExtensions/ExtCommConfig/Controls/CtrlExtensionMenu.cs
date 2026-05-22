@@ -238,7 +238,15 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
                             {
                                 TreeNode lineNode = new TreeViewBuilder(adminContext, this)
                                     .CreateLineNode(frmLineAdd.Instance.CommApp, frmLineAdd.LineConfig);
-                                linesNode.Nodes.Add(lineNode);
+
+                                // insert the node at the position matching the ordered configuration
+                                int index = frmLineAdd.Instance.CommApp.AppConfig.Lines.IndexOf(frmLineAdd.LineConfig);
+
+                                if (index >= 0 && index < linesNode.Nodes.Count)
+                                    linesNode.Nodes.Insert(index, lineNode);
+                                else
+                                    linesNode.Nodes.Add(lineNode);
+
                                 ExplorerTree.SelectedNode = lineNode;
                             }
                         }
@@ -275,7 +283,16 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
                             {
                                 TreeNode deviceNode = new TreeViewBuilder(adminContext, this)
                                     .CreateDeviceNode(frmDeviceAdd.Instance.CommApp, frmDeviceAdd.DeviceConfig);
-                                lineNode.Nodes.Add(deviceNode);
+
+                                // insert after the leading option nodes at the ordered device position
+                                int listIndex = frmDeviceAdd.LineConfig.DevicePolling.IndexOf(frmDeviceAdd.DeviceConfig);
+                                int treeIndex = LineDeviceOffset(lineNode) + listIndex;
+
+                                if (listIndex >= 0 && treeIndex < lineNode.Nodes.Count)
+                                    lineNode.Nodes.Insert(treeIndex, deviceNode);
+                                else
+                                    lineNode.Nodes.Add(deviceNode);
+
                                 ExplorerTree.SelectedNode = deviceNode;
                                 RefreshLineConfigForm(lineNode);
                             }
@@ -410,6 +427,25 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Gets the number of leading non-device child nodes (line option nodes) of a line node,
+        /// which equals the tree index where device nodes begin.
+        /// </summary>
+        private static int LineDeviceOffset(TreeNode lineNode)
+        {
+            int offset = 0;
+
+            foreach (TreeNode child in lineNode.Nodes)
+            {
+                if (child.TagIs(CommNodeType.Device))
+                    break;
+
+                offset++;
+            }
+
+            return offset;
         }
 
         /// <summary>

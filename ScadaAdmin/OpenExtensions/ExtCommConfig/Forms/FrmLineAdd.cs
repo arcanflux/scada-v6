@@ -195,7 +195,15 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Forms
                     {
                         LineConfig = CommConfigConverter.CreateLineConfig(commLineEntity);
                         LineConfig.Parent = instance.CommApp.AppConfig;
-                        instance.CommApp.AppConfig.Lines.Add(LineConfig);
+
+                        // insert the line keeping the list ordered by line number
+                        var lines = instance.CommApp.AppConfig.Lines;
+                        int index = lines.FindIndex(line => line.CommLineNum > LineConfig.CommLineNum);
+
+                        if (index < 0)
+                            lines.Add(LineConfig);
+                        else
+                            lines.Insert(index, LineConfig);
                     }
                 }
 

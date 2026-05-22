@@ -303,7 +303,15 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Forms
                         DeviceConfig = CommConfigConverter.CreateDeviceConfig(deviceEntity,
                             project.ConfigDatabase.DevTypeTable);
                         DeviceConfig.Parent = lineConfig;
-                        lineConfig.DevicePolling.Add(DeviceConfig);
+
+                        // insert the device keeping the polling list ordered by device number
+                        int index = lineConfig.DevicePolling.FindIndex(device => device.DeviceNum > DeviceConfig.DeviceNum);
+
+                        if (index < 0)
+                            lineConfig.DevicePolling.Add(DeviceConfig);
+                        else
+                            lineConfig.DevicePolling.Insert(index, DeviceConfig);
+
                         LineConfig = lineConfig;
                         SetPollingOptions();
                     }
