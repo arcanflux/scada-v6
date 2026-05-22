@@ -39,9 +39,10 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         private TreeNode pendingSingleNode;               // a node to select alone if no dragging occurs
         private bool treeEventsWired;                     // the explorer tree events are attached
         private DateTime lastDragScrollUtc;               // the time of the last auto-scroll during a drag
-        private TreeNode dropMarkerNode;                  // the node next to which the drop marker is drawn
-        private bool dropMarkerAfter;                     // the drop marker is below the node
-        private bool dropMarkerShown;                     // the drop marker is currently visible
+        private TreeNode dropMarkerNode;                  // the node next to which the insertion line is drawn
+        private bool dropMarkerAfter;                     // the insertion line is below the node
+        private TreeNode dropHighlightNode;               // the node the cursor points at during a drag
+        private bool dropMarkerShown;                     // the drop indicators are currently visible
         private bool treeDoubleBuffered;                  // native double buffering is enabled for the tree
         private SearchPopupForm searchPopup;              // the popup listing live search matches
         private DragImageForm dragImageForm;              // the ghost image shown next to the cursor while dragging
@@ -498,6 +499,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             tree.AllowDrop = true;
             tree.ItemDrag += ExplorerTree_ItemDrag;
             tree.GiveFeedback += ExplorerTree_GiveFeedback;
+            tree.QueryContinueDrag += ExplorerTree_QueryContinueDrag;
             tree.DragEnter += ExplorerTree_DragEnter;
             tree.DragOver += ExplorerTree_DragOver;
             tree.DragDrop += ExplorerTree_DragDrop;
@@ -743,13 +745,18 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         /// </summary>
         private void ShowDragImage(TreeNode node)
         {
-            bool draggingDevices = node.TagIs(CommNodeType.Device);
-            int count = selectedNodes.Count;
-            string text = count > 1 ? $"{node.Text} (+{count - 1})" : node.Text;
-            Image icon = draggingDevices ? Resources.device : Resources.line;
+            List<(Image, string)> entries = selectedNodes
+                .OrderBy(n => n.Index)
+                .Select(n => ((Image)(n.TagIs(CommNodeType.Device) ? Resources.device : Resources.line), n.Text))
+                .ToList();
+
+            if (entries.Count == 0)
+                entries.Add(((Image)(node.TagIs(CommNodeType.Device) ? Resources.device : Resources.line), node.Text));
 
             dragImageForm ??= new DragImageForm();
-            dragImageForm.SetContent(icon, text);
+            dragImageForm.SetItems(entries);
+            dragImageForm.SetExpanded(false);
+            dragImageForm.ClearRoute();
             dragImageForm.MoveTo(Cursor.Position);
 
             if (!dragImageForm.Visible)
@@ -765,33 +772,34 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
                 dragImageForm.Hide();
         }
 
-        /// <summary>
-        /// Gets the badge to show for a line drag depending on the target container.
-        /// </summary>
-        private DragImageForm.Badge GetLineDragBadge(TreeNode target)
-        {
-            if (target == null)
-                return DragImageForm.Badge.None;
-
-            TreeNode source = SelectedNodesParent;
-            TreeNode container = target.TagIs(CommNodeType.Line) ? target.Parent : target;
-
-            if (container != null && container != source)
-            {
-                if (container.TagIs(CommNodeType.LineFolder))
-                    return DragImageForm.Badge.Plus;
-
-                if (container.TagIs(CommNodeType.Lines) && source != null && source.TagIs(CommNodeType.LineFolder))
-                    return DragImageForm.Badge.Minus;
-            }
-
-            return DragImageForm.Badge.None;
-        }
-
         private void ExplorerTree_GiveFeedback(object sender, GiveFeedbackEventArgs e)
         {
             e.UseDefaultCursors = true;
             dragImageForm?.MoveTo(Cursor.Position);
+        }
+
+        private void ExplorerTree_QueryContinueDrag(object sender, QueryContinueDragEventArgs e)
+        {
+            const int MK_LBUTTON = 0x0001;
+            const int MK_RBUTTON = 0x0002;
+
+            if (e.EscapePressed)
+            {
+                e.Action = DragAction.Cancel;
+                return;
+            }
+
+            // drop when the left button is released; keep dragging even if the right button is pressed
+            if ((e.KeyState & MK_LBUTTON) == 0)
+            {
+                e.Action = DragAction.Drop;
+                return;
+            }
+
+            e.Action = DragAction.Continue;
+
+            // hold the right button during the drag to expand the full list of dragged items
+            dragImageForm?.SetExpanded((e.KeyState & MK_RBUTTON) != 0);
         }
 
         private void ExplorerTree_DragEnter(object sender, DragEventArgs e)
@@ -810,7 +818,9 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             AutoScrollDuringDrag(point);
             TreeNode target = ExplorerTree.GetNodeAt(point);
 
-            if (DraggingDevices())
+            bool draggingDevices = DraggingDevices();
+
+            if (draggingDevices)
             {
                 // a device can be reordered within its line or moved to another line
                 if (IsDeviceDropTarget(target))
@@ -821,54 +831,74 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
                 e.Effect = DragDropEffects.Move;
             }
 
-            // show an insertion marker only between items of the dragged kind
-            if (e.Effect == DragDropEffects.Move && target != null &&
-                ((DraggingDevices() && target.TagIs(CommNodeType.Device)) ||
-                (DraggingLines() && target.TagIs(CommNodeType.Line))))
-            {
-                UpdateDropMarker(target, point.Y > target.Bounds.Top + target.Bounds.Height / 2);
-            }
-            else
-            {
-                UpdateDropMarker(null, false);
-            }
+            bool valid = e.Effect == DragDropEffects.Move && target != null;
+            bool targetIsItem = valid &&
+                ((draggingDevices && target.TagIs(CommNodeType.Device)) ||
+                (!draggingDevices && target.TagIs(CommNodeType.Line)));
 
-            // update the ghost image badge for folder add/remove and keep it next to the cursor
-            DragImageForm.Badge badge = e.Effect == DragDropEffects.Move && DraggingLines()
-                ? GetLineDragBadge(target)
-                : DragImageForm.Badge.None;
-            dragImageForm?.SetBadge(badge);
+            // insertion line between items, plus a box around the hovered target node
+            TreeNode markerNode = targetIsItem ? target : null;
+            bool markerAfter = targetIsItem && point.Y > target.Bounds.Top + target.Bounds.Height / 2;
+            UpdateDropMarker(markerNode, markerAfter, valid ? target : null);
+
+            // update the ghost route (from source to target) and keep it next to the cursor
+            UpdateDragRoute(valid ? target : null, draggingDevices);
             dragImageForm?.MoveTo(Cursor.Position);
         }
 
         /// <summary>
-        /// Updates the insertion marker position and redraws it if it changed.
+        /// Updates the ghost route based on the source and target containers of the drag.
         /// </summary>
-        private void UpdateDropMarker(TreeNode node, bool after)
+        private void UpdateDragRoute(TreeNode target, bool draggingDevices)
         {
-            if (dropMarkerNode == node && dropMarkerAfter == after && dropMarkerShown == (node != null))
+            if (dragImageForm == null)
                 return;
 
-            dropMarkerNode = node;
-            dropMarkerAfter = after;
-            dropMarkerShown = node != null;
+            if (target == null)
+            {
+                dragImageForm.ClearRoute();
+                return;
+            }
 
-            // repaint to erase the previous marker, then draw the new one on top
-            ExplorerTree.Invalidate();
-            ExplorerTree.Update();
+            TreeNode sourceContainer = SelectedNodesParent;
+            TreeNode targetContainer = draggingDevices
+                ? (target.TagIs(CommNodeType.Device) ? target.Parent : target)               // a line node
+                : (target.TagIs(CommNodeType.Line) ? target.Parent : target);                 // a folder or the lines node
 
-            if (dropMarkerShown)
-                DrawDropMarker();
+            if (targetContainer != null && targetContainer != sourceContainer)
+                dragImageForm.SetRoute(sourceContainer?.Text, targetContainer.Text);
+            else
+                dragImageForm.SetReorder();
         }
 
         /// <summary>
-        /// Hides the insertion marker.
+        /// Updates the insertion marker and the target highlight, redrawing them if they changed.
+        /// </summary>
+        private void UpdateDropMarker(TreeNode markerNode, bool after, TreeNode highlightNode)
+        {
+            if (dropMarkerNode == markerNode && dropMarkerAfter == after && dropHighlightNode == highlightNode)
+                return;
+
+            dropMarkerNode = markerNode;
+            dropMarkerAfter = after;
+            dropHighlightNode = highlightNode;
+            dropMarkerShown = markerNode != null || highlightNode != null;
+
+            // repaint to erase the previous indicators, then draw the new ones on top
+            ExplorerTree.Invalidate();
+            ExplorerTree.Update();
+            DrawDropMarker();
+        }
+
+        /// <summary>
+        /// Hides the insertion marker and the target highlight.
         /// </summary>
         private void ClearDropMarker()
         {
-            if (dropMarkerShown || dropMarkerNode != null)
+            if (dropMarkerShown || dropMarkerNode != null || dropHighlightNode != null)
             {
                 dropMarkerNode = null;
+                dropHighlightNode = null;
                 dropMarkerShown = false;
                 ExplorerTree.Invalidate();
                 ExplorerTree.Update();
@@ -876,21 +906,33 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         }
 
         /// <summary>
-        /// Draws a horizontal insertion line with arrow heads at the marked position.
+        /// Draws the target node highlight box and the horizontal insertion line.
         /// </summary>
         private void DrawDropMarker()
         {
-            if (!dropMarkerShown || dropMarkerNode == null)
-                return;
-
-            Rectangle bounds = dropMarkerNode.Bounds;
-            int y = dropMarkerAfter ? bounds.Bottom : bounds.Top;
-            int left = bounds.Left;
-            int right = Math.Max(bounds.Right + 8, ExplorerTree.ClientSize.Width - 2);
-
             using Graphics graphics = ExplorerTree.CreateGraphics();
-            using Pen pen = new(SystemColors.ControlText, 2);
-            graphics.DrawLine(pen, left, y, right, y);
+            int rightEdge = ExplorerTree.ClientSize.Width - 2;
+
+            // box around the node the cursor points at, so the target is obvious
+            if (dropHighlightNode != null)
+            {
+                Rectangle bounds = dropHighlightNode.Bounds;
+                Rectangle box = new(bounds.Left - 1, bounds.Top,
+                    Math.Max(bounds.Width + 2, rightEdge - bounds.Left), bounds.Height - 1);
+
+                using Pen highlightPen = new(SystemColors.Highlight, 2);
+                graphics.DrawRectangle(highlightPen, box);
+            }
+
+            // insertion line showing the exact position between items
+            if (dropMarkerNode != null)
+            {
+                Rectangle bounds = dropMarkerNode.Bounds;
+                int y = dropMarkerAfter ? bounds.Bottom : bounds.Top;
+
+                using Pen linePen = new(SystemColors.ControlText, 2);
+                graphics.DrawLine(linePen, bounds.Left, y, rightEdge, y);
+            }
         }
 
         private void ExplorerTree_DragLeave(object sender, EventArgs e)
