@@ -13,6 +13,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Code
         public const string Drivers = nameof(Drivers);
         public const string DataSources = nameof(DataSources);
         public const string Lines = nameof(Lines);
+        public const string LineFolder = nameof(LineFolder);
         public const string Line = nameof(Line);
         public const string LineOptions = nameof(LineOptions);
         public const string LineStats = nameof(LineStats);

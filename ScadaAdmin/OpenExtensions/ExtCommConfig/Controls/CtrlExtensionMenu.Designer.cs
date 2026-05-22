@@ -37,6 +37,10 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             this.miLineMoveUp = new System.Windows.Forms.ToolStripMenuItem();
             this.miLineMoveDown = new System.Windows.Forms.ToolStripMenuItem();
             this.miLineDelete = new System.Windows.Forms.ToolStripMenuItem();
+            this.miCommLineSep3 = new System.Windows.Forms.ToolStripSeparator();
+            this.miLineCreateFolder = new System.Windows.Forms.ToolStripMenuItem();
+            this.miLineRenameFolder = new System.Windows.Forms.ToolStripMenuItem();
+            this.miLineDeleteFolder = new System.Windows.Forms.ToolStripMenuItem();
             this.miCommLineSep2 = new System.Windows.Forms.ToolStripSeparator();
             this.miLineStart = new System.Windows.Forms.ToolStripMenuItem();
             this.miLineStop = new System.Windows.Forms.ToolStripMenuItem();
@@ -71,6 +75,10 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             this.miLineMoveUp,
             this.miLineMoveDown,
             this.miLineDelete,
+            this.miCommLineSep3,
+            this.miLineCreateFolder,
+            this.miLineRenameFolder,
+            this.miLineDeleteFolder,
             this.miCommLineSep2,
             this.miLineStart,
             this.miLineStop,
@@ -123,9 +131,38 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             this.miLineDelete.Size = new System.Drawing.Size(180, 22);
             this.miLineDelete.Text = "Delete Line";
             this.miLineDelete.Click += new System.EventHandler(this.miLineDelete_Click);
-            // 
+            //
+            // miCommLineSep3
+            //
+            this.miCommLineSep3.Name = "miCommLineSep3";
+            this.miCommLineSep3.Size = new System.Drawing.Size(177, 6);
+            //
+            // miLineCreateFolder
+            //
+            this.miLineCreateFolder.Image = global::Scada.Admin.Extensions.ExtCommConfig.Properties.Resources.add;
+            this.miLineCreateFolder.Name = "miLineCreateFolder";
+            this.miLineCreateFolder.Size = new System.Drawing.Size(180, 22);
+            this.miLineCreateFolder.Text = "Create Folder...";
+            this.miLineCreateFolder.Click += new System.EventHandler(this.miLineCreateFolder_Click);
+            //
+            // miLineRenameFolder
+            //
+            this.miLineRenameFolder.Image = global::Scada.Admin.Extensions.ExtCommConfig.Properties.Resources.properties;
+            this.miLineRenameFolder.Name = "miLineRenameFolder";
+            this.miLineRenameFolder.Size = new System.Drawing.Size(180, 22);
+            this.miLineRenameFolder.Text = "Rename Folder...";
+            this.miLineRenameFolder.Click += new System.EventHandler(this.miLineRenameFolder_Click);
+            //
+            // miLineDeleteFolder
+            //
+            this.miLineDeleteFolder.Image = global::Scada.Admin.Extensions.ExtCommConfig.Properties.Resources.delete;
+            this.miLineDeleteFolder.Name = "miLineDeleteFolder";
+            this.miLineDeleteFolder.Size = new System.Drawing.Size(180, 22);
+            this.miLineDeleteFolder.Text = "Delete Folder";
+            this.miLineDeleteFolder.Click += new System.EventHandler(this.miLineDeleteFolder_Click);
+            //
             // miCommLineSep2
-            // 
+            //
             this.miCommLineSep2.Name = "miCommLineSep2";
             this.miCommLineSep2.Size = new System.Drawing.Size(177, 6);
             // 
@@ -315,6 +352,10 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         private System.Windows.Forms.ToolStripMenuItem miLineMoveUp;
         private System.Windows.Forms.ToolStripMenuItem miLineMoveDown;
         private System.Windows.Forms.ToolStripMenuItem miLineDelete;
+        private System.Windows.Forms.ToolStripSeparator miCommLineSep3;
+        private System.Windows.Forms.ToolStripMenuItem miLineCreateFolder;
+        private System.Windows.Forms.ToolStripMenuItem miLineRenameFolder;
+        private System.Windows.Forms.ToolStripMenuItem miLineDeleteFolder;
         private System.Windows.Forms.ToolStripSeparator miCommLineSep2;
         private System.Windows.Forms.ToolStripMenuItem miLineStart;
         private System.Windows.Forms.ToolStripMenuItem miLineStop;

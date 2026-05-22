@@ -34,6 +34,12 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Code
         // Scada.Admin.Extensions.ExtCommConfig.Controls.CtrlExtensionMenu
         public static string ConfirmDeleteLine { get; private set; }
         public static string CnlNodeNotFound { get; private set; }
+        public static string CreateFolderTitle { get; private set; }
+        public static string RenameFolderTitle { get; private set; }
+        public static string FolderNamePrompt { get; private set; }
+        public static string NewFolderName { get; private set; }
+        public static string ConfirmDeleteFolder { get; private set; }
+        public static string FolderAlreadyExists { get; private set; }
 
         // Scada.Admin.Extensions.ExtCommConfig.Controls.CtrlLineMain
         public static string UndefinedChannelType { get; private set; }
@@ -105,6 +111,12 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Code
             dict = Locale.GetDictionary("Scada.Admin.Extensions.ExtCommConfig.Controls.CtrlExtensionMenu");
             ConfirmDeleteLine = dict["ConfirmDeleteLine"];
             CnlNodeNotFound = dict["CnlNodeNotFound"];
+            CreateFolderTitle = dict["CreateFolderTitle"];
+            RenameFolderTitle = dict["RenameFolderTitle"];
+            FolderNamePrompt = dict["FolderNamePrompt"];
+            NewFolderName = dict["NewFolderName"];
+            ConfirmDeleteFolder = dict["ConfirmDeleteFolder"];
+            FolderAlreadyExists = dict["FolderAlreadyExists"];
 
             dict = Locale.GetDictionary("Scada.Admin.Extensions.ExtCommConfig.Controls.CtrlLineMain");
             UndefinedChannelType = dict["UndefinedChannelType"];

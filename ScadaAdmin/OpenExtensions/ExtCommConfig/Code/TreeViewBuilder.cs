@@ -8,6 +8,7 @@ using Scada.Comm.Config;
 using Scada.Forms;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Windows.Forms;
 
 namespace Scada.Admin.Extensions.ExtCommConfig.Code
@@ -40,13 +41,40 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Code
             TreeNode linesNode = TreeViewExtensions.CreateNode(ExtensionPhrases.LinesNode, ImageKey.Lines);
             linesNode.ContextMenuStrip = menuControl.LineMenu;
             linesNode.Tag = new CommNodeTag(commApp, commApp.AppConfig, CommNodeType.Lines);
+            FillLinesNode(linesNode, commApp);
+            return linesNode;
+        }
 
-            foreach (LineConfig lineConfig in commApp.AppConfig.Lines)
+        /// <summary>
+        /// Creates folder nodes and line nodes, grouping lines under their folders.
+        /// </summary>
+        private void FillLinesNode(TreeNode linesNode, CommApp commApp)
+        {
+            LineGroupConfig groupConfig = LineGroupConfig.Load(commApp.ConfigDir);
+            Dictionary<string, TreeNode> folderNodes = new();
+
+            // folders come first, in their stored order, so empty folders persist visually
+            foreach (string folderName in groupConfig.Folders)
             {
-                linesNode.Nodes.Add(CreateLineNode(commApp, lineConfig));
+                if (!folderNodes.ContainsKey(folderName))
+                {
+                    TreeNode folderNode = CreateLineFolderNode(commApp, folderName);
+                    folderNodes.Add(folderName, folderNode);
+                    linesNode.Nodes.Add(folderNode);
+                }
             }
 
-            return linesNode;
+            // lines go into their folder if assigned, otherwise into the root
+            foreach (LineConfig lineConfig in commApp.AppConfig.Lines)
+            {
+                TreeNode lineNode = CreateLineNode(commApp, lineConfig);
+                string folderName = groupConfig.GetFolder(lineConfig.CommLineNum);
+
+                if (!string.IsNullOrEmpty(folderName) && folderNodes.TryGetValue(folderName, out TreeNode folderNode))
+                    folderNode.Nodes.Add(lineNode);
+                else
+                    linesNode.Nodes.Add(lineNode);
+            }
         }
 
         /// <summary>
@@ -60,25 +88,31 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Code
             {
                 linesNode.TreeView?.BeginUpdate();
 
-                // remove existing line nodes
-                foreach (TreeNode lineNode in new ArrayList(linesNode.Nodes))
+                // remove existing folder and line nodes
+                foreach (TreeNode childNode in new ArrayList(linesNode.Nodes))
                 {
-                    lineNode.Remove();
+                    childNode.Remove();
                 }
 
-                // add new line nodes
+                // add new folder and line nodes
                 CommNodeTag nodeTag = (CommNodeTag)linesNode.Tag;
-                CommApp commApp = nodeTag.CommApp;
-
-                foreach (LineConfig lineConfig in commApp.AppConfig.Lines)
-                {
-                    linesNode.Nodes.Add(CreateLineNode(commApp, lineConfig));
-                }
+                FillLinesNode(linesNode, nodeTag.CommApp);
             }
             finally
             {
                 linesNode.TreeView?.EndUpdate();
             }
+        }
+
+        /// <summary>
+        /// Creates a tree node that represents a folder of communication lines.
+        /// </summary>
+        public TreeNode CreateLineFolderNode(CommApp commApp, string folderName)
+        {
+            TreeNode folderNode = TreeViewExtensions.CreateNode(folderName, ImageKey.Folder,
+                new CommNodeTag(commApp, folderName, CommNodeType.LineFolder));
+            folderNode.ContextMenuStrip = menuControl.LineMenu;
+            return folderNode;
         }
 
         /// <summary>

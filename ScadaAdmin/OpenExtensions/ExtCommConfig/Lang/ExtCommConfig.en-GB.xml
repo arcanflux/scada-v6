@@ -47,6 +47,9 @@
     <Phrase key="miLineMoveUp">Move Line Up</Phrase>
     <Phrase key="miLineMoveDown">Move Line Down</Phrase>
     <Phrase key="miLineDelete">Delete Line</Phrase>
+    <Phrase key="miLineCreateFolder">Create Folder...</Phrase>
+    <Phrase key="miLineRenameFolder">Rename Folder...</Phrase>
+    <Phrase key="miLineDeleteFolder">Delete Folder</Phrase>
     <Phrase key="miLineStart">Start Line</Phrase>
     <Phrase key="miLineStop">Stop Line</Phrase>
     <Phrase key="miLineRestart">Restart Line</Phrase>
@@ -56,6 +59,12 @@
     <Phrase key="miDeviceProperties">Properies</Phrase>
     <Phrase key="ConfirmDeleteLine">Are you sure you want to delete the communication line?</Phrase>
     <Phrase key="CnlNodeNotFound">Channel node not found.</Phrase>
+    <Phrase key="CreateFolderTitle">Create Folder</Phrase>
+    <Phrase key="RenameFolderTitle">Rename Folder</Phrase>
+    <Phrase key="FolderNamePrompt">Folder name:</Phrase>
+    <Phrase key="NewFolderName">New folder</Phrase>
+    <Phrase key="ConfirmDeleteFolder">Delete the folder? Its communication lines will be moved to the root.</Phrase>
+    <Phrase key="FolderAlreadyExists">A folder with this name already exists.</Phrase>
   </Dictionary>
   <Dictionary key="Scada.Admin.Extensions.ExtCommConfig.Controls.CtrlLineMain">
     <Phrase key="gbLine">Communication Line</Phrase>

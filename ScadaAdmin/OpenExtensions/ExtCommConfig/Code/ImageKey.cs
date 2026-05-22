@@ -19,5 +19,8 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Code
         public const string LineInactive = ImagePrefix + "line_inactive.png";
         public const string Lines = ImagePrefix + "lines.png";
         public const string Stats = ImagePrefix + "stats.png";
+
+        // provided by the Administrator shell; the shell swaps it to the open icon automatically
+        public const string Folder = "folder_closed.png";
     }
 }

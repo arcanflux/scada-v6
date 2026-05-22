@@ -233,26 +233,23 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
                             if (justPrepared)
                             {
                                 ExplorerTree.SelectedNode = FindNode(instanceNode, frmLineAdd.LineConfig);
+                                SaveCommConfig(frmLineAdd.Instance.CommApp);
                             }
                             else if (instanceNode.FindFirst(CommNodeType.Lines) is TreeNode linesNode)
                             {
                                 TreeNode lineNode = new TreeViewBuilder(adminContext, this)
                                     .CreateLineNode(frmLineAdd.Instance.CommApp, frmLineAdd.LineConfig);
 
-                                // insert the node at the position matching the ordered configuration
-                                int index = frmLineAdd.Instance.CommApp.AppConfig.Lines.IndexOf(frmLineAdd.LineConfig);
-
-                                if (index >= 0 && index < linesNode.Nodes.Count)
-                                    linesNode.Nodes.Insert(index, lineNode);
-                                else
-                                    linesNode.Nodes.Add(lineNode);
-
+                                // a new line goes to the root, ordered by line number among the root lines
+                                InsertRootLineNodeSorted(linesNode, lineNode, frmLineAdd.LineConfig.CommLineNum);
                                 ExplorerTree.SelectedNode = lineNode;
+                                ApplyLineTreeChanges(linesNode, frmLineAdd.Instance.CommApp);
+                            }
+                            else
+                            {
+                                SaveCommConfig(frmLineAdd.Instance.CommApp);
                             }
                         }
-
-                        // save configuration
-                        SaveCommConfig(frmLineAdd.Instance.CommApp);
                     }
                 }
             }
@@ -607,11 +604,54 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             AutoScrollDuringDrag(point);
             TreeNode target = ExplorerTree.GetNodeAt(point);
 
-            if (IsReorderableNode(target) &&
-                target.Parent == SelectedNodesParent && !selectedNodes.Contains(target))
+            if (DraggingDevices())
+            {
+                // a device can only be reordered within its line
+                if (target != null && target.TagIs(CommNodeType.Device) &&
+                    target.Parent == SelectedNodesParent && !selectedNodes.Contains(target))
+                {
+                    e.Effect = DragDropEffects.Move;
+                }
+            }
+            else if (DraggingLines() && IsLineDropTarget(target))
             {
                 e.Effect = DragDropEffects.Move;
             }
+        }
+
+        /// <summary>
+        /// Checks whether a device drag is in progress.
+        /// </summary>
+        private bool DraggingDevices()
+        {
+            return selectedNodes.Count > 0 && selectedNodes.First().TagIs(CommNodeType.Device);
+        }
+
+        /// <summary>
+        /// Checks whether a communication line drag is in progress.
+        /// </summary>
+        private bool DraggingLines()
+        {
+            return selectedNodes.Count > 0 && selectedNodes.First().TagIs(CommNodeType.Line);
+        }
+
+        /// <summary>
+        /// Gets the communication lines node that contains the dragged line nodes.
+        /// </summary>
+        private TreeNode DraggedLinesRoot()
+        {
+            return selectedNodes.Count > 0 ? selectedNodes.First().FindClosest(CommNodeType.Lines) : null;
+        }
+
+        /// <summary>
+        /// Checks whether a line drag can be dropped on the specified target node.
+        /// </summary>
+        private bool IsLineDropTarget(TreeNode target)
+        {
+            return target != null && !selectedNodes.Contains(target) &&
+                (target.TagIs(CommNodeType.Line) || target.TagIs(CommNodeType.LineFolder) ||
+                target.TagIs(CommNodeType.Lines)) &&
+                target.FindClosest(CommNodeType.Lines) == DraggedLinesRoot();
         }
 
         /// <summary>
@@ -642,11 +682,25 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
 
         private void ExplorerTree_DragDrop(object sender, DragEventArgs e)
         {
+            if (selectedNodes.Count == 0)
+                return;
+
             Point point = ExplorerTree.PointToClient(new Point(e.X, e.Y));
             TreeNode target = ExplorerTree.GetNodeAt(point);
 
-            if (!IsReorderableNode(target) || target.Tag is not CommNodeTag targetTag ||
-                selectedNodes.Count == 0 || selectedNodes.Contains(target))
+            if (DraggingDevices())
+                DropDevices(target, point);
+            else if (DraggingLines())
+                DropLines(target, point);
+        }
+
+        /// <summary>
+        /// Reorders the dragged device nodes within their line.
+        /// </summary>
+        private void DropDevices(TreeNode target, Point point)
+        {
+            if (target == null || !target.TagIs(CommNodeType.Device) ||
+                target.Tag is not CommNodeTag targetTag || selectedNodes.Contains(target))
             {
                 return;
             }
@@ -694,20 +748,166 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
                 ExplorerTree.EndUpdate();
             }
 
-            // refresh the line configuration form that lists the reordered devices
-            if (target.TagIs(CommNodeType.Device))
-                RefreshLineConfigForm(parentNode);
-
+            RefreshLineConfigForm(parentNode);
             SaveCommConfig(commApp);
+        }
+
+        /// <summary>
+        /// Moves the dragged line nodes within a folder, into a folder, or to the root.
+        /// </summary>
+        private void DropLines(TreeNode target, Point point)
+        {
+            if (!IsLineDropTarget(target) || target.Tag is not CommNodeTag targetTag)
+                return;
+
+            List<TreeNode> draggedNodes = selectedNodes
+                .Where(n => n.TagIs(CommNodeType.Line))
+                .OrderBy(n => n.Index)
+                .ToList();
+
+            TreeNode linesNode = DraggedLinesRoot();
+
+            if (draggedNodes.Count == 0 || linesNode == null)
+                return;
+
+            bool targetIsLine = target.TagIs(CommNodeType.Line);
+            TreeNode container = targetIsLine ? target.Parent : target; // folder or lines node
+            bool insertAfter = targetIsLine && point.Y > target.Bounds.Top + target.Bounds.Height / 2;
+
+            try
+            {
+                ExplorerTree.BeginUpdate();
+
+                foreach (TreeNode node in draggedNodes)
+                    node.Remove();
+
+                int insertIndex = targetIsLine
+                    ? target.Index + (insertAfter ? 1 : 0)
+                    : container.Nodes.Count;
+
+                for (int i = 0; i < draggedNodes.Count; i++)
+                    container.Nodes.Insert(insertIndex + i, draggedNodes[i]);
+
+                if (container.TagIs(CommNodeType.LineFolder))
+                    container.Expand();
+
+                ExplorerTree.SelectedNode = draggedNodes[0];
+            }
+            finally
+            {
+                ExplorerTree.EndUpdate();
+            }
+
+            ApplyLineTreeChanges(linesNode, targetTag.CommApp);
+        }
+
+        /// <summary>
+        /// Rebuilds the line order and the folder configuration from the current tree, then saves both.
+        /// </summary>
+        private void ApplyLineTreeChanges(TreeNode linesNode, CommApp commApp)
+        {
+            if (linesNode == null)
+                return;
+
+            LineGroupConfig groupConfig = new();
+            List<LineConfig> newLines = new();
+
+            foreach (TreeNode child in linesNode.Nodes)
+            {
+                if (child.TagIs(CommNodeType.LineFolder))
+                {
+                    string folder = child.GetRelatedObject() as string ?? child.Text;
+                    groupConfig.AddFolder(folder);
+
+                    foreach (TreeNode lineNode in child.Nodes)
+                    {
+                        if (lineNode.GetRelatedObject() is LineConfig lineConfig)
+                        {
+                            newLines.Add(lineConfig);
+                            groupConfig.SetFolder(lineConfig.CommLineNum, folder);
+                        }
+                    }
+                }
+                else if (child.GetRelatedObject() is LineConfig lineConfig)
+                {
+                    newLines.Add(lineConfig);
+                }
+            }
+
+            List<LineConfig> lines = commApp.AppConfig.Lines;
+            lines.Clear();
+
+            foreach (LineConfig lineConfig in newLines)
+            {
+                lineConfig.Parent = commApp.AppConfig;
+                lines.Add(lineConfig);
+            }
+
+            groupConfig.Save(commApp.ConfigDir, out _);
+            SaveCommConfig(commApp);
+        }
+
+        /// <summary>
+        /// Inserts a root-level line node ordered by line number, after the folder nodes.
+        /// </summary>
+        private static void InsertRootLineNodeSorted(TreeNode linesNode, TreeNode lineNode, int commLineNum)
+        {
+            int insertIndex = linesNode.Nodes.Count;
+
+            for (int i = 0; i < linesNode.Nodes.Count; i++)
+            {
+                TreeNode child = linesNode.Nodes[i];
+
+                if (child.TagIs(CommNodeType.LineFolder))
+                    continue;
+
+                if (child.GetRelatedObject() is LineConfig lineConfig && lineConfig.CommLineNum > commLineNum)
+                {
+                    insertIndex = i;
+                    break;
+                }
+            }
+
+            linesNode.Nodes.Insert(insertIndex, lineNode);
+        }
+
+        /// <summary>
+        /// Checks whether a folder with the specified name exists under the lines node.
+        /// </summary>
+        private static bool FolderNodeExists(TreeNode linesNode, string folderName)
+        {
+            foreach (TreeNode child in linesNode.Nodes)
+            {
+                if (child.TagIs(CommNodeType.LineFolder) &&
+                    string.Equals(child.GetRelatedObject() as string, folderName))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void cmsLine_Opening(object sender, CancelEventArgs e)
         {
             // enable or disable menu items
+            bool isLinesNode = SelectedNode != null && SelectedNode.TagIs(CommNodeType.Lines);
             bool isLineNode = SelectedNode != null && SelectedNode.TagIs(CommNodeType.Line);
-            miLineMoveUp.Enabled = isLineNode && SelectedNode.PrevNode != null;
-            miLineMoveDown.Enabled = isLineNode && SelectedNode.NextNode != null;
+            bool isFolderNode = SelectedNode != null && SelectedNode.TagIs(CommNodeType.LineFolder);
+
+            miLineSync.Enabled = isLinesNode || isLineNode;
+            miLineAdd.Enabled = isLinesNode || isLineNode || isFolderNode;
+
+            // moving is limited to neighbouring lines, so folder boundaries are respected
+            miLineMoveUp.Enabled = isLineNode && SelectedNode.PrevNode != null &&
+                SelectedNode.PrevNode.TagIs(CommNodeType.Line);
+            miLineMoveDown.Enabled = isLineNode && SelectedNode.NextNode != null &&
+                SelectedNode.NextNode.TagIs(CommNodeType.Line);
             miLineDelete.Enabled = isLineNode;
+
+            miLineCreateFolder.Enabled = isLinesNode || isLineNode || isFolderNode;
+            miLineRenameFolder.Enabled = isFolderNode;
+            miLineDeleteFolder.Enabled = isFolderNode;
 
             miLineStart.Enabled = isLineNode;
             miLineStop.Enabled = isLineNode;
@@ -738,15 +938,17 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
                         }
                         else
                         {
-                            foreach (TreeNode lineNode in linesNode.Nodes)
+                            // lines may be nested in folders, so iterate all descendants
+                            foreach (TreeNode node in linesNode.IterateNodes())
                             {
-                                TreeViewBuilder.UpdateLineNodeText(lineNode);
-                                RefreshLineConfigForm(lineNode);
-
-                                foreach (TreeNode lineSubnode in lineNode.Nodes)
+                                if (node.TagIs(CommNodeType.Line))
                                 {
-                                    if (lineSubnode.TagIs(CommNodeType.Device))
-                                        TreeViewBuilder.UpdateDeviceNodeText(lineSubnode);
+                                    TreeViewBuilder.UpdateLineNodeText(node);
+                                    RefreshLineConfigForm(node);
+                                }
+                                else if (node.TagIs(CommNodeType.Device))
+                                {
+                                    TreeViewBuilder.UpdateDeviceNodeText(node);
                                 }
                             }
 
@@ -769,34 +971,73 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         private void miLineAdd_Click(object sender, EventArgs e)
         {
             // add new line
-            if (GetCommApp(out CommApp commApp, CommNodeType.Lines, CommNodeType.Line))
+            if (GetCommApp(out CommApp commApp, CommNodeType.Lines, CommNodeType.Line, CommNodeType.LineFolder))
             {
                 TreeNode linesNode = SelectedNode.FindClosest(CommNodeType.Lines);
                 TreeNode lineNode = new TreeViewBuilder(adminContext, this).CreateLineNode(commApp, new LineConfig());
                 lineNode.Expand();
-                ExplorerTree.Insert(linesNode, lineNode);
-                SaveCommConfig(commApp);
+
+                if (SelectedNode.TagIs(CommNodeType.LineFolder))
+                {
+                    SelectedNode.Nodes.Add(lineNode);
+                    SelectedNode.Expand();
+                }
+                else if (SelectedNode.TagIs(CommNodeType.Line))
+                {
+                    SelectedNode.Parent.Nodes.Insert(SelectedNode.Index + 1, lineNode);
+                }
+                else
+                {
+                    linesNode.Nodes.Add(lineNode);
+                }
+
+                ExplorerTree.SelectedNode = lineNode;
+                ApplyLineTreeChanges(linesNode, commApp);
             }
         }
 
         private void miLineMoveUp_Click(object sender, EventArgs e)
         {
-            // move up selected line
-            if (GetCommApp(out CommApp commApp, CommNodeType.Line))
+            // move up selected line within its container
+            if (GetCommApp(out CommApp commApp, CommNodeType.Line) &&
+                SelectedNode.PrevNode is TreeNode prevNode && prevNode.TagIs(CommNodeType.Line))
             {
-                ExplorerTree.MoveUpSelectedNode(TreeNodeBehavior.WithinParent);
-                SaveCommConfig(commApp);
+                MoveLineNode(SelectedNode, -1, commApp);
             }
         }
 
         private void miLineMoveDown_Click(object sender, EventArgs e)
         {
-            // move up selected line
-            if (GetCommApp(out CommApp commApp, CommNodeType.Line))
+            // move down selected line within its container
+            if (GetCommApp(out CommApp commApp, CommNodeType.Line) &&
+                SelectedNode.NextNode is TreeNode nextNode && nextNode.TagIs(CommNodeType.Line))
             {
-                ExplorerTree.MoveDownSelectedNode(TreeNodeBehavior.WithinParent);
-                SaveCommConfig(commApp);
+                MoveLineNode(SelectedNode, 1, commApp);
             }
+        }
+
+        /// <summary>
+        /// Moves a line node by the specified offset among its siblings and saves the configuration.
+        /// </summary>
+        private void MoveLineNode(TreeNode lineNode, int offset, CommApp commApp)
+        {
+            TreeNode parentNode = lineNode.Parent;
+            TreeNode linesNode = lineNode.FindClosest(CommNodeType.Lines);
+            int newIndex = lineNode.Index + offset;
+
+            try
+            {
+                ExplorerTree.BeginUpdate();
+                parentNode.Nodes.RemoveAt(lineNode.Index);
+                parentNode.Nodes.Insert(newIndex, lineNode);
+                ExplorerTree.SelectedNode = lineNode;
+            }
+            finally
+            {
+                ExplorerTree.EndUpdate();
+            }
+
+            ApplyLineTreeChanges(linesNode, commApp);
         }
 
         private void miLineDelete_Click(object sender, EventArgs e)
@@ -806,9 +1047,105 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
                 MessageBox.Show(ExtensionPhrases.ConfirmDeleteLine, CommonPhrases.QuestionCaption,
                     MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question) == DialogResult.Yes)
             {
-                adminContext.MainForm.CloseChildForms(SelectedNode, false);
-                ExplorerTree.RemoveSelectedNode();
-                SaveCommConfig(commApp);
+                TreeNode lineNode = SelectedNode;
+                TreeNode linesNode = lineNode.FindClosest(CommNodeType.Lines);
+                adminContext.MainForm.CloseChildForms(lineNode, false);
+                lineNode.Remove();
+                ApplyLineTreeChanges(linesNode, commApp);
+            }
+        }
+
+        private void miLineCreateFolder_Click(object sender, EventArgs e)
+        {
+            // create a folder for communication lines
+            if (GetCommApp(out CommApp commApp, CommNodeType.Lines, CommNodeType.Line, CommNodeType.LineFolder))
+            {
+                TreeNode linesNode = SelectedNode.FindClosest(CommNodeType.Lines);
+                string folderName = InputDialog.Show(ExtensionPhrases.CreateFolderTitle,
+                    ExtensionPhrases.FolderNamePrompt, ExtensionPhrases.NewFolderName);
+
+                if (string.IsNullOrEmpty(folderName))
+                    return;
+
+                if (FolderNodeExists(linesNode, folderName))
+                {
+                    ScadaUiUtils.ShowError(ExtensionPhrases.FolderAlreadyExists);
+                    return;
+                }
+
+                TreeNode folderNode = new TreeViewBuilder(adminContext, this)
+                    .CreateLineFolderNode(commApp, folderName);
+
+                // place the new folder after the existing folders, before the root lines
+                int insertIndex = 0;
+                foreach (TreeNode child in linesNode.Nodes)
+                {
+                    if (child.TagIs(CommNodeType.LineFolder))
+                        insertIndex = child.Index + 1;
+                    else
+                        break;
+                }
+
+                linesNode.Nodes.Insert(insertIndex, folderNode);
+                ExplorerTree.SelectedNode = folderNode;
+                ApplyLineTreeChanges(linesNode, commApp);
+            }
+        }
+
+        private void miLineRenameFolder_Click(object sender, EventArgs e)
+        {
+            // rename the selected folder
+            if (GetCommApp(out CommApp commApp, CommNodeType.LineFolder))
+            {
+                TreeNode folderNode = SelectedNode;
+                TreeNode linesNode = folderNode.FindClosest(CommNodeType.Lines);
+                string oldName = folderNode.GetRelatedObject() as string ?? folderNode.Text;
+                string newName = InputDialog.Show(ExtensionPhrases.RenameFolderTitle,
+                    ExtensionPhrases.FolderNamePrompt, oldName);
+
+                if (string.IsNullOrEmpty(newName) || newName == oldName)
+                    return;
+
+                if (FolderNodeExists(linesNode, newName))
+                {
+                    ScadaUiUtils.ShowError(ExtensionPhrases.FolderAlreadyExists);
+                    return;
+                }
+
+                folderNode.Text = newName;
+                folderNode.Tag = new CommNodeTag(commApp, newName, CommNodeType.LineFolder);
+                ApplyLineTreeChanges(linesNode, commApp);
+            }
+        }
+
+        private void miLineDeleteFolder_Click(object sender, EventArgs e)
+        {
+            // delete the selected folder, moving its lines to the root
+            if (GetCommApp(out CommApp commApp, CommNodeType.LineFolder) &&
+                MessageBox.Show(ExtensionPhrases.ConfirmDeleteFolder, CommonPhrases.QuestionCaption,
+                    MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question) == DialogResult.Yes)
+            {
+                TreeNode folderNode = SelectedNode;
+                TreeNode linesNode = folderNode.FindClosest(CommNodeType.Lines);
+
+                try
+                {
+                    ExplorerTree.BeginUpdate();
+
+                    foreach (TreeNode lineNode in new ArrayList(folderNode.Nodes))
+                    {
+                        lineNode.Remove();
+                        linesNode.Nodes.Add(lineNode);
+                    }
+
+                    folderNode.Remove();
+                }
+                finally
+                {
+                    ExplorerTree.EndUpdate();
+                }
+
+                ApplyLineTreeChanges(linesNode, commApp);
             }
         }
 
