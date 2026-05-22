@@ -36,6 +36,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         private TreeNode selectionAnchor;             // the anchor node for range selection
         private TreeNode pendingSingleNode;               // a node to select alone if no dragging occurs
         private bool treeEventsWired;                     // the explorer tree events are attached
+        private DateTime lastDragScrollUtc;               // the time of the last auto-scroll during a drag
 
 
         /// <summary>
@@ -566,12 +567,40 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             if (selectedNodes.Count == 0)
                 return;
 
-            TreeNode target = ExplorerTree.GetNodeAt(ExplorerTree.PointToClient(new Point(e.X, e.Y)));
+            Point point = ExplorerTree.PointToClient(new Point(e.X, e.Y));
+            AutoScrollDuringDrag(point);
+            TreeNode target = ExplorerTree.GetNodeAt(point);
 
             if (IsReorderableNode(target) &&
                 target.Parent == SelectedNodesParent && !selectedNodes.Contains(target))
             {
                 e.Effect = DragDropEffects.Move;
+            }
+        }
+
+        /// <summary>
+        /// Scrolls the explorer tree when the dragged cursor approaches its top or bottom edge.
+        /// </summary>
+        private void AutoScrollDuringDrag(Point clientPoint)
+        {
+            const int EdgeZone = 24;       // distance from the edge that triggers scrolling
+            const int ScrollDelayMs = 50;  // minimum interval between scroll steps
+
+            if ((DateTime.UtcNow - lastDragScrollUtc).TotalMilliseconds < ScrollDelayMs)
+                return;
+
+            TreeNode topNode = ExplorerTree.TopNode;
+
+            if (clientPoint.Y < EdgeZone && topNode?.PrevVisibleNode is TreeNode prevNode)
+            {
+                ExplorerTree.TopNode = prevNode;
+                lastDragScrollUtc = DateTime.UtcNow;
+            }
+            else if (clientPoint.Y > ExplorerTree.ClientSize.Height - EdgeZone &&
+                topNode?.NextVisibleNode is TreeNode nextNode)
+            {
+                ExplorerTree.TopNode = nextNode;
+                lastDragScrollUtc = DateTime.UtcNow;
             }
         }
 
