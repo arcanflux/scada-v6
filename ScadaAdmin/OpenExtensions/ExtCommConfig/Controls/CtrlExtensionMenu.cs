@@ -32,8 +32,8 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         private readonly IAdminContext adminContext;      // the Administrator context
         private readonly RecentSelection recentSelection; // the recently selected objects
 
-        private readonly HashSet<TreeNode> selectedLineNodes; // the line nodes selected together
-        private TreeNode lineSelectionAnchor;             // the anchor node for range selection
+        private readonly HashSet<TreeNode> selectedNodes; // the line or device nodes selected together
+        private TreeNode selectionAnchor;             // the anchor node for range selection
         private TreeNode pendingSingleNode;               // a node to select alone if no dragging occurs
         private bool treeEventsWired;                     // the explorer tree events are attached
 
@@ -54,8 +54,8 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         {
             this.adminContext = adminContext ?? throw new ArgumentNullException(nameof(adminContext));
             recentSelection = new RecentSelection();
-            selectedLineNodes = new HashSet<TreeNode>();
-            lineSelectionAnchor = null;
+            selectedNodes = new HashSet<TreeNode>();
+            selectionAnchor = null;
             pendingSingleNode = null;
             treeEventsWired = false;
 
@@ -199,7 +199,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         {
             SetMenuItemsEnabled();
             recentSelection.Reset();
-            ClearLineSelection();
+            ClearNodeSelection();
         }
 
         private void AdminContext_MessageToExtension(object sender, MessageEventArgs e)
@@ -321,14 +321,22 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         }
 
         /// <summary>
-        /// Gets the parent node shared by the currently multi-selected line nodes.
+        /// Gets the parent node shared by the currently multi-selected nodes.
         /// </summary>
-        private TreeNode SelectedLinesParent => selectedLineNodes.Count > 0
-            ? selectedLineNodes.First().Parent
+        private TreeNode SelectedNodesParent => selectedNodes.Count > 0
+            ? selectedNodes.First().Parent
             : null;
 
         /// <summary>
-        /// Sets or clears the highlight of the specified line node.
+        /// Checks whether the node represents a communication line or a device that can be reordered.
+        /// </summary>
+        private static bool IsReorderableNode(TreeNode node)
+        {
+            return node != null && (node.TagIs(CommNodeType.Line) || node.TagIs(CommNodeType.Device));
+        }
+
+        /// <summary>
+        /// Sets or clears the highlight of the specified node.
         /// </summary>
         private static void SetNodeHighlight(TreeNode node, bool highlight)
         {
@@ -337,81 +345,119 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         }
 
         /// <summary>
-        /// Highlights the selected line nodes only when more than one node is selected.
+        /// Highlights the selected nodes only when more than one node is selected.
         /// </summary>
-        private void RefreshLineHighlight()
+        private void RefreshNodeHighlight()
         {
-            bool highlight = selectedLineNodes.Count > 1;
+            bool highlight = selectedNodes.Count > 1;
 
-            foreach (TreeNode node in selectedLineNodes)
+            foreach (TreeNode node in selectedNodes)
                 SetNodeHighlight(node, highlight);
         }
 
         /// <summary>
-        /// Adds the specified line node to the selection.
+        /// Adds the specified node to the selection.
         /// </summary>
-        private void AddLineSelection(TreeNode node)
+        private void AddNodeSelection(TreeNode node)
         {
-            if (node != null && selectedLineNodes.Add(node))
-                RefreshLineHighlight();
+            if (node != null && selectedNodes.Add(node))
+                RefreshNodeHighlight();
         }
 
         /// <summary>
-        /// Excludes the specified line node from the selection.
+        /// Excludes the specified node from the selection.
         /// </summary>
-        private void RemoveLineSelection(TreeNode node)
+        private void RemoveNodeSelection(TreeNode node)
         {
-            if (node != null && selectedLineNodes.Remove(node))
+            if (node != null && selectedNodes.Remove(node))
             {
                 SetNodeHighlight(node, false);
-                RefreshLineHighlight();
+                RefreshNodeHighlight();
             }
         }
 
         /// <summary>
-        /// Adds or removes the specified line node from the selection.
+        /// Adds or removes the specified node from the selection.
         /// </summary>
-        private void ToggleLineSelection(TreeNode node)
+        private void ToggleNodeSelection(TreeNode node)
         {
-            if (selectedLineNodes.Contains(node))
-                RemoveLineSelection(node);
+            if (selectedNodes.Contains(node))
+                RemoveNodeSelection(node);
             else
-                AddLineSelection(node);
+                AddNodeSelection(node);
         }
 
         /// <summary>
-        /// Clears the multiple selection of line nodes.
+        /// Gets the reorderable list and the tree index of its first node for the specified parent node.
         /// </summary>
-        private void ClearLineSelection()
+        private static bool GetReorderList(TreeNode parentNode, out IList itemList, out int firstNodeIndex)
         {
-            foreach (TreeNode node in selectedLineNodes)
+            itemList = null;
+            firstNodeIndex = 0;
+
+            if (parentNode.TagIs(CommNodeType.Lines) && parentNode.GetRelatedObject() is CommConfig commConfig)
+            {
+                itemList = commConfig.Lines;
+                firstNodeIndex = FirstChildIndex(parentNode, CommNodeType.Line);
+                return true;
+            }
+            else if (parentNode.TagIs(CommNodeType.Line) && parentNode.GetRelatedObject() is LineConfig lineConfig)
+            {
+                itemList = lineConfig.DevicePolling;
+                firstNodeIndex = FirstChildIndex(parentNode, CommNodeType.Device);
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Gets the index of the first child node of the specified type, or zero if none is found.
+        /// </summary>
+        private static int FirstChildIndex(TreeNode parentNode, string nodeType)
+        {
+            foreach (TreeNode child in parentNode.Nodes)
+            {
+                if (child.TagIs(nodeType))
+                    return child.Index;
+            }
+
+            return 0;
+        }
+
+        /// <summary>
+        /// Clears the multiple selection of nodes.
+        /// </summary>
+        private void ClearNodeSelection()
+        {
+            foreach (TreeNode node in selectedNodes)
                 SetNodeHighlight(node, false);
 
-            selectedLineNodes.Clear();
-            lineSelectionAnchor = null;
+            selectedNodes.Clear();
+            selectionAnchor = null;
             pendingSingleNode = null;
         }
 
         /// <summary>
-        /// Selects all line nodes between the two specified sibling nodes, inclusive.
+        /// Selects all reorderable nodes between the two specified sibling nodes, inclusive.
         /// </summary>
-        private void SelectLineRange(TreeNode fromNode, TreeNode toNode)
+        private void SelectNodeRange(TreeNode fromNode, TreeNode toNode)
         {
             if (fromNode == null || toNode == null || fromNode.Parent != toNode.Parent)
                 return;
 
-            ClearLineSelection();
+            ClearNodeSelection();
             int loIndex = Math.Min(fromNode.Index, toNode.Index);
             int hiIndex = Math.Max(fromNode.Index, toNode.Index);
             TreeNodeCollection siblings = fromNode.Parent.Nodes;
 
             for (int i = loIndex; i <= hiIndex; i++)
             {
-                if (siblings[i].TagIs(CommNodeType.Line))
-                    AddLineSelection(siblings[i]);
+                if (IsReorderableNode(siblings[i]))
+                    AddNodeSelection(siblings[i]);
             }
 
-            lineSelectionAnchor = fromNode;
+            selectionAnchor = fromNode;
         }
 
 
@@ -423,9 +469,9 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             pendingSingleNode = null;
             TreeNode node = ExplorerTree.GetNodeAt(e.Location);
 
-            if (node == null || !node.TagIs(CommNodeType.Line))
+            if (!IsReorderableNode(node))
             {
-                ClearLineSelection();
+                ClearNodeSelection();
                 return;
             }
 
@@ -434,27 +480,27 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
 
             if (ctrlPressed)
             {
-                if (SelectedLinesParent != null && SelectedLinesParent != node.Parent)
-                    ClearLineSelection();
+                if (SelectedNodesParent != null && SelectedNodesParent != node.Parent)
+                    ClearNodeSelection();
 
-                ToggleLineSelection(node);
-                lineSelectionAnchor = node;
+                ToggleNodeSelection(node);
+                selectionAnchor = node;
             }
-            else if (shiftPressed && lineSelectionAnchor != null && lineSelectionAnchor.Parent == node.Parent)
+            else if (shiftPressed && selectionAnchor != null && selectionAnchor.Parent == node.Parent)
             {
-                SelectLineRange(lineSelectionAnchor, node);
+                SelectNodeRange(selectionAnchor, node);
             }
-            else if (selectedLineNodes.Contains(node) && selectedLineNodes.Count > 1)
+            else if (selectedNodes.Contains(node) && selectedNodes.Count > 1)
             {
                 // keep the group so it can be dragged; collapse to a single node on mouse up if not dragged
                 pendingSingleNode = node;
-                lineSelectionAnchor = node;
+                selectionAnchor = node;
             }
             else
             {
-                ClearLineSelection();
-                AddLineSelection(node);
-                lineSelectionAnchor = node;
+                ClearNodeSelection();
+                AddNodeSelection(node);
+                selectionAnchor = node;
             }
         }
 
@@ -463,9 +509,9 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             if (e.Button == MouseButtons.Left && pendingSingleNode != null)
             {
                 TreeNode node = pendingSingleNode;
-                ClearLineSelection();
-                AddLineSelection(node);
-                lineSelectionAnchor = node;
+                ClearNodeSelection();
+                AddNodeSelection(node);
+                selectionAnchor = node;
             }
 
             pendingSingleNode = null;
@@ -474,35 +520,35 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         private void ExplorerTree_KeyDown(object sender, KeyEventArgs e)
         {
             // keyboard navigation collapses the multiple selection
-            if (selectedLineNodes.Count > 1 &&
+            if (selectedNodes.Count > 1 &&
                 (e.KeyCode == Keys.Up || e.KeyCode == Keys.Down ||
                 e.KeyCode == Keys.Left || e.KeyCode == Keys.Right ||
                 e.KeyCode == Keys.Home || e.KeyCode == Keys.End))
             {
-                ClearLineSelection();
+                ClearNodeSelection();
             }
         }
 
         private void ExplorerTree_AfterSelect(object sender, TreeViewEventArgs e)
         {
-            // a selection moved away from the line nodes resets the multiple selection
-            if (e.Node == null || !e.Node.TagIs(CommNodeType.Line))
-                ClearLineSelection();
+            // a selection moved away from the reorderable nodes resets the multiple selection
+            if (!IsReorderableNode(e.Node))
+                ClearNodeSelection();
         }
 
         private void ExplorerTree_ItemDrag(object sender, ItemDragEventArgs e)
         {
-            if (e.Button != MouseButtons.Left || e.Item is not TreeNode node || !node.TagIs(CommNodeType.Line))
+            if (e.Button != MouseButtons.Left || e.Item is not TreeNode node || !IsReorderableNode(node))
                 return;
 
             // a drag is starting, so do not collapse the group selection
             pendingSingleNode = null;
 
-            if (!selectedLineNodes.Contains(node))
+            if (!selectedNodes.Contains(node))
             {
-                ClearLineSelection();
-                AddLineSelection(node);
-                lineSelectionAnchor = node;
+                ClearNodeSelection();
+                AddNodeSelection(node);
+                selectionAnchor = node;
             }
 
             ExplorerTree.DoDragDrop(node, DragDropEffects.Move);
@@ -517,13 +563,13 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         {
             e.Effect = DragDropEffects.None;
 
-            if (selectedLineNodes.Count == 0)
+            if (selectedNodes.Count == 0)
                 return;
 
             TreeNode target = ExplorerTree.GetNodeAt(ExplorerTree.PointToClient(new Point(e.X, e.Y)));
 
-            if (target != null && target.TagIs(CommNodeType.Line) &&
-                target.Parent == SelectedLinesParent && !selectedLineNodes.Contains(target))
+            if (IsReorderableNode(target) &&
+                target.Parent == SelectedNodesParent && !selectedNodes.Contains(target))
             {
                 e.Effect = DragDropEffects.Move;
             }
@@ -534,47 +580,46 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             Point point = ExplorerTree.PointToClient(new Point(e.X, e.Y));
             TreeNode target = ExplorerTree.GetNodeAt(point);
 
-            if (target == null || !target.TagIs(CommNodeType.Line) ||
-                target.Tag is not CommNodeTag targetTag ||
-                selectedLineNodes.Count == 0 || selectedLineNodes.Contains(target))
+            if (!IsReorderableNode(target) || target.Tag is not CommNodeTag targetTag ||
+                selectedNodes.Count == 0 || selectedNodes.Contains(target))
             {
                 return;
             }
 
             TreeNode parentNode = target.Parent;
-            List<TreeNode> draggedNodes = selectedLineNodes
+            List<TreeNode> draggedNodes = selectedNodes
                 .Where(n => n.Parent == parentNode)
                 .OrderBy(n => n.Index)
                 .ToList();
 
-            if (draggedNodes.Count == 0)
+            if (draggedNodes.Count == 0 || !GetReorderList(parentNode, out IList itemList, out int firstNodeIndex))
                 return;
 
             CommApp commApp = targetTag.CommApp;
-            IList lineList = commApp.AppConfig.Lines;
             bool insertAfter = point.Y > target.Bounds.Top + target.Bounds.Height / 2;
 
             try
             {
                 ExplorerTree.BeginUpdate();
-                List<LineConfig> draggedConfigs = draggedNodes
-                    .Select(n => (LineConfig)n.GetRelatedObject())
+                List<object> draggedItems = draggedNodes
+                    .Select(n => n.GetRelatedObject())
                     .ToList();
 
-                // remove the dragged lines from the tree and the configuration
+                // remove the dragged nodes from the tree and the configuration
                 foreach (TreeNode node in draggedNodes)
                     node.Remove();
 
-                foreach (LineConfig lineConfig in draggedConfigs)
-                    lineList.Remove(lineConfig);
+                foreach (object item in draggedItems)
+                    itemList.Remove(item);
 
-                // the target node keeps its identity, so its index reflects the new position
-                int insertIndex = target.Index + (insertAfter ? 1 : 0);
+                // the target node keeps its identity, so its index reflects the new position;
+                // the option nodes preceding the device nodes keep the list index offset constant
+                int insertNodeIndex = target.Index + (insertAfter ? 1 : 0);
 
                 for (int i = 0; i < draggedNodes.Count; i++)
                 {
-                    parentNode.Nodes.Insert(insertIndex + i, draggedNodes[i]);
-                    lineList.Insert(insertIndex + i, draggedConfigs[i]);
+                    parentNode.Nodes.Insert(insertNodeIndex + i, draggedNodes[i]);
+                    itemList.Insert(insertNodeIndex + i - firstNodeIndex, draggedItems[i]);
                 }
 
                 ExplorerTree.SelectedNode = draggedNodes[0];
@@ -583,6 +628,10 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             {
                 ExplorerTree.EndUpdate();
             }
+
+            // refresh the line configuration form that lists the reordered devices
+            if (target.TagIs(CommNodeType.Device))
+                RefreshLineConfigForm(parentNode);
 
             SaveCommConfig(commApp);
         }
