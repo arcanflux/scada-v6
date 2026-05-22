@@ -685,21 +685,10 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             int y = dropMarkerAfter ? bounds.Bottom : bounds.Top;
             int left = bounds.Left;
             int right = Math.Max(bounds.Right + 8, ExplorerTree.ClientSize.Width - 2);
-            const int half = 4; // half-height of the end arrows
 
             using Graphics graphics = ExplorerTree.CreateGraphics();
             using Pen pen = new(SystemColors.ControlText, 2);
-            using SolidBrush brush = new(SystemColors.ControlText);
-
-            graphics.DrawLine(pen, left + half, y, right - half, y);
-            graphics.FillPolygon(brush, new[]
-            {
-                new Point(left, y - half), new Point(left + half, y), new Point(left, y + half)
-            });
-            graphics.FillPolygon(brush, new[]
-            {
-                new Point(right, y - half), new Point(right - half, y), new Point(right, y + half)
-            });
+            graphics.DrawLine(pen, left, y, right, y);
         }
 
         private void ExplorerTree_DragLeave(object sender, EventArgs e)
