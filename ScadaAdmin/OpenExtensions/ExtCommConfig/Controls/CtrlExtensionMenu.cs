@@ -43,7 +43,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         private bool dropMarkerAfter;                     // the drop marker is below the node
         private bool dropMarkerShown;                     // the drop marker is currently visible
         private bool treeDoubleBuffered;                  // native double buffering is enabled for the tree
-        private ToolStripDropDown searchPopup;            // the dropdown listing search matches
+        private SearchPopupForm searchPopup;              // the popup listing live search matches
 
 
         /// <summary>
@@ -325,82 +325,124 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
 
         private void btnSearch_Click(object sender, EventArgs e)
         {
-            ShowSearchResults(txtSearch.Text);
+            UpdateSearchSuggestions();
+        }
+
+        private void txtSearch_TextChanged(object sender, EventArgs e)
+        {
+            UpdateSearchSuggestions();
+        }
+
+        private void txtSearch_Leave(object sender, EventArgs e)
+        {
+            HideSearchPopup();
         }
 
         private void txtSearch_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.KeyCode == Keys.Enter)
+            bool popupVisible = searchPopup != null && searchPopup.Visible && searchPopup.Count > 0;
+
+            switch (e.KeyCode)
             {
-                e.Handled = true;
-                e.SuppressKeyPress = true;
-                ShowSearchResults(txtSearch.Text);
+                case Keys.Down when popupVisible:
+                    searchPopup.MoveSelection(1);
+                    e.Handled = e.SuppressKeyPress = true;
+                    break;
+                case Keys.Up when popupVisible:
+                    searchPopup.MoveSelection(-1);
+                    e.Handled = e.SuppressKeyPress = true;
+                    break;
+                case Keys.Enter:
+                    if (popupVisible)
+                        searchPopup.ChooseSelected();
+                    else
+                        UpdateSearchSuggestions();
+                    e.Handled = e.SuppressKeyPress = true;
+                    break;
+                case Keys.Escape when popupVisible:
+                    HideSearchPopup();
+                    e.Handled = e.SuppressKeyPress = true;
+                    break;
             }
         }
 
         /// <summary>
-        /// Shows a dropdown list of communication lines and devices whose name contains the query.
+        /// Rebuilds the live suggestion list of lines and devices whose name contains the query.
         /// </summary>
-        private void ShowSearchResults(string query)
+        private void UpdateSearchSuggestions()
         {
             const int MaxResults = 200;
+            string query = txtSearch.Text;
 
             if (string.IsNullOrWhiteSpace(query) || ExplorerTree is not TreeView tree)
+            {
+                HideSearchPopup();
                 return;
+            }
 
             query = query.Trim();
-            List<TreeNode> matches = new();
+            List<SearchPopupForm.Entry> entries = new();
 
             foreach (TreeNode node in tree.Nodes.IterateNodes())
             {
                 if (NodeMatchesSearch(node, query))
-                    matches.Add(node);
+                {
+                    bool isLine = node.GetRelatedObject() is LineConfig;
+                    entries.Add(new SearchPopupForm.Entry
+                    {
+                        Node = node,
+                        Image = isLine ? Resources.line : Resources.device,
+                        Text = $"{node.Text} - {(isLine ? ExtensionPhrases.LineKind : ExtensionPhrases.DeviceKind)}"
+                    });
+
+                    if (entries.Count >= MaxResults)
+                        break;
+                }
             }
 
-            if (matches.Count == 0)
+            if (entries.Count == 0)
             {
-                ScadaUiUtils.ShowInfo(ExtensionPhrases.NothingFound);
+                HideSearchPopup();
                 return;
             }
 
             EnsureSearchPopup();
-            searchPopup.Items.Clear();
+            searchPopup.SetEntries(entries);
 
-            foreach (TreeNode node in matches.Take(MaxResults))
-            {
-                bool isLine = node.GetRelatedObject() is LineConfig;
-                string kind = isLine ? ExtensionPhrases.LineKind : ExtensionPhrases.DeviceKind;
-                Image image = isLine ? Resources.line : Resources.device;
-
-                ToolStripMenuItem item = new($"{node.Text} — {kind}", image) { Tag = node };
-                item.Click += SearchResultItem_Click;
-                searchPopup.Items.Add(item);
-            }
-
-            // show the dropdown right below the search box
             if (txtSearch.Owner != null)
             {
                 Point location = txtSearch.Owner.PointToScreen(
                     new Point(txtSearch.Bounds.Left, txtSearch.Bounds.Bottom));
-                searchPopup.Show(location);
+                searchPopup.ShowAt(location, Math.Max(txtSearch.Width + 40, 280));
             }
         }
 
         /// <summary>
-        /// Creates the search results dropdown if it does not exist yet.
+        /// Creates the suggestion popup if it does not exist yet.
         /// </summary>
         private void EnsureSearchPopup()
         {
-            searchPopup ??= new ToolStripDropDown
+            if (searchPopup == null)
             {
-                AutoClose = true,
-                DropShadowEnabled = true
-            };
+                searchPopup = new SearchPopupForm();
+                searchPopup.ItemChosen += SearchPopup_ItemChosen;
+            }
         }
 
-        private void SearchResultItem_Click(object sender, EventArgs e)
+        /// <summary>
+        /// Hides the suggestion popup if it is shown.
+        /// </summary>
+        private void HideSearchPopup()
         {
-            if (sender is ToolStripMenuItem item && item.Tag is TreeNode node && ExplorerTree is TreeView tree)
+            if (searchPopup != null && searchPopup.Visible)
+                searchPopup.Hide();
+        }
+
+        private void SearchPopup_ItemChosen(object sender, TreeNode node)
+        {
+            HideSearchPopup();
+
+            if (ExplorerTree is TreeView tree && node != null)
             {
                 tree.SelectedNode = node;
                 node.EnsureVisible();

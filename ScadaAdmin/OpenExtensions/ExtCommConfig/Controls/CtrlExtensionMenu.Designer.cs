@@ -14,9 +14,10 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
         protected override void Dispose(bool disposing)
         {
-            if (disposing && (components != null))
+            if (disposing)
             {
-                components.Dispose();
+                components?.Dispose();
+                searchPopup?.Dispose();
             }
             base.Dispose(disposing);
         }
@@ -342,6 +343,8 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             this.txtSearch.Size = new System.Drawing.Size(150, 25);
             this.txtSearch.ToolTipText = "Search lines and devices by name";
             this.txtSearch.KeyDown += new System.Windows.Forms.KeyEventHandler(this.txtSearch_KeyDown);
+            this.txtSearch.TextChanged += new System.EventHandler(this.txtSearch_TextChanged);
+            this.txtSearch.Leave += new System.EventHandler(this.txtSearch_Leave);
             //
             // btnSearch
             //
