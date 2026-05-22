@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using WinControls;
 
@@ -40,6 +41,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         private TreeNode dropMarkerNode;                  // the node next to which the drop marker is drawn
         private bool dropMarkerAfter;                     // the drop marker is below the node
         private bool dropMarkerShown;                     // the drop marker is currently visible
+        private bool treeDoubleBuffered;                  // native double buffering is enabled for the tree
 
 
         /// <summary>
@@ -579,6 +581,9 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             if (e.Button != MouseButtons.Left || e.Item is not TreeNode node || !IsReorderableNode(node))
                 return;
 
+            // remove flicker of the insertion marker and auto-scroll during the drag
+            EnableTreeDoubleBuffering();
+
             // a drag is starting, so do not collapse the group selection
             pendingSingleNode = null;
 
@@ -700,6 +705,25 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         private void ExplorerTree_DragLeave(object sender, EventArgs e)
         {
             ClearDropMarker();
+        }
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+        /// <summary>
+        /// Enables native double buffering for the explorer tree to remove flicker during a drag.
+        /// </summary>
+        private void EnableTreeDoubleBuffering()
+        {
+            const int TVM_SETEXTENDEDSTYLE = 0x112C;
+            const int TVS_EX_DOUBLEBUFFER = 0x0004;
+
+            if (!treeDoubleBuffered && ExplorerTree.IsHandleCreated)
+            {
+                SendMessage(ExplorerTree.Handle, TVM_SETEXTENDEDSTYLE,
+                    (IntPtr)TVS_EX_DOUBLEBUFFER, (IntPtr)TVS_EX_DOUBLEBUFFER);
+                treeDoubleBuffered = true;
+            }
         }
 
         /// <summary>
