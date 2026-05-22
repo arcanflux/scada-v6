@@ -344,7 +344,6 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             this.txtSearch.ToolTipText = "Search lines and devices by name";
             this.txtSearch.KeyDown += new System.Windows.Forms.KeyEventHandler(this.txtSearch_KeyDown);
             this.txtSearch.TextChanged += new System.EventHandler(this.txtSearch_TextChanged);
-            this.txtSearch.Leave += new System.EventHandler(this.txtSearch_Leave);
             //
             // btnSearch
             //

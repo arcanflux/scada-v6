@@ -333,11 +333,6 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             UpdateSearchSuggestions();
         }
 
-        private void txtSearch_Leave(object sender, EventArgs e)
-        {
-            HideSearchPopup();
-        }
-
         private void txtSearch_KeyDown(object sender, KeyEventArgs e)
         {
             bool popupVisible = searchPopup != null && searchPopup.Visible && searchPopup.Count > 0;
@@ -414,6 +409,9 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
                 Point location = txtSearch.Owner.PointToScreen(
                     new Point(txtSearch.Bounds.Left, txtSearch.Bounds.Bottom));
                 searchPopup.ShowAt(location, Math.Max(txtSearch.Width + 40, 280));
+
+                // keep the caret in the search box so the user can continue typing
+                txtSearch.TextBox?.Focus();
             }
         }
 
@@ -493,6 +491,8 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             tree.MouseUp += ExplorerTree_MouseUp;
             tree.KeyDown += ExplorerTree_KeyDown;
             tree.AfterSelect += ExplorerTree_AfterSelect;
+            tree.Enter += (s, e) => HideSearchPopup();
+            tree.MouseDown += (s, e) => HideSearchPopup();
             treeEventsWired = true;
         }
 
