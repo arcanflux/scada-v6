@@ -13,7 +13,10 @@ using Scada.Data.Models;
 using Scada.Forms;
 using Scada.Lang;
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using WinControls;
@@ -28,6 +31,11 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
     {
         private readonly IAdminContext adminContext;      // the Administrator context
         private readonly RecentSelection recentSelection; // the recently selected objects
+
+        private readonly HashSet<TreeNode> selectedLineNodes; // the line nodes selected together
+        private TreeNode lineSelectionAnchor;             // the anchor node for range selection
+        private TreeNode pendingSingleNode;               // a node to select alone if no dragging occurs
+        private bool treeEventsWired;                     // the explorer tree events are attached
 
 
         /// <summary>
@@ -46,8 +54,13 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         {
             this.adminContext = adminContext ?? throw new ArgumentNullException(nameof(adminContext));
             recentSelection = new RecentSelection();
+            selectedLineNodes = new HashSet<TreeNode>();
+            lineSelectionAnchor = null;
+            pendingSingleNode = null;
+            treeEventsWired = false;
 
             SetMenuItemsEnabled();
+            WireExplorerTreeEvents();
             adminContext.CurrentProjectChanged += AdminContext_CurrentProjectChanged;
             adminContext.MessageToExtension += AdminContext_MessageToExtension;
         }
@@ -186,6 +199,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         {
             SetMenuItemsEnabled();
             recentSelection.Reset();
+            ClearLineSelection();
         }
 
         private void AdminContext_MessageToExtension(object sender, MessageEventArgs e)
@@ -285,6 +299,293 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             }
         }
 
+
+        /// <summary>
+        /// Attaches drag-and-drop and multiple selection handlers to the explorer tree.
+        /// </summary>
+        private void WireExplorerTreeEvents()
+        {
+            if (treeEventsWired || ExplorerTree is not TreeView tree)
+                return;
+
+            tree.AllowDrop = true;
+            tree.ItemDrag += ExplorerTree_ItemDrag;
+            tree.DragEnter += ExplorerTree_DragEnter;
+            tree.DragOver += ExplorerTree_DragOver;
+            tree.DragDrop += ExplorerTree_DragDrop;
+            tree.MouseDown += ExplorerTree_MouseDown;
+            tree.MouseUp += ExplorerTree_MouseUp;
+            tree.KeyDown += ExplorerTree_KeyDown;
+            tree.AfterSelect += ExplorerTree_AfterSelect;
+            treeEventsWired = true;
+        }
+
+        /// <summary>
+        /// Gets the parent node shared by the currently multi-selected line nodes.
+        /// </summary>
+        private TreeNode SelectedLinesParent => selectedLineNodes.Count > 0
+            ? selectedLineNodes.First().Parent
+            : null;
+
+        /// <summary>
+        /// Sets or clears the highlight of the specified line node.
+        /// </summary>
+        private static void SetNodeHighlight(TreeNode node, bool highlight)
+        {
+            node.BackColor = highlight ? SystemColors.Highlight : Color.Empty;
+            node.ForeColor = highlight ? SystemColors.HighlightText : Color.Empty;
+        }
+
+        /// <summary>
+        /// Highlights the selected line nodes only when more than one node is selected.
+        /// </summary>
+        private void RefreshLineHighlight()
+        {
+            bool highlight = selectedLineNodes.Count > 1;
+
+            foreach (TreeNode node in selectedLineNodes)
+                SetNodeHighlight(node, highlight);
+        }
+
+        /// <summary>
+        /// Adds the specified line node to the selection.
+        /// </summary>
+        private void AddLineSelection(TreeNode node)
+        {
+            if (node != null && selectedLineNodes.Add(node))
+                RefreshLineHighlight();
+        }
+
+        /// <summary>
+        /// Excludes the specified line node from the selection.
+        /// </summary>
+        private void RemoveLineSelection(TreeNode node)
+        {
+            if (node != null && selectedLineNodes.Remove(node))
+            {
+                SetNodeHighlight(node, false);
+                RefreshLineHighlight();
+            }
+        }
+
+        /// <summary>
+        /// Adds or removes the specified line node from the selection.
+        /// </summary>
+        private void ToggleLineSelection(TreeNode node)
+        {
+            if (selectedLineNodes.Contains(node))
+                RemoveLineSelection(node);
+            else
+                AddLineSelection(node);
+        }
+
+        /// <summary>
+        /// Clears the multiple selection of line nodes.
+        /// </summary>
+        private void ClearLineSelection()
+        {
+            foreach (TreeNode node in selectedLineNodes)
+                SetNodeHighlight(node, false);
+
+            selectedLineNodes.Clear();
+            lineSelectionAnchor = null;
+            pendingSingleNode = null;
+        }
+
+        /// <summary>
+        /// Selects all line nodes between the two specified sibling nodes, inclusive.
+        /// </summary>
+        private void SelectLineRange(TreeNode fromNode, TreeNode toNode)
+        {
+            if (fromNode == null || toNode == null || fromNode.Parent != toNode.Parent)
+                return;
+
+            ClearLineSelection();
+            int loIndex = Math.Min(fromNode.Index, toNode.Index);
+            int hiIndex = Math.Max(fromNode.Index, toNode.Index);
+            TreeNodeCollection siblings = fromNode.Parent.Nodes;
+
+            for (int i = loIndex; i <= hiIndex; i++)
+            {
+                if (siblings[i].TagIs(CommNodeType.Line))
+                    AddLineSelection(siblings[i]);
+            }
+
+            lineSelectionAnchor = fromNode;
+        }
+
+
+        private void ExplorerTree_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left)
+                return;
+
+            pendingSingleNode = null;
+            TreeNode node = ExplorerTree.GetNodeAt(e.Location);
+
+            if (node == null || !node.TagIs(CommNodeType.Line))
+            {
+                ClearLineSelection();
+                return;
+            }
+
+            bool ctrlPressed = (Control.ModifierKeys & Keys.Control) == Keys.Control;
+            bool shiftPressed = (Control.ModifierKeys & Keys.Shift) == Keys.Shift;
+
+            if (ctrlPressed)
+            {
+                if (SelectedLinesParent != null && SelectedLinesParent != node.Parent)
+                    ClearLineSelection();
+
+                ToggleLineSelection(node);
+                lineSelectionAnchor = node;
+            }
+            else if (shiftPressed && lineSelectionAnchor != null && lineSelectionAnchor.Parent == node.Parent)
+            {
+                SelectLineRange(lineSelectionAnchor, node);
+            }
+            else if (selectedLineNodes.Contains(node) && selectedLineNodes.Count > 1)
+            {
+                // keep the group so it can be dragged; collapse to a single node on mouse up if not dragged
+                pendingSingleNode = node;
+                lineSelectionAnchor = node;
+            }
+            else
+            {
+                ClearLineSelection();
+                AddLineSelection(node);
+                lineSelectionAnchor = node;
+            }
+        }
+
+        private void ExplorerTree_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left && pendingSingleNode != null)
+            {
+                TreeNode node = pendingSingleNode;
+                ClearLineSelection();
+                AddLineSelection(node);
+                lineSelectionAnchor = node;
+            }
+
+            pendingSingleNode = null;
+        }
+
+        private void ExplorerTree_KeyDown(object sender, KeyEventArgs e)
+        {
+            // keyboard navigation collapses the multiple selection
+            if (selectedLineNodes.Count > 1 &&
+                (e.KeyCode == Keys.Up || e.KeyCode == Keys.Down ||
+                e.KeyCode == Keys.Left || e.KeyCode == Keys.Right ||
+                e.KeyCode == Keys.Home || e.KeyCode == Keys.End))
+            {
+                ClearLineSelection();
+            }
+        }
+
+        private void ExplorerTree_AfterSelect(object sender, TreeViewEventArgs e)
+        {
+            // a selection moved away from the line nodes resets the multiple selection
+            if (e.Node == null || !e.Node.TagIs(CommNodeType.Line))
+                ClearLineSelection();
+        }
+
+        private void ExplorerTree_ItemDrag(object sender, ItemDragEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left || e.Item is not TreeNode node || !node.TagIs(CommNodeType.Line))
+                return;
+
+            // a drag is starting, so do not collapse the group selection
+            pendingSingleNode = null;
+
+            if (!selectedLineNodes.Contains(node))
+            {
+                ClearLineSelection();
+                AddLineSelection(node);
+                lineSelectionAnchor = node;
+            }
+
+            ExplorerTree.DoDragDrop(node, DragDropEffects.Move);
+        }
+
+        private void ExplorerTree_DragEnter(object sender, DragEventArgs e)
+        {
+            e.Effect = e.Data.GetDataPresent(typeof(TreeNode)) ? DragDropEffects.Move : DragDropEffects.None;
+        }
+
+        private void ExplorerTree_DragOver(object sender, DragEventArgs e)
+        {
+            e.Effect = DragDropEffects.None;
+
+            if (selectedLineNodes.Count == 0)
+                return;
+
+            TreeNode target = ExplorerTree.GetNodeAt(ExplorerTree.PointToClient(new Point(e.X, e.Y)));
+
+            if (target != null && target.TagIs(CommNodeType.Line) &&
+                target.Parent == SelectedLinesParent && !selectedLineNodes.Contains(target))
+            {
+                e.Effect = DragDropEffects.Move;
+            }
+        }
+
+        private void ExplorerTree_DragDrop(object sender, DragEventArgs e)
+        {
+            Point point = ExplorerTree.PointToClient(new Point(e.X, e.Y));
+            TreeNode target = ExplorerTree.GetNodeAt(point);
+
+            if (target == null || !target.TagIs(CommNodeType.Line) ||
+                target.Tag is not CommNodeTag targetTag ||
+                selectedLineNodes.Count == 0 || selectedLineNodes.Contains(target))
+            {
+                return;
+            }
+
+            TreeNode parentNode = target.Parent;
+            List<TreeNode> draggedNodes = selectedLineNodes
+                .Where(n => n.Parent == parentNode)
+                .OrderBy(n => n.Index)
+                .ToList();
+
+            if (draggedNodes.Count == 0)
+                return;
+
+            CommApp commApp = targetTag.CommApp;
+            IList lineList = commApp.AppConfig.Lines;
+            bool insertAfter = point.Y > target.Bounds.Top + target.Bounds.Height / 2;
+
+            try
+            {
+                ExplorerTree.BeginUpdate();
+                List<LineConfig> draggedConfigs = draggedNodes
+                    .Select(n => (LineConfig)n.GetRelatedObject())
+                    .ToList();
+
+                // remove the dragged lines from the tree and the configuration
+                foreach (TreeNode node in draggedNodes)
+                    node.Remove();
+
+                foreach (LineConfig lineConfig in draggedConfigs)
+                    lineList.Remove(lineConfig);
+
+                // the target node keeps its identity, so its index reflects the new position
+                int insertIndex = target.Index + (insertAfter ? 1 : 0);
+
+                for (int i = 0; i < draggedNodes.Count; i++)
+                {
+                    parentNode.Nodes.Insert(insertIndex + i, draggedNodes[i]);
+                    lineList.Insert(insertIndex + i, draggedConfigs[i]);
+                }
+
+                ExplorerTree.SelectedNode = draggedNodes[0];
+            }
+            finally
+            {
+                ExplorerTree.EndUpdate();
+            }
+
+            SaveCommConfig(commApp);
+        }
 
         private void cmsLine_Opening(object sender, CancelEventArgs e)
         {
