@@ -40,6 +40,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Code
         public static string NewFolderName { get; private set; }
         public static string ConfirmDeleteFolder { get; private set; }
         public static string FolderAlreadyExists { get; private set; }
+        public static string NothingFound { get; private set; }
 
         // Scada.Admin.Extensions.ExtCommConfig.Controls.CtrlLineMain
         public static string UndefinedChannelType { get; private set; }
@@ -117,6 +118,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Code
             NewFolderName = dict["NewFolderName"];
             ConfirmDeleteFolder = dict["ConfirmDeleteFolder"];
             FolderAlreadyExists = dict["FolderAlreadyExists"];
+            NothingFound = dict["NothingFound"];
 
             dict = Locale.GetDictionary("Scada.Admin.Extensions.ExtCommConfig.Controls.CtrlLineMain");
             UndefinedChannelType = dict["UndefinedChannelType"];

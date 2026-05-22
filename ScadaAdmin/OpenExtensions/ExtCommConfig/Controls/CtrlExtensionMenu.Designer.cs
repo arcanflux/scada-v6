@@ -60,6 +60,9 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             this.btnAddLine = new System.Windows.Forms.ToolStripButton();
             this.btnAddDevice = new System.Windows.Forms.ToolStripButton();
             this.btnCreateChannels = new System.Windows.Forms.ToolStripButton();
+            this.tsSepSearch = new System.Windows.Forms.ToolStripSeparator();
+            this.txtSearch = new System.Windows.Forms.ToolStripTextBox();
+            this.btnSearch = new System.Windows.Forms.ToolStripButton();
             this.cmsLine.SuspendLayout();
             this.cmsDevice.SuspendLayout();
             this.menuStrip.SuspendLayout();
@@ -288,7 +291,10 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             this.toolStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.btnAddLine,
             this.btnAddDevice,
-            this.btnCreateChannels});
+            this.btnCreateChannels,
+            this.tsSepSearch,
+            this.txtSearch,
+            this.btnSearch});
             this.toolStrip.Location = new System.Drawing.Point(0, 24);
             this.toolStrip.Name = "toolStrip";
             this.toolStrip.Size = new System.Drawing.Size(150, 25);
@@ -324,9 +330,31 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             this.btnCreateChannels.Size = new System.Drawing.Size(23, 22);
             this.btnCreateChannels.ToolTipText = "Create Channels";
             this.btnCreateChannels.Click += new System.EventHandler(this.miCreateChannels_Click);
-            // 
+            //
+            // tsSepSearch
+            //
+            this.tsSepSearch.Name = "tsSepSearch";
+            this.tsSepSearch.Size = new System.Drawing.Size(6, 25);
+            //
+            // txtSearch
+            //
+            this.txtSearch.Name = "txtSearch";
+            this.txtSearch.Size = new System.Drawing.Size(150, 25);
+            this.txtSearch.ToolTipText = "Search lines and devices by name";
+            this.txtSearch.KeyDown += new System.Windows.Forms.KeyEventHandler(this.txtSearch_KeyDown);
+            //
+            // btnSearch
+            //
+            this.btnSearch.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+            this.btnSearch.Image = global::Scada.Admin.Extensions.ExtCommConfig.Properties.Resources._goto;
+            this.btnSearch.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.btnSearch.Name = "btnSearch";
+            this.btnSearch.Size = new System.Drawing.Size(23, 22);
+            this.btnSearch.ToolTipText = "Find";
+            this.btnSearch.Click += new System.EventHandler(this.btnSearch_Click);
+            //
             // CtrlExtensionMenu
-            // 
+            //
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.Controls.Add(this.toolStrip);
@@ -373,6 +401,9 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         private System.Windows.Forms.ToolStripButton btnAddLine;
         private System.Windows.Forms.ToolStripButton btnAddDevice;
         private System.Windows.Forms.ToolStripButton btnCreateChannels;
+        private System.Windows.Forms.ToolStripSeparator tsSepSearch;
+        private System.Windows.Forms.ToolStripTextBox txtSearch;
+        private System.Windows.Forms.ToolStripButton btnSearch;
         private System.Windows.Forms.ToolStripMenuItem miDevicePoll;
         private System.Windows.Forms.ToolStripMenuItem miDeviceChannels;
     }

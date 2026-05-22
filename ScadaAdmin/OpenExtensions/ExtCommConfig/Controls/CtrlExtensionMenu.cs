@@ -107,6 +107,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             miAddLine.Enabled = btnAddLine.Enabled = projectIsOpen;
             miAddDevice.Enabled = btnAddDevice.Enabled = projectIsOpen;
             miCreateChannels.Enabled = btnCreateChannels.Enabled = projectIsOpen;
+            txtSearch.Enabled = btnSearch.Enabled = projectIsOpen;
         }
 
         /// <summary>
@@ -197,7 +198,8 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         /// </summary>
         public ToolStripItem[] GetToobarButtons()
         {
-            return new ToolStripItem[] { btnAddLine, btnAddDevice, btnCreateChannels };
+            return new ToolStripItem[] { btnAddLine, btnAddDevice, btnCreateChannels,
+                tsSepSearch, txtSearch, btnSearch };
         }
 
 
@@ -319,6 +321,76 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             }
         }
 
+        private void btnSearch_Click(object sender, EventArgs e)
+        {
+            SearchTree(txtSearch.Text);
+        }
+
+        private void txtSearch_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                SearchTree(txtSearch.Text);
+            }
+        }
+
+        /// <summary>
+        /// Selects the next communication line or device whose name contains the query.
+        /// </summary>
+        private void SearchTree(string query)
+        {
+            if (string.IsNullOrWhiteSpace(query) || ExplorerTree is not TreeView tree)
+                return;
+
+            query = query.Trim();
+            List<TreeNode> matches = new();
+
+            foreach (TreeNode node in tree.Nodes.IterateNodes())
+            {
+                if (NodeMatchesSearch(node, query))
+                    matches.Add(node);
+            }
+
+            if (matches.Count == 0)
+            {
+                ScadaUiUtils.ShowInfo(ExtensionPhrases.NothingFound);
+                return;
+            }
+
+            // cycle to the next match relative to the current selection
+            int startIndex = tree.SelectedNode != null ? matches.IndexOf(tree.SelectedNode) : -1;
+            TreeNode nextNode = matches[(startIndex + 1) % matches.Count];
+            tree.SelectedNode = nextNode;
+            nextNode.EnsureVisible();
+            tree.Focus();
+        }
+
+        /// <summary>
+        /// Checks whether a line or device node matches the search query by name.
+        /// </summary>
+        private static bool NodeMatchesSearch(TreeNode node, string query)
+        {
+            switch (node.GetRelatedObject())
+            {
+                case LineConfig lineConfig:
+                    return ContainsText(lineConfig.Name, query) || ContainsText(lineConfig.Title, query);
+                case DeviceConfig deviceConfig:
+                    return ContainsText(deviceConfig.Name, query) || ContainsText(deviceConfig.Title, query);
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// Checks whether the text contains the query, ignoring case.
+        /// </summary>
+        private static bool ContainsText(string text, string query)
+        {
+            return !string.IsNullOrEmpty(text) && text.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
 
         /// <summary>
         /// Attaches drag-and-drop and multiple selection handlers to the explorer tree.
@@ -409,30 +481,6 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         }
 
         /// <summary>
-        /// Gets the reorderable list and the tree index of its first node for the specified parent node.
-        /// </summary>
-        private static bool GetReorderList(TreeNode parentNode, out IList itemList, out int firstNodeIndex)
-        {
-            itemList = null;
-            firstNodeIndex = 0;
-
-            if (parentNode.TagIs(CommNodeType.Lines) && parentNode.GetRelatedObject() is CommConfig commConfig)
-            {
-                itemList = commConfig.Lines;
-                firstNodeIndex = FirstChildIndex(parentNode, CommNodeType.Line);
-                return true;
-            }
-            else if (parentNode.TagIs(CommNodeType.Line) && parentNode.GetRelatedObject() is LineConfig lineConfig)
-            {
-                itemList = lineConfig.DevicePolling;
-                firstNodeIndex = FirstChildIndex(parentNode, CommNodeType.Device);
-                return true;
-            }
-
-            return false;
-        }
-
-        /// <summary>
         /// Gets the number of leading non-device child nodes (line option nodes) of a line node,
         /// which equals the tree index where device nodes begin.
         /// </summary>
@@ -449,20 +497,6 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             }
 
             return offset;
-        }
-
-        /// <summary>
-        /// Gets the index of the first child node of the specified type, or zero if none is found.
-        /// </summary>
-        private static int FirstChildIndex(TreeNode parentNode, string nodeType)
-        {
-            foreach (TreeNode child in parentNode.Nodes)
-            {
-                if (child.TagIs(nodeType))
-                    return child.Index;
-            }
-
-            return 0;
         }
 
         /// <summary>
@@ -615,21 +649,19 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
 
             if (DraggingDevices())
             {
-                // a device can only be reordered within its line
-                if (target != null && target.TagIs(CommNodeType.Device) &&
-                    target.Parent == SelectedNodesParent && !selectedNodes.Contains(target))
-                {
+                // a device can be reordered within its line or moved to another line
+                if (IsDeviceDropTarget(target))
                     e.Effect = DragDropEffects.Move;
-                }
             }
             else if (DraggingLines() && IsLineDropTarget(target))
             {
                 e.Effect = DragDropEffects.Move;
             }
 
-            // show an insertion marker between adjacent lines or devices
+            // show an insertion marker only between items of the dragged kind
             if (e.Effect == DragDropEffects.Move && target != null &&
-                (target.TagIs(CommNodeType.Line) || target.TagIs(CommNodeType.Device)))
+                ((DraggingDevices() && target.TagIs(CommNodeType.Device)) ||
+                (DraggingLines() && target.TagIs(CommNodeType.Line))))
             {
                 UpdateDropMarker(target, point.Y > target.Bounds.Top + target.Bounds.Height / 2);
             }
@@ -793,52 +825,80 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         }
 
         /// <summary>
-        /// Reorders the dragged device nodes within their line.
+        /// Gets the communication lines node that contains the dragged device nodes.
+        /// </summary>
+        private TreeNode DraggedDevicesRoot()
+        {
+            return selectedNodes.Count > 0 ? selectedNodes.First().FindClosest(CommNodeType.Lines) : null;
+        }
+
+        /// <summary>
+        /// Checks whether a device drag can be dropped on the specified target node.
+        /// </summary>
+        private bool IsDeviceDropTarget(TreeNode target)
+        {
+            return target != null && !selectedNodes.Contains(target) &&
+                (target.TagIs(CommNodeType.Device) || target.TagIs(CommNodeType.Line)) &&
+                target.FindClosest(CommNodeType.Lines) == DraggedDevicesRoot();
+        }
+
+        /// <summary>
+        /// Rebuilds the device polling list of a line from its device child nodes.
+        /// </summary>
+        private static void RebuildDevicePolling(TreeNode lineNode)
+        {
+            if (lineNode?.GetRelatedObject() is not LineConfig lineConfig)
+                return;
+
+            List<DeviceConfig> devices = lineConfig.DevicePolling;
+            devices.Clear();
+
+            foreach (TreeNode child in lineNode.Nodes)
+            {
+                if (child.GetRelatedObject() is DeviceConfig deviceConfig)
+                {
+                    deviceConfig.Parent = lineConfig;
+                    devices.Add(deviceConfig);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Reorders the dragged device nodes within their line or moves them to another line.
         /// </summary>
         private void DropDevices(TreeNode target, Point point)
         {
-            if (target == null || !target.TagIs(CommNodeType.Device) ||
-                target.Tag is not CommNodeTag targetTag || selectedNodes.Contains(target))
-            {
+            if (!IsDeviceDropTarget(target) || target.Tag is not CommNodeTag targetTag)
                 return;
-            }
 
-            TreeNode parentNode = target.Parent;
+            TreeNode sourceLineNode = SelectedNodesParent;
             List<TreeNode> draggedNodes = selectedNodes
-                .Where(n => n.Parent == parentNode)
+                .Where(n => n.TagIs(CommNodeType.Device))
                 .OrderBy(n => n.Index)
                 .ToList();
 
-            if (draggedNodes.Count == 0 || !GetReorderList(parentNode, out IList itemList, out int firstNodeIndex))
+            if (draggedNodes.Count == 0 || sourceLineNode == null)
                 return;
 
-            CommApp commApp = targetTag.CommApp;
-            bool insertAfter = point.Y > target.Bounds.Top + target.Bounds.Height / 2;
+            bool targetIsDevice = target.TagIs(CommNodeType.Device);
+            TreeNode targetLineNode = targetIsDevice ? target.Parent : target;
+            bool insertAfter = targetIsDevice && point.Y > target.Bounds.Top + target.Bounds.Height / 2;
 
             try
             {
                 ExplorerTree.BeginUpdate();
-                List<object> draggedItems = draggedNodes
-                    .Select(n => n.GetRelatedObject())
-                    .ToList();
 
-                // remove the dragged nodes from the tree and the configuration
                 foreach (TreeNode node in draggedNodes)
                     node.Remove();
 
-                foreach (object item in draggedItems)
-                    itemList.Remove(item);
-
-                // the target node keeps its identity, so its index reflects the new position;
-                // the option nodes preceding the device nodes keep the list index offset constant
-                int insertNodeIndex = target.Index + (insertAfter ? 1 : 0);
+                int insertIndex = targetIsDevice
+                    ? target.Index + (insertAfter ? 1 : 0)
+                    : targetLineNode.Nodes.Count;
 
                 for (int i = 0; i < draggedNodes.Count; i++)
-                {
-                    parentNode.Nodes.Insert(insertNodeIndex + i, draggedNodes[i]);
-                    itemList.Insert(insertNodeIndex + i - firstNodeIndex, draggedItems[i]);
-                }
+                    targetLineNode.Nodes.Insert(insertIndex + i, draggedNodes[i]);
 
+                targetLineNode.Expand();
                 ExplorerTree.SelectedNode = draggedNodes[0];
             }
             finally
@@ -846,8 +906,17 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
                 ExplorerTree.EndUpdate();
             }
 
-            RefreshLineConfigForm(parentNode);
-            SaveCommConfig(commApp);
+            // rebuild the device lists of the affected lines from the tree
+            RebuildDevicePolling(sourceLineNode);
+            RefreshLineConfigForm(sourceLineNode);
+
+            if (targetLineNode != sourceLineNode)
+            {
+                RebuildDevicePolling(targetLineNode);
+                RefreshLineConfigForm(targetLineNode);
+            }
+
+            SaveCommConfig(targetTag.CommApp);
         }
 
         /// <summary>

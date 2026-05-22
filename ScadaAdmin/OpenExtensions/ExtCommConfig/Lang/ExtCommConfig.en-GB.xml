@@ -42,6 +42,8 @@
     <Phrase key="btnAddLine.ToolTip">Add Line</Phrase>
     <Phrase key="btnAddDevice.ToolTip">Add Device</Phrase>
     <Phrase key="btnCreateChannels.ToolTip">Create Channels</Phrase>
+    <Phrase key="txtSearch.ToolTip">Search lines and devices by name</Phrase>
+    <Phrase key="btnSearch.ToolTip">Find (Enter for next)</Phrase>
     <Phrase key="miLineSync">Synchronize...</Phrase>
     <Phrase key="miLineAdd">Add Line</Phrase>
     <Phrase key="miLineMoveUp">Move Line Up</Phrase>
@@ -65,6 +67,7 @@
     <Phrase key="NewFolderName">New folder</Phrase>
     <Phrase key="ConfirmDeleteFolder">Delete the folder? Its communication lines will be moved to the root.</Phrase>
     <Phrase key="FolderAlreadyExists">A folder with this name already exists.</Phrase>
+    <Phrase key="NothingFound">Nothing found.</Phrase>
   </Dictionary>
   <Dictionary key="Scada.Admin.Extensions.ExtCommConfig.Controls.CtrlLineMain">
     <Phrase key="gbLine">Communication Line</Phrase>

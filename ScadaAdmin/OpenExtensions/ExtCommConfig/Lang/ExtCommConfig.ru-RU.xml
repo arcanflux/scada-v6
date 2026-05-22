@@ -42,6 +42,8 @@
     <Phrase key="btnAddLine.ToolTip">Добавить линию</Phrase>
     <Phrase key="btnAddDevice.ToolTip">Добавить устройство</Phrase>
     <Phrase key="btnCreateChannels.ToolTip">Создать каналы</Phrase>
+    <Phrase key="txtSearch.ToolTip">Поиск линий и устройств по имени</Phrase>
+    <Phrase key="btnSearch.ToolTip">Найти (Enter — следующий)</Phrase>
     <Phrase key="miLineSync">Сихронизировать...</Phrase>
     <Phrase key="miLineAdd">Добавить линию</Phrase>
     <Phrase key="miLineMoveUp">Переместить линию вверх</Phrase>
@@ -65,6 +67,7 @@
     <Phrase key="NewFolderName">Новая папка</Phrase>
     <Phrase key="ConfirmDeleteFolder">Удалить папку? Линии связи из неё будут перемещены в корень.</Phrase>
     <Phrase key="FolderAlreadyExists">Папка с таким именем уже существует.</Phrase>
+    <Phrase key="NothingFound">Ничего не найдено.</Phrase>
   </Dictionary>
   <Dictionary key="Scada.Admin.Extensions.ExtCommConfig.Controls.CtrlLineMain">
     <Phrase key="gbLine">Линия связи</Phrase>
