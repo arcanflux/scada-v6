@@ -1,1 +1,0 @@
-cp: cannot create regular file '/c/Program Files/SCADA/ScadaAdmin/Lib/ExtCommConfig.dll.bak': Permission denied
