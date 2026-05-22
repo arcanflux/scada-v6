@@ -44,6 +44,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         private bool dropMarkerShown;                     // the drop marker is currently visible
         private bool treeDoubleBuffered;                  // native double buffering is enabled for the tree
         private SearchPopupForm searchPopup;              // the popup listing live search matches
+        private DragImageForm dragImageForm;              // the ghost image shown next to the cursor while dragging
 
 
         /// <summary>
@@ -110,6 +111,19 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             miAddDevice.Enabled = btnAddDevice.Enabled = projectIsOpen;
             miCreateChannels.Enabled = btnCreateChannels.Enabled = projectIsOpen;
             txtSearch.Enabled = btnSearch.Enabled = projectIsOpen;
+            EnsureSearchIcon();
+        }
+
+        /// <summary>
+        /// Sets the Communicator icon next to the search box, reusing the explorer tree image.
+        /// </summary>
+        private void EnsureSearchIcon()
+        {
+            if (lblSearchIcon.Image == null && ExplorerTree?.ImageList is ImageList imageList &&
+                imageList.Images.ContainsKey("comm.png"))
+            {
+                lblSearchIcon.Image = imageList.Images["comm.png"];
+            }
         }
 
         /// <summary>
@@ -201,7 +215,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         public ToolStripItem[] GetToobarButtons()
         {
             return new ToolStripItem[] { btnAddLine, btnAddDevice, btnCreateChannels,
-                tsSepSearch, txtSearch, btnSearch };
+                tsSepSearch, lblSearchIcon, txtSearch, btnSearch };
         }
 
 
@@ -483,6 +497,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
 
             tree.AllowDrop = true;
             tree.ItemDrag += ExplorerTree_ItemDrag;
+            tree.GiveFeedback += ExplorerTree_GiveFeedback;
             tree.DragEnter += ExplorerTree_DragEnter;
             tree.DragOver += ExplorerTree_DragOver;
             tree.DragDrop += ExplorerTree_DragDrop;
@@ -711,7 +726,72 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
                 selectionAnchor = node;
             }
 
-            ExplorerTree.DoDragDrop(node, DragDropEffects.Move);
+            ShowDragImage(node);
+
+            try
+            {
+                ExplorerTree.DoDragDrop(node, DragDropEffects.Move);
+            }
+            finally
+            {
+                HideDragImage();
+            }
+        }
+
+        /// <summary>
+        /// Shows the ghost image of the dragged items next to the cursor.
+        /// </summary>
+        private void ShowDragImage(TreeNode node)
+        {
+            bool draggingDevices = node.TagIs(CommNodeType.Device);
+            int count = selectedNodes.Count;
+            string text = count > 1 ? $"{node.Text} (+{count - 1})" : node.Text;
+            Image icon = draggingDevices ? Resources.device : Resources.line;
+
+            dragImageForm ??= new DragImageForm();
+            dragImageForm.SetContent(icon, text);
+            dragImageForm.MoveTo(Cursor.Position);
+
+            if (!dragImageForm.Visible)
+                dragImageForm.Show();
+        }
+
+        /// <summary>
+        /// Hides the ghost image.
+        /// </summary>
+        private void HideDragImage()
+        {
+            if (dragImageForm != null && dragImageForm.Visible)
+                dragImageForm.Hide();
+        }
+
+        /// <summary>
+        /// Gets the badge to show for a line drag depending on the target container.
+        /// </summary>
+        private DragImageForm.Badge GetLineDragBadge(TreeNode target)
+        {
+            if (target == null)
+                return DragImageForm.Badge.None;
+
+            TreeNode source = SelectedNodesParent;
+            TreeNode container = target.TagIs(CommNodeType.Line) ? target.Parent : target;
+
+            if (container != null && container != source)
+            {
+                if (container.TagIs(CommNodeType.LineFolder))
+                    return DragImageForm.Badge.Plus;
+
+                if (container.TagIs(CommNodeType.Lines) && source != null && source.TagIs(CommNodeType.LineFolder))
+                    return DragImageForm.Badge.Minus;
+            }
+
+            return DragImageForm.Badge.None;
+        }
+
+        private void ExplorerTree_GiveFeedback(object sender, GiveFeedbackEventArgs e)
+        {
+            e.UseDefaultCursors = true;
+            dragImageForm?.MoveTo(Cursor.Position);
         }
 
         private void ExplorerTree_DragEnter(object sender, DragEventArgs e)
@@ -752,6 +832,13 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             {
                 UpdateDropMarker(null, false);
             }
+
+            // update the ghost image badge for folder add/remove and keep it next to the cursor
+            DragImageForm.Badge badge = e.Effect == DragDropEffects.Move && DraggingLines()
+                ? GetLineDragBadge(target)
+                : DragImageForm.Badge.None;
+            dragImageForm?.SetBadge(badge);
+            dragImageForm?.MoveTo(Cursor.Position);
         }
 
         /// <summary>

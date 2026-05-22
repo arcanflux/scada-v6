@@ -42,6 +42,7 @@
     <Phrase key="btnAddLine.ToolTip">Добавить линию</Phrase>
     <Phrase key="btnAddDevice.ToolTip">Добавить устройство</Phrase>
     <Phrase key="btnCreateChannels.ToolTip">Создать каналы</Phrase>
+    <Phrase key="lblSearchIcon.ToolTip">Коммуникатор</Phrase>
     <Phrase key="txtSearch.ToolTip">Поиск линий и устройств по имени</Phrase>
     <Phrase key="btnSearch.ToolTip">Найти (Enter — следующий)</Phrase>
     <Phrase key="miLineSync">Сихронизировать...</Phrase>

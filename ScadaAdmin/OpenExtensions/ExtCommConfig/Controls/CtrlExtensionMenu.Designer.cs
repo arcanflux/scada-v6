@@ -18,6 +18,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             {
                 components?.Dispose();
                 searchPopup?.Dispose();
+                dragImageForm?.Dispose();
             }
             base.Dispose(disposing);
         }
@@ -62,6 +63,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             this.btnAddDevice = new System.Windows.Forms.ToolStripButton();
             this.btnCreateChannels = new System.Windows.Forms.ToolStripButton();
             this.tsSepSearch = new System.Windows.Forms.ToolStripSeparator();
+            this.lblSearchIcon = new System.Windows.Forms.ToolStripLabel();
             this.txtSearch = new System.Windows.Forms.ToolStripTextBox();
             this.btnSearch = new System.Windows.Forms.ToolStripButton();
             this.cmsLine.SuspendLayout();
@@ -294,6 +296,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             this.btnAddDevice,
             this.btnCreateChannels,
             this.tsSepSearch,
+            this.lblSearchIcon,
             this.txtSearch,
             this.btnSearch});
             this.toolStrip.Location = new System.Drawing.Point(0, 24);
@@ -336,6 +339,12 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             //
             this.tsSepSearch.Name = "tsSepSearch";
             this.tsSepSearch.Size = new System.Drawing.Size(6, 25);
+            //
+            // lblSearchIcon
+            //
+            this.lblSearchIcon.Name = "lblSearchIcon";
+            this.lblSearchIcon.Size = new System.Drawing.Size(16, 22);
+            this.lblSearchIcon.ToolTipText = "Communicator";
             //
             // txtSearch
             //
@@ -404,6 +413,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         private System.Windows.Forms.ToolStripButton btnAddDevice;
         private System.Windows.Forms.ToolStripButton btnCreateChannels;
         private System.Windows.Forms.ToolStripSeparator tsSepSearch;
+        private System.Windows.Forms.ToolStripLabel lblSearchIcon;
         private System.Windows.Forms.ToolStripTextBox txtSearch;
         private System.Windows.Forms.ToolStripButton btnSearch;
         private System.Windows.Forms.ToolStripMenuItem miDevicePoll;

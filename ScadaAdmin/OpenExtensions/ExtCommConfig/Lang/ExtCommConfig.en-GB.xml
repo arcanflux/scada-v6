@@ -42,6 +42,7 @@
     <Phrase key="btnAddLine.ToolTip">Add Line</Phrase>
     <Phrase key="btnAddDevice.ToolTip">Add Device</Phrase>
     <Phrase key="btnCreateChannels.ToolTip">Create Channels</Phrase>
+    <Phrase key="lblSearchIcon.ToolTip">Communicator</Phrase>
     <Phrase key="txtSearch.ToolTip">Search lines and devices by name</Phrase>
     <Phrase key="btnSearch.ToolTip">Find (Enter for next)</Phrase>
     <Phrase key="miLineSync">Synchronize...</Phrase>
