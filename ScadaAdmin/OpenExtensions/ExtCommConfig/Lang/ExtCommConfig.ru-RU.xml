@@ -68,6 +68,8 @@
     <Phrase key="ConfirmDeleteFolder">Удалить папку? Линии связи из неё будут перемещены в корень.</Phrase>
     <Phrase key="FolderAlreadyExists">Папка с таким именем уже существует.</Phrase>
     <Phrase key="NothingFound">Ничего не найдено.</Phrase>
+    <Phrase key="LineKind">линия связи</Phrase>
+    <Phrase key="DeviceKind">устройство</Phrase>
   </Dictionary>
   <Dictionary key="Scada.Admin.Extensions.ExtCommConfig.Controls.CtrlLineMain">
     <Phrase key="gbLine">Линия связи</Phrase>

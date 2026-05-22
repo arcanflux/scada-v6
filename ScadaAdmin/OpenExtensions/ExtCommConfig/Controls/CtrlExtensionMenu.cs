@@ -3,6 +3,7 @@
 
 using Scada.Admin.Extensions.ExtCommConfig.Code;
 using Scada.Admin.Extensions.ExtCommConfig.Forms;
+using Scada.Admin.Extensions.ExtCommConfig.Properties;
 using Scada.Admin.Lang;
 using Scada.Admin.Project;
 using Scada.Agent;
@@ -42,6 +43,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
         private bool dropMarkerAfter;                     // the drop marker is below the node
         private bool dropMarkerShown;                     // the drop marker is currently visible
         private bool treeDoubleBuffered;                  // native double buffering is enabled for the tree
+        private ToolStripDropDown searchPopup;            // the dropdown listing search matches
 
 
         /// <summary>
@@ -323,7 +325,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
 
         private void btnSearch_Click(object sender, EventArgs e)
         {
-            SearchTree(txtSearch.Text);
+            ShowSearchResults(txtSearch.Text);
         }
 
         private void txtSearch_KeyDown(object sender, KeyEventArgs e)
@@ -332,15 +334,17 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             {
                 e.Handled = true;
                 e.SuppressKeyPress = true;
-                SearchTree(txtSearch.Text);
+                ShowSearchResults(txtSearch.Text);
             }
         }
 
         /// <summary>
-        /// Selects the next communication line or device whose name contains the query.
+        /// Shows a dropdown list of communication lines and devices whose name contains the query.
         /// </summary>
-        private void SearchTree(string query)
+        private void ShowSearchResults(string query)
         {
+            const int MaxResults = 200;
+
             if (string.IsNullOrWhiteSpace(query) || ExplorerTree is not TreeView tree)
                 return;
 
@@ -359,12 +363,49 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
                 return;
             }
 
-            // cycle to the next match relative to the current selection
-            int startIndex = tree.SelectedNode != null ? matches.IndexOf(tree.SelectedNode) : -1;
-            TreeNode nextNode = matches[(startIndex + 1) % matches.Count];
-            tree.SelectedNode = nextNode;
-            nextNode.EnsureVisible();
-            tree.Focus();
+            EnsureSearchPopup();
+            searchPopup.Items.Clear();
+
+            foreach (TreeNode node in matches.Take(MaxResults))
+            {
+                bool isLine = node.GetRelatedObject() is LineConfig;
+                string kind = isLine ? ExtensionPhrases.LineKind : ExtensionPhrases.DeviceKind;
+                Image image = isLine ? Resources.line : Resources.device;
+
+                ToolStripMenuItem item = new($"{node.Text} — {kind}", image) { Tag = node };
+                item.Click += SearchResultItem_Click;
+                searchPopup.Items.Add(item);
+            }
+
+            // show the dropdown right below the search box
+            if (txtSearch.Owner != null)
+            {
+                Point location = txtSearch.Owner.PointToScreen(
+                    new Point(txtSearch.Bounds.Left, txtSearch.Bounds.Bottom));
+                searchPopup.Show(location);
+            }
+        }
+
+        /// <summary>
+        /// Creates the search results dropdown if it does not exist yet.
+        /// </summary>
+        private void EnsureSearchPopup()
+        {
+            searchPopup ??= new ToolStripDropDown
+            {
+                AutoClose = true,
+                DropShadowEnabled = true
+            };
+        }
+
+        private void SearchResultItem_Click(object sender, EventArgs e)
+        {
+            if (sender is ToolStripMenuItem item && item.Tag is TreeNode node && ExplorerTree is TreeView tree)
+            {
+                tree.SelectedNode = node;
+                node.EnsureVisible();
+                tree.Focus();
+            }
         }
 
         /// <summary>
