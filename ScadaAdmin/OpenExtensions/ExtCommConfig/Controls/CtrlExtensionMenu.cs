@@ -391,6 +391,14 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             }
 
             query = query.Trim();
+
+            // build the comm subtree of every instance so search works without expanding them first
+            PrepareAllInstances();
+
+            bool multipleInstances = adminContext.CurrentProject != null &&
+                adminContext.CurrentProject.Instances.Count > 1;
+            Image instanceIcon = multipleInstances ? ExplorerTree?.ImageList?.Images["instance.png"] : null;
+
             List<SearchPopupForm.Entry> entries = new();
 
             foreach (TreeNode node in tree.Nodes.IterateNodes())
@@ -398,11 +406,18 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
                 if (NodeMatchesSearch(node, query))
                 {
                     bool isLine = node.GetRelatedObject() is LineConfig;
+                    string text = $"{node.Text} - {(isLine ? ExtensionPhrases.LineKind : ExtensionPhrases.DeviceKind)}";
+                    string instanceName = multipleInstances ? GetInstanceName(node) : null;
+
+                    if (!string.IsNullOrEmpty(instanceName))
+                        text += $"  ({instanceName})";
+
                     entries.Add(new SearchPopupForm.Entry
                     {
                         Node = node,
+                        InstanceImage = multipleInstances ? instanceIcon : null,
                         Image = isLine ? Resources.line : Resources.device,
-                        Text = $"{node.Text} - {(isLine ? ExtensionPhrases.LineKind : ExtensionPhrases.DeviceKind)}"
+                        Text = text
                     });
 
                     if (entries.Count >= MaxResults)
@@ -461,6 +476,33 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
                 node.EnsureVisible();
                 tree.Focus();
             }
+        }
+
+        /// <summary>
+        /// Builds the comm subtree of every instance so search can find their lines and devices
+        /// even if the instance nodes have not been expanded yet.
+        /// </summary>
+        private void PrepareAllInstances()
+        {
+            if (adminContext.CurrentProject == null)
+                return;
+
+            foreach (ProjectInstance instance in adminContext.CurrentProject.Instances)
+                adminContext.MainForm.FindInstanceNode(instance.Name, out _);
+        }
+
+        /// <summary>
+        /// Gets the name of the instance that owns the line or device of the specified node.
+        /// </summary>
+        private string GetInstanceName(TreeNode node)
+        {
+            if (node.Tag is CommNodeTag commNodeTag && adminContext.CurrentProject != null)
+            {
+                return adminContext.CurrentProject.Instances
+                    .FirstOrDefault(i => i.CommApp == commNodeTag.CommApp)?.Name;
+            }
+
+            return null;
         }
 
         /// <summary>

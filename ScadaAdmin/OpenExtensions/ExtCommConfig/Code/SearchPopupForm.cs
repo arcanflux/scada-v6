@@ -20,6 +20,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Code
         public class Entry
         {
             public TreeNode Node { get; init; }
+            public Image InstanceImage { get; init; }   // optional instance icon shown first
             public Image Image { get; init; }
             public string Text { get; init; }
         }
@@ -162,11 +163,19 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Code
             Entry entry = (Entry)listBox.Items[e.Index];
             e.DrawBackground();
             int x = e.Bounds.Left + 2;
+            int iconY = e.Bounds.Top + 2;
+
+            if (entry.InstanceImage != null)
+            {
+                e.Graphics.DrawImage(entry.InstanceImage, x, iconY, 16, 16);
+                x += 18;
+            }
 
             if (entry.Image != null)
-                e.Graphics.DrawImage(entry.Image, x, e.Bounds.Top + 2, 16, 16);
-
-            x += 20;
+            {
+                e.Graphics.DrawImage(entry.Image, x, iconY, 16, 16);
+                x += 18;
+            }
 
             using SolidBrush brush = new(e.ForeColor);
             e.Graphics.DrawString(entry.Text, listBox.Font, brush, x, e.Bounds.Top + 2);
