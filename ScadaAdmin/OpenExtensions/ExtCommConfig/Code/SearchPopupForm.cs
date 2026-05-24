@@ -207,21 +207,19 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Code
 
             Entry entry = (Entry)listBox.Items[e.Index];
             e.DrawBackground();
-            int x = e.Bounds.Left + 2;
+            int x = e.Bounds.Left + 4;
             int iconY = e.Bounds.Top + 2;
-            int textY = e.Bounds.Top + 2;
+            int textY = e.Bounds.Top + (RowHeight - Font.Height) / 2;
 
-            using SolidBrush brush = new(e.ForeColor);
-
-            // line/device icon, then the main text
+            // draw text with GDI so widths match MeasureEntryWidth (TextRenderer), avoiding clipping
             if (entry.Image != null)
             {
                 e.Graphics.DrawImage(entry.Image, x, iconY, 16, 16);
                 x += 18;
             }
 
-            e.Graphics.DrawString(entry.Text, listBox.Font, brush, x, textY);
-            x += (int)Math.Ceiling(e.Graphics.MeasureString(entry.Text, listBox.Font).Width) + 8;
+            TextRenderer.DrawText(e.Graphics, entry.Text, Font, new Point(x, textY), e.ForeColor, TextFormatFlags.NoPrefix);
+            x += TextRenderer.MeasureText(entry.Text ?? "", Font).Width + 8;
 
             // instance icon placed right before the instance name
             if (entry.InstanceImage != null)
@@ -231,7 +229,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Code
             }
 
             if (!string.IsNullOrEmpty(entry.InstanceText))
-                e.Graphics.DrawString(entry.InstanceText, listBox.Font, brush, x, textY);
+                TextRenderer.DrawText(e.Graphics, entry.InstanceText, Font, new Point(x, textY), e.ForeColor, TextFormatFlags.NoPrefix);
 
             e.DrawFocusRectangle();
         }
