@@ -29,6 +29,7 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Code
         private const int RowHeight = 20;
         private const int MaxVisibleRows = 12;
         private readonly ListBox listBox;
+        private int contentWidth;   // widest entry, computed when entries are set
 
 
         /// <summary>
@@ -98,9 +99,13 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Code
         {
             listBox.BeginUpdate();
             listBox.Items.Clear();
+            contentWidth = 0;
 
             foreach (Entry entry in entries)
+            {
                 listBox.Items.Add(entry);
+                contentWidth = Math.Max(contentWidth, MeasureEntryWidth(entry));
+            }
 
             listBox.EndUpdate();
 
@@ -109,14 +114,54 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Code
         }
 
         /// <summary>
-        /// Positions and sizes the popup below the specified screen point.
+        /// Measures the full pixel width of an entry row.
         /// </summary>
-        public void ShowAt(Point screenLocation, int width)
+        private int MeasureEntryWidth(Entry entry)
+        {
+            int width = 4; // left padding
+
+            if (entry.Image != null)
+                width += 18;
+
+            width += TextRenderer.MeasureText(entry.Text ?? "", Font).Width;
+
+            if (entry.InstanceImage != null || !string.IsNullOrEmpty(entry.InstanceText))
+            {
+                width += 8;
+
+                if (entry.InstanceImage != null)
+                    width += 18;
+
+                if (!string.IsNullOrEmpty(entry.InstanceText))
+                    width += TextRenderer.MeasureText(entry.InstanceText, Font).Width;
+            }
+
+            return width + 8; // right padding
+        }
+
+        /// <summary>
+        /// Positions and sizes the popup below the specified screen point, fitting the widest entry on screen.
+        /// </summary>
+        public void ShowAt(Point screenLocation, int minWidth)
         {
             int rows = Math.Min(Math.Max(listBox.Items.Count, 1), MaxVisibleRows);
-            Width = Math.Max(width, 200);
+            Rectangle area = Screen.FromPoint(screenLocation).WorkingArea;
+
+            // grow to fit the widest entry; add the scrollbar width if the list scrolls
+            int desired = Math.Max(minWidth, contentWidth);
+            if (listBox.Items.Count > MaxVisibleRows)
+                desired += SystemInformation.VerticalScrollBarWidth;
+
+            int width = Math.Max(200, Math.Min(desired, area.Width - 8));
+
+            // shift left so the popup never runs off the right edge of the screen
+            int x = screenLocation.X;
+            if (x + width > area.Right)
+                x = Math.Max(area.Left + 4, area.Right - width - 4);
+
+            Width = width;
             Height = rows * RowHeight + 2;
-            Location = screenLocation;
+            Location = new Point(x, screenLocation.Y);
 
             if (!Visible)
                 Show();
