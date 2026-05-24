@@ -406,18 +406,15 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
                 if (NodeMatchesSearch(node, query))
                 {
                     bool isLine = node.GetRelatedObject() is LineConfig;
-                    string text = $"{node.Text} - {(isLine ? ExtensionPhrases.LineKind : ExtensionPhrases.DeviceKind)}";
                     string instanceName = multipleInstances ? GetInstanceName(node) : null;
-
-                    if (!string.IsNullOrEmpty(instanceName))
-                        text += $"  ({instanceName})";
 
                     entries.Add(new SearchPopupForm.Entry
                     {
                         Node = node,
-                        InstanceImage = multipleInstances ? instanceIcon : null,
                         Image = isLine ? Resources.line : Resources.device,
-                        Text = text
+                        Text = $"{node.Text} - {(isLine ? ExtensionPhrases.LineKind : ExtensionPhrases.DeviceKind)}",
+                        InstanceImage = string.IsNullOrEmpty(instanceName) ? null : instanceIcon,
+                        InstanceText = instanceName
                     });
 
                     if (entries.Count >= MaxResults)
@@ -454,6 +451,10 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Controls
             {
                 searchPopup = new SearchPopupForm();
                 searchPopup.ItemChosen += SearchPopup_ItemChosen;
+
+                // own it by the main window so it stays above ScadaAdmin only, not over other apps
+                if (adminContext.MainForm is Form mainForm)
+                    searchPopup.Owner = mainForm;
             }
         }
 

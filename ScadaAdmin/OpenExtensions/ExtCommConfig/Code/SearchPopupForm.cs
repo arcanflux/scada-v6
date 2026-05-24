@@ -20,9 +20,10 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Code
         public class Entry
         {
             public TreeNode Node { get; init; }
-            public Image InstanceImage { get; init; }   // optional instance icon shown first
-            public Image Image { get; init; }
-            public string Text { get; init; }
+            public Image Image { get; init; }            // line or device icon, shown first
+            public string Text { get; init; }            // "[num] name - kind"
+            public Image InstanceImage { get; init; }    // optional instance icon, shown before the instance name
+            public string InstanceText { get; init; }    // optional instance name, shown last
         }
 
         private const int RowHeight = 20;
@@ -40,7 +41,6 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Code
             ShowInTaskbar = false;
             MinimizeBox = false;
             MaximizeBox = false;
-            TopMost = true;
             Padding = new Padding(1);
             BackColor = SystemColors.ActiveBorder;
 
@@ -164,21 +164,30 @@ namespace Scada.Admin.Extensions.ExtCommConfig.Code
             e.DrawBackground();
             int x = e.Bounds.Left + 2;
             int iconY = e.Bounds.Top + 2;
+            int textY = e.Bounds.Top + 2;
 
-            if (entry.InstanceImage != null)
-            {
-                e.Graphics.DrawImage(entry.InstanceImage, x, iconY, 16, 16);
-                x += 18;
-            }
+            using SolidBrush brush = new(e.ForeColor);
 
+            // line/device icon, then the main text
             if (entry.Image != null)
             {
                 e.Graphics.DrawImage(entry.Image, x, iconY, 16, 16);
                 x += 18;
             }
 
-            using SolidBrush brush = new(e.ForeColor);
-            e.Graphics.DrawString(entry.Text, listBox.Font, brush, x, e.Bounds.Top + 2);
+            e.Graphics.DrawString(entry.Text, listBox.Font, brush, x, textY);
+            x += (int)Math.Ceiling(e.Graphics.MeasureString(entry.Text, listBox.Font).Width) + 8;
+
+            // instance icon placed right before the instance name
+            if (entry.InstanceImage != null)
+            {
+                e.Graphics.DrawImage(entry.InstanceImage, x, iconY, 16, 16);
+                x += 18;
+            }
+
+            if (!string.IsNullOrEmpty(entry.InstanceText))
+                e.Graphics.DrawString(entry.InstanceText, listBox.Font, brush, x, textY);
+
             e.DrawFocusRectangle();
         }
     }
