@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ExtChannelSearchDictionaries>
+  <Dictionary key="Scada.Admin.Extensions.ExtChannelSearch.Controls.CtrlChannelSearch">
+    <Phrase key="lblChannelIcon.ToolTip">Channels</Phrase>
+    <Phrase key="txtChannelSearch.ToolTip">Search channels by name, code or number</Phrase>
+    <Phrase key="btnChannelSearch.ToolTip">Find channel</Phrase>
+    <Phrase key="ChannelKind">channel</Phrase>
+  </Dictionary>
+</ExtChannelSearchDictionaries>
