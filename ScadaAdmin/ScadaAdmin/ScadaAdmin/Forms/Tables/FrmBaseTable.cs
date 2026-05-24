@@ -72,6 +72,7 @@ namespace Scada.Admin.App.Forms.Tables
         private int maxRowID;        // the maximum ID in the table
         private FrmFind frmFind;     // the find and replace form
         private FrmFilter frmFilter; // the filter form
+        private bool fillingSelection; // a multi-cell fill is in progress
 
 
         /// <summary>
@@ -97,6 +98,7 @@ namespace Scada.Admin.App.Forms.Tables
             maxRowID = 0;
             frmFind = null;
             frmFilter = null;
+            fillingSelection = false;
 
             ChildFormTag = new ChildFormTag(new ChildFormOptions
             {
@@ -683,6 +685,49 @@ namespace Scada.Admin.App.Forms.Tables
         }
         
         /// <summary>
+        /// Copies the specified value to every selected cell in the same column, so a single edit
+        /// updates all rows selected with Shift or Ctrl.
+        /// </summary>
+        private void FillSelectedCells(int columnIndex, int sourceRowIndex, object value)
+        {
+            if (fillingSelection ||
+                columnIndex < 0 || columnIndex >= dataGridView.ColumnCount ||
+                dataGridView.SelectedCells.Count <= 1)
+            {
+                return;
+            }
+
+            DataGridViewColumn column = dataGridView.Columns[columnIndex];
+
+            // never duplicate primary key values, and skip non-editable or button columns
+            if (column.Name == baseTable.PrimaryKey || column.ReadOnly ||
+                column is DataGridViewButtonColumn)
+            {
+                return;
+            }
+
+            object newValue = value ?? DBNull.Value;
+            fillingSelection = true;
+
+            try
+            {
+                foreach (DataGridViewCell cell in dataGridView.SelectedCells)
+                {
+                    if (cell.ColumnIndex == columnIndex && cell.RowIndex != sourceRowIndex &&
+                        0 <= cell.RowIndex && cell.RowIndex < dataGridView.RowCount &&
+                        !cell.ReadOnly && !dataGridView.Rows[cell.RowIndex].IsNewRow)
+                    {
+                        cell.Value = newValue;
+                    }
+                }
+            }
+            finally
+            {
+                fillingSelection = false;
+            }
+        }
+
+        /// <summary>
         /// Opens the find form.
         /// </summary>
         private void OpenFindForm()
@@ -806,6 +851,13 @@ namespace Scada.Admin.App.Forms.Tables
             FormTranslator.Translate(this, GetType().FullName,
                 new FormTranslatorOptions { ContextMenus = [cmsTable] });
 
+            // the fill command is generic and not covered by the table dictionary
+            miFillSelected.Text = Locale.IsRussian
+                ? "Заполнить выделенные ячейки этим значением"
+                : "Fill selected cells with this value";
+            cmsTable.Opening += (s, args) =>
+                miFillSelected.Enabled = dataGridView.SelectedCells.Count > 1;
+
             if (lblCount.Text.Contains("{0}"))
                 bindingNavigator.CountItemFormat = lblCount.Text;
 
@@ -894,6 +946,13 @@ namespace Scada.Admin.App.Forms.Tables
                         textBox.Text = cellValue.ToString();
                 }
             }
+        }
+
+        private void dataGridView_CellEndEdit(object sender, DataGridViewCellEventArgs e)
+        {
+            // when several cells of a column are selected, apply the edited value to all of them
+            if (e.RowIndex >= 0 && e.ColumnIndex >= 0)
+                FillSelectedCells(e.ColumnIndex, e.RowIndex, dataGridView[e.ColumnIndex, e.RowIndex].Value);
         }
 
         private void dataGridView_CellValidating(object sender, DataGridViewCellValidatingEventArgs e)
@@ -1178,6 +1237,15 @@ namespace Scada.Admin.App.Forms.Tables
         private void btnProperties_Click(object sender, EventArgs e)
         {
             ShowPropertiesForm();
+        }
+
+        private void miFillSelected_Click(object sender, EventArgs e)
+        {
+            // copy the current cell value to all cells selected in the same column
+            DataGridViewCell cell = dataGridView.CurrentCell;
+
+            if (cell != null && EndEdit())
+                FillSelectedCells(cell.ColumnIndex, cell.RowIndex, cell.Value);
         }
     }
 }

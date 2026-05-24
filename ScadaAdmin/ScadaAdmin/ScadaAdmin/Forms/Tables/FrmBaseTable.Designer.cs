@@ -60,6 +60,8 @@
             openFileDialog = new OpenFileDialog();
             folderBrowserDialog = new FolderBrowserDialog();
             cmsTable = new ContextMenuStrip(components);
+            miFillSelected = new ToolStripMenuItem();
+            miSep1 = new ToolStripSeparator();
             miProperties = new ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)bindingNavigator).BeginInit();
             bindingNavigator.SuspendLayout();
@@ -284,6 +286,7 @@
             dataGridView.Size = new Size(584, 296);
             dataGridView.TabIndex = 2;
             dataGridView.CellClick += dataGridView_CellClick;
+            dataGridView.CellEndEdit += dataGridView_CellEndEdit;
             dataGridView.CellFormatting += dataGridView_CellFormatting;
             dataGridView.CellMouseClick += dataGridView_CellMouseClick;
             dataGridView.CellMouseDoubleClick += dataGridView_CellMouseDoubleClick;
@@ -330,12 +333,24 @@
             // 
             // cmsTable
             // 
-            cmsTable.Items.AddRange(new ToolStripItem[] { miProperties });
+            cmsTable.Items.AddRange(new ToolStripItem[] { miFillSelected, miSep1, miProperties });
             cmsTable.Name = "cmsTable";
             cmsTable.Size = new Size(128, 26);
-            // 
+            //
+            // miFillSelected
+            //
+            miFillSelected.Name = "miFillSelected";
+            miFillSelected.Size = new Size(127, 22);
+            miFillSelected.Text = "Fill selected cells";
+            miFillSelected.Click += miFillSelected_Click;
+            //
+            // miSep1
+            //
+            miSep1.Name = "miSep1";
+            miSep1.Size = new Size(124, 6);
+            //
             // miProperties
-            // 
+            //
             miProperties.Image = Properties.Resources.properties;
             miProperties.Name = "miProperties";
             miProperties.Size = new Size(127, 22);
@@ -400,6 +415,8 @@
         private System.Windows.Forms.BindingSource bindingSource;
         private System.Windows.Forms.DataGridView dataGridView;
         private System.Windows.Forms.ContextMenuStrip cmsTable;
+        private System.Windows.Forms.ToolStripMenuItem miFillSelected;
+        private System.Windows.Forms.ToolStripSeparator miSep1;
         private System.Windows.Forms.ToolStripMenuItem miProperties;
         private System.Windows.Forms.ToolStripButton btnFilter;
     }
