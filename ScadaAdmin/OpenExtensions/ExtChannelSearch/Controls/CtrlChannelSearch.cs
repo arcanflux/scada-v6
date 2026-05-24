@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using Scada.Admin.Extensions.ExtChannelSearch.Code;
+using Scada.Admin.Extensions.ExtChannelSearch.Forms;
 using Scada.Admin.Extensions.ExtChannelSearch.Properties;
 using Scada.Data.Entities;
 using Scada.Data.Tables;
@@ -46,6 +47,7 @@ namespace Scada.Admin.Extensions.ExtChannelSearch.Controls
             treeEventsWired = false;
 
             lblChannelIcon.Image = Resources.channel;
+            LocalizeToolbar();
             SetEnabled();
             WireExplorerTreeEvents();
             adminContext.CurrentProjectChanged += (s, e) => SetEnabled();
@@ -63,7 +65,19 @@ namespace Scada.Admin.Extensions.ExtChannelSearch.Controls
         /// </summary>
         public ToolStripItem[] GetToolbarButtons()
         {
-            return new ToolStripItem[] { tsSepChannelSearch, lblChannelIcon, txtChannelSearch, btnChannelSearch };
+            return new ToolStripItem[] { tsSepChannelSearch, btnCreateChannels,
+                lblChannelIcon, txtChannelSearch, btnChannelSearch };
+        }
+
+
+        /// <summary>
+        /// Applies the interface language to toolbar item tooltips not covered by the language file.
+        /// </summary>
+        private void LocalizeToolbar()
+        {
+            btnCreateChannels.ToolTipText = Scada.Lang.Locale.IsRussian
+                ? "Создать пустые каналы"
+                : "Create empty channels";
         }
 
 
@@ -74,6 +88,7 @@ namespace Scada.Admin.Extensions.ExtChannelSearch.Controls
         {
             bool projectIsOpen = adminContext.CurrentProject != null;
             txtChannelSearch.Enabled = btnChannelSearch.Enabled = projectIsOpen;
+            btnCreateChannels.Enabled = projectIsOpen;
 
             if (!projectIsOpen)
                 HideSearchPopup();
@@ -336,6 +351,18 @@ namespace Scada.Admin.Extensions.ExtChannelSearch.Controls
         private void btnChannelSearch_Click(object sender, EventArgs e)
         {
             UpdateChannelSuggestions();
+        }
+
+        private void btnCreateChannels_Click(object sender, EventArgs e)
+        {
+            if (adminContext.CurrentProject is not Scada.Admin.Project.ScadaProject project)
+                return;
+
+            HideSearchPopup();
+            FrmCnlCreateEmpty frmCnlCreateEmpty = new(project);
+
+            if (frmCnlCreateEmpty.ShowDialog() == DialogResult.OK && frmCnlCreateEmpty.CreatedAny)
+                adminContext.MainForm.RefreshBaseTables(typeof(Cnl), true);
         }
 
         private void txtChannelSearch_TextChanged(object sender, EventArgs e)

@@ -32,6 +32,7 @@ namespace Scada.Admin.Extensions.ExtChannelSearch.Controls
         {
             this.toolStrip = new System.Windows.Forms.ToolStrip();
             this.tsSepChannelSearch = new System.Windows.Forms.ToolStripSeparator();
+            this.btnCreateChannels = new System.Windows.Forms.ToolStripButton();
             this.lblChannelIcon = new System.Windows.Forms.ToolStripLabel();
             this.txtChannelSearch = new System.Windows.Forms.ToolStripTextBox();
             this.btnChannelSearch = new System.Windows.Forms.ToolStripButton();
@@ -42,6 +43,7 @@ namespace Scada.Admin.Extensions.ExtChannelSearch.Controls
             //
             this.toolStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsSepChannelSearch,
+            this.btnCreateChannels,
             this.lblChannelIcon,
             this.txtChannelSearch,
             this.btnChannelSearch});
@@ -54,6 +56,16 @@ namespace Scada.Admin.Extensions.ExtChannelSearch.Controls
             //
             this.tsSepChannelSearch.Name = "tsSepChannelSearch";
             this.tsSepChannelSearch.Size = new System.Drawing.Size(6, 25);
+            //
+            // btnCreateChannels
+            //
+            this.btnCreateChannels.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+            this.btnCreateChannels.Image = global::Scada.Admin.Extensions.ExtChannelSearch.Properties.Resources.add;
+            this.btnCreateChannels.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.btnCreateChannels.Name = "btnCreateChannels";
+            this.btnCreateChannels.Size = new System.Drawing.Size(23, 22);
+            this.btnCreateChannels.ToolTipText = "Create empty channels";
+            this.btnCreateChannels.Click += new System.EventHandler(this.btnCreateChannels_Click);
             //
             // lblChannelIcon
             //
@@ -96,6 +108,7 @@ namespace Scada.Admin.Extensions.ExtChannelSearch.Controls
 
         private System.Windows.Forms.ToolStrip toolStrip;
         private System.Windows.Forms.ToolStripSeparator tsSepChannelSearch;
+        private System.Windows.Forms.ToolStripButton btnCreateChannels;
         private System.Windows.Forms.ToolStripLabel lblChannelIcon;
         private System.Windows.Forms.ToolStripTextBox txtChannelSearch;
         private System.Windows.Forms.ToolStripButton btnChannelSearch;
