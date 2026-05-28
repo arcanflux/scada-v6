@@ -72,7 +72,8 @@
     <Phrase key="ReportPeriod">Период</Phrase>
     <Phrase key="ReportMaxFlow">Максимальный расход (G)</Phrase>
     <Phrase key="ReportMaxPressure">Максимальное давление напора (P напор)</Phrase>
-    <Phrase key="ReportLocation">Местоположение ПНУ</Phrase>
+    <Phrase key="ReportLocationAtG">Координаты при макс. G</Phrase>
+    <Phrase key="ReportLocationAtP">Координаты при макс. P напор</Phrase>
     <Phrase key="ReportNoData">Нет данных за выбранный период</Phrase>
     <Phrase key="ReportGenerating">Формирование отчета...</Phrase>
   </Dictionary>

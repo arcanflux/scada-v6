@@ -1751,7 +1751,8 @@
                 reportPeriod: "@Html.Raw(Model.JsDict.ReportPeriod)",
                 reportMaxFlow: "@Html.Raw(Model.JsDict.ReportMaxFlow)",
                 reportMaxPressure: "@Html.Raw(Model.JsDict.ReportMaxPressure)",
-                reportLocation: "@Html.Raw(Model.JsDict.ReportLocation)",
+                reportLocationAtG: "@Html.Raw(Model.JsDict.ReportLocationAtG)",
+                reportLocationAtP: "@Html.Raw(Model.JsDict.ReportLocationAtP)",
                 reportNoData: "@Html.Raw(Model.JsDict.ReportNoData)",
                 reportGenerating: "@Html.Raw(Model.JsDict.ReportGenerating)"
             };
@@ -5278,59 +5279,69 @@
                         return;
                     }
 
-                    let gIdx = ch[0] ? cnlNums.indexOf(ch[0].cnlNum) : -1;
-                    let pIdx = ch[2] ? cnlNums.indexOf(ch[2].cnlNum) : -1;
-                    let latIdx = def.latCnlNum ? cnlNums.indexOf(def.latCnlNum) : -1;
-                    let lonIdx = def.lonCnlNum ? cnlNums.indexOf(def.lonCnlNum) : -1;
-
-                    let maxG = null, maxGTime = null;
-                    let maxP = null, maxPTime = null;
+                    let cnlToTrendIdx = {};
+                    let respCnls = histData.cnlNums || [];
+                    for (let i = 0; i < respCnls.length; i++) {
+                        cnlToTrendIdx[respCnls[i]] = i;
+                    }
+                    let gIdx = ch[0] ? cnlToTrendIdx[ch[0].cnlNum] : undefined;
+                    let pIdx = ch[2] ? cnlToTrendIdx[ch[2].cnlNum] : undefined;
+                    let latIdx = def.latCnlNum ? cnlToTrendIdx[def.latCnlNum] : undefined;
+                    let lonIdx = def.lonCnlNum ? cnlToTrendIdx[def.lonCnlNum] : undefined;
+                    if (gIdx === undefined) gIdx = -1;
+                    if (pIdx === undefined) pIdx = -1;
+                    if (latIdx === undefined) latIdx = -1;
+                    if (lonIdx === undefined) lonIdx = -1;
 
                     let timestamps = histData.timestamps || [];
                     let trends = histData.trends || [];
+
+                    let maxG = null, maxGIdx = -1;
+                    let maxP = null, maxPIdx = -1;
 
                     for (let i = 0; i < timestamps.length; i++) {
                         if (gIdx >= 0 && trends[gIdx] && trends[gIdx][i]) {
                             let rec = trends[gIdx][i];
                             if (rec.d && rec.d.stat > 0 && (maxG === null || rec.d.val > maxG)) {
                                 maxG = rec.d.val;
-                                maxGTime = timestamps[i];
+                                maxGIdx = i;
                             }
                         }
                         if (pIdx >= 0 && trends[pIdx] && trends[pIdx][i]) {
                             let rec = trends[pIdx][i];
                             if (rec.d && rec.d.stat > 0 && (maxP === null || rec.d.val > maxP)) {
                                 maxP = rec.d.val;
-                                maxPTime = timestamps[i];
+                                maxPIdx = i;
                             }
                         }
                     }
 
-                    // Find coordinates at max G time
-                    let lat = null, lon = null;
-                    if (maxGTime && latIdx >= 0 && lonIdx >= 0) {
-                        let tIdx = timestamps.indexOf(maxGTime);
-                        if (tIdx >= 0) {
-                            let latRec = trends[latIdx] ? trends[latIdx][tIdx] : null;
-                            let lonRec = trends[lonIdx] ? trends[lonIdx][tIdx] : null;
-                            if (latRec && latRec.d && latRec.d.stat > 0) lat = latRec.d.val;
-                            if (lonRec && lonRec.d && lonRec.d.stat > 0) lon = lonRec.d.val;
-                        }
-                    }
-                    // Fallback: find nearest valid coordinate
-                    if (lat === null && latIdx >= 0 && lonIdx >= 0) {
-                        for (let i = timestamps.length - 1; i >= 0; i--) {
-                            let latRec = trends[latIdx] ? trends[latIdx][i] : null;
-                            let lonRec = trends[lonIdx] ? trends[lonIdx][i] : null;
-                            if (latRec && latRec.d && latRec.d.stat > 0 && lonRec && lonRec.d && lonRec.d.stat > 0) {
-                                lat = latRec.d.val;
-                                lon = lonRec.d.val;
-                                break;
+                    let findCoordsNear = (centerIdx) => {
+                        if (centerIdx < 0 || latIdx < 0 || lonIdx < 0) return null;
+                        let n = timestamps.length;
+                        for (let d = 0; d < n; d++) {
+                            for (let sign of (d === 0 ? [0] : [-1, 1])) {
+                                let i = centerIdx + sign * d;
+                                if (i < 0 || i >= n) continue;
+                                let latRec = trends[latIdx] ? trends[latIdx][i] : null;
+                                let lonRec = trends[lonIdx] ? trends[lonIdx][i] : null;
+                                if (latRec && latRec.d && latRec.d.stat > 0 &&
+                                    lonRec && lonRec.d && lonRec.d.stat > 0) {
+                                    return { lat: latRec.d.val, lon: lonRec.d.val };
+                                }
                             }
                         }
-                    }
+                        return null;
+                    };
 
-                    await this._buildReportPdf(def, startTime, endTime, maxG, maxGTime, maxP, maxPTime, lat, lon);
+                    let coordsAtG = findCoordsNear(maxGIdx);
+                    let coordsAtP = findCoordsNear(maxPIdx);
+                    let maxGTime = maxGIdx >= 0 ? timestamps[maxGIdx] : null;
+                    let maxPTime = maxPIdx >= 0 ? timestamps[maxPIdx] : null;
+
+                    await this._buildReportPdf(def, startTime, endTime,
+                        maxG, maxGTime, coordsAtG,
+                        maxP, maxPTime, coordsAtP);
                     statusEl.textContent = '';
                 } catch (err) {
                     console.error("Report generation error:", err);
@@ -5369,7 +5380,7 @@
                 }
             }
 
-            async _buildReportPdf(def, startTime, endTime, maxG, maxGTime, maxP, maxPTime, lat, lon) {
+            async _buildReportPdf(def, startTime, endTime, maxG, maxGTime, coordsAtG, maxP, maxPTime, coordsAtP) {
                 await this._loadJsPdf();
                 let { jsPDF } = window.jspdf;
                 let doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -5426,19 +5437,22 @@
                 // Table
                 let tableData = [];
 
-                // Max G
                 let gVal = maxG !== null ? maxG.toFixed(2) + ' ' + this.t.flowRateUnit : '—';
                 let gTime = maxGTime ? fmtDt(maxGTime) : '—';
                 tableData.push([this.t.reportMaxFlow, gVal, gTime]);
 
-                // Max P
                 let pVal = maxP !== null ? maxP.toFixed(2) + ' ' + this.t.pressureUnit : '—';
                 let pTime = maxPTime ? fmtDt(maxPTime) : '—';
                 tableData.push([this.t.reportMaxPressure, pVal, pTime]);
 
-                // Location
-                let locText = (lat !== null && lon !== null) ? lat.toFixed(6) + ', ' + lon.toFixed(6) : '—';
-                tableData.push([this.t.reportLocation, locText, '']);
+                if (coordsAtG) {
+                    tableData.push([this.t.reportLocationAtG,
+                        coordsAtG.lat.toFixed(6) + ', ' + coordsAtG.lon.toFixed(6), '']);
+                }
+                if (coordsAtP) {
+                    tableData.push([this.t.reportLocationAtP,
+                        coordsAtP.lat.toFixed(6) + ', ' + coordsAtP.lon.toFixed(6), '']);
+                }
 
                 // Draw table
                 let colWidths = [contentW * 0.45, contentW * 0.25, contentW * 0.30];
