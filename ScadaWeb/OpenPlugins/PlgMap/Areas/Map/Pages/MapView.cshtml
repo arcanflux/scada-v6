@@ -5272,7 +5272,7 @@
 
                 try {
                     let histData = await this._fetchHistDataRange(cnlNums, startTime, endTime, 1);
-                    if (!histData || !histData.trends || histData.trends.length === 0) {
+                    if (!histData || !histData.timestamps || histData.timestamps.length === 0) {
                         statusEl.textContent = this.t.reportNoData;
                         btn.disabled = false;
                         return;
@@ -5340,20 +5340,45 @@
             }
 
             async _loadJsPdf() {
-                if (window.jspdf) return;
-                return new Promise((resolve, reject) => {
-                    let s = document.createElement("script");
-                    s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js";
-                    s.onload = resolve;
-                    s.onerror = reject;
-                    document.head.appendChild(s);
-                });
+                if (!window.jspdf) {
+                    await new Promise((resolve, reject) => {
+                        let s = document.createElement("script");
+                        s.src = "@Url.Content("~/plugins/Map/lib/jspdf/jspdf.umd.min.js")";
+                        s.onload = resolve;
+                        s.onerror = reject;
+                        document.head.appendChild(s);
+                    });
+                }
+                if (!this._pdfFontCache) {
+                    let loadFont = async (url) => {
+                        let resp = await fetch(url);
+                        let buf = await resp.arrayBuffer();
+                        let bytes = new Uint8Array(buf);
+                        let binary = '';
+                        let chunk = 0x8000;
+                        for (let i = 0; i < bytes.length; i += chunk) {
+                            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+                        }
+                        return btoa(binary);
+                    };
+                    let [regular, bold] = await Promise.all([
+                        loadFont("@Url.Content("~/plugins/Map/lib/fonts/DejaVuSans.ttf")"),
+                        loadFont("@Url.Content("~/plugins/Map/lib/fonts/DejaVuSans-Bold.ttf")")
+                    ]);
+                    this._pdfFontCache = { regular: regular, bold: bold };
+                }
             }
 
             async _buildReportPdf(def, startTime, endTime, maxG, maxGTime, maxP, maxPTime, lat, lon) {
                 await this._loadJsPdf();
                 let { jsPDF } = window.jspdf;
                 let doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+                doc.addFileToVFS('DejaVuSans.ttf', this._pdfFontCache.regular);
+                doc.addFont('DejaVuSans.ttf', 'DejaVu', 'normal');
+                doc.addFileToVFS('DejaVuSans-Bold.ttf', this._pdfFontCache.bold);
+                doc.addFont('DejaVuSans-Bold.ttf', 'DejaVu', 'bold');
+                doc.setFont('DejaVu', 'normal');
 
                 let fmtDt = (d) => {
                     if (!d) return '—';
@@ -5374,14 +5399,14 @@
                 let y = 20;
 
                 // Title
-                doc.setFont('helvetica', 'bold');
+                doc.setFont('DejaVu', 'bold');
                 doc.setFontSize(16);
                 doc.text(this.t.reportTitle, pageW / 2, y, { align: 'center' });
                 y += 10;
 
                 // PNU name
                 doc.setFontSize(13);
-                doc.text(def.name, pageW / 2, y, { align: 'center' });
+                doc.text(def.name || '', pageW / 2, y, { align: 'center' });
                 y += 8;
 
                 // Separator
@@ -5391,7 +5416,7 @@
                 y += 10;
 
                 // Period
-                doc.setFont('helvetica', 'normal');
+                doc.setFont('DejaVu', 'normal');
                 doc.setFontSize(11);
                 doc.text(this.t.reportPeriod + ':', marginL, y);
                 y += 6;
@@ -5421,7 +5446,7 @@
                 let rowH = 8;
 
                 // Table header
-                doc.setFont('helvetica', 'bold');
+                doc.setFont('DejaVu', 'bold');
                 doc.setFontSize(10);
                 doc.setFillColor(92, 107, 192);
                 doc.setTextColor(255);
@@ -5432,7 +5457,7 @@
                 y += rowH;
 
                 // Table rows
-                doc.setFont('helvetica', 'normal');
+                doc.setFont('DejaVu', 'normal');
                 doc.setTextColor(0);
                 for (let i = 0; i < tableData.length; i++) {
                     let row = tableData[i];
@@ -5444,9 +5469,9 @@
 
                     doc.setFontSize(9);
                     doc.text(row[0], marginL + 3, y + 5.5);
-                    doc.setFont('helvetica', 'bold');
+                    doc.setFont('DejaVu', 'bold');
                     doc.text(row[1], marginL + colWidths[0] + 3, y + 5.5);
-                    doc.setFont('helvetica', 'normal');
+                    doc.setFont('DejaVu', 'normal');
                     doc.text(row[2], marginL + colWidths[0] + colWidths[1] + 3, y + 5.5);
                     y += rowH;
                 }
@@ -5458,8 +5483,8 @@
                 doc.setTextColor(150);
                 doc.text('Дата формирования: ' + fmtDt(new Date()), marginL, 285);
 
-                let fileName = def.name.replace(/[^a-zA-Zа-яА-ЯёЁ0-9-_ ]/g, '') + '_' +
-                    startTime.toISOString().slice(0, 10) + '.pdf';
+                let safeName = (def.name || 'report').replace(/[^a-zA-Zа-яА-ЯёЁ0-9-_ ]/g, '');
+                let fileName = safeName + '_' + startTime.toISOString().slice(0, 10) + '.pdf';
                 doc.save(fileName);
             }
 
