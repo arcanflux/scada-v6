@@ -430,8 +430,9 @@
             top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.45);
             z-index: 2000;
-            align-items: center;
+            align-items: flex-start;
             justify-content: center;
+            padding-top: 8vh;
         }
 
         .map-report-overlay.show {
@@ -3194,13 +3195,12 @@
                     this._drTempStart = new Date(this._chartStartTime);
                     this._drTempEnd = new Date(this._chartEndTime);
 
-                    let startVal = document.getElementById('mapDateRangeStartVal');
+                    let startVal = document.getElementById('mapDRChartStartVal');
                     if (startVal) startVal.textContent = this._fmtDateTimeFull(this._chartStartTime);
-                    let endVal = document.getElementById('mapDateRangeEndVal');
+                    let endVal = document.getElementById('mapDRChartEndVal');
                     if (endVal) endVal.textContent = this._fmtDateTimeFull(this._chartEndTime);
 
-                    // If date/time picker dropdown is open, refresh it live
-                    let dropdown = document.getElementById('mapDateRangeDropdown');
+                    let dropdown = document.getElementById('mapDRChartDropdown');
                     if (dropdown && dropdown.classList.contains('open')) {
                         if (this._drPickerMode === 'end') {
                             this._renderDateRangeDropdown(dropdown, this._drTempEnd);
@@ -3267,7 +3267,7 @@
 
                 // build toolbar with date range picker + action buttons
                 toolbar.innerHTML = '';
-                this._buildDateRangeBox(toolbar);
+                this._buildDateRangeBox(toolbar, null, 'mapDRChart');
 
                 // Reset zoom button
                 let resetBtn = document.createElement('button');
@@ -3374,35 +3374,40 @@
                 return dd + '.' + mm + '.' + yy + ' ' + hh + ':' + mi;
             }
 
-            _buildDateRangeBox(toolbar, onApply) {
+            _buildDateRangeBox(toolbar, onApply, idPrefix) {
+                idPrefix = idPrefix || 'mapDR';
+                this._drPrefix = idPrefix;
                 this._drApplyCallback = onApply || null;
+
+                if (this._drOutsideClickHandler) {
+                    document.removeEventListener('click', this._drOutsideClickHandler);
+                    this._drOutsideClickHandler = null;
+                }
+
                 let wrapper = document.createElement('div');
                 wrapper.className = 'map-daterange-wrapper';
 
                 let box = document.createElement('div');
                 box.className = 'map-daterange-box';
-                box.id = 'mapDateRangeBox';
+                box.id = idPrefix + 'Box';
 
-                // Start zone
                 let startZone = document.createElement('div');
                 startZone.className = 'map-daterange-zone';
-                startZone.id = 'mapDateRangeStartZone';
+                startZone.id = idPrefix + 'StartZone';
                 startZone.innerHTML =
                     '<span class="map-daterange-zone-label">' + this._escapeHtml(this.t.start) + '</span>' +
-                    '<span class="map-daterange-zone-value" id="mapDateRangeStartVal">' +
+                    '<span class="map-daterange-zone-value" id="' + idPrefix + 'StartVal">' +
                     this._escapeHtml(this._fmtDateTimeFull(this._chartStartTime)) + '</span>';
 
-                // Separator
                 let sep = document.createElement('div');
                 sep.className = 'map-daterange-separator';
 
-                // End zone
                 let endZone = document.createElement('div');
                 endZone.className = 'map-daterange-zone';
-                endZone.id = 'mapDateRangeEndZone';
+                endZone.id = idPrefix + 'EndZone';
                 endZone.innerHTML =
                     '<span class="map-daterange-zone-label">' + this._escapeHtml(this.t.end) + '</span>' +
-                    '<span class="map-daterange-zone-value" id="mapDateRangeEndVal">' +
+                    '<span class="map-daterange-zone-value" id="' + idPrefix + 'EndVal">' +
                     this._escapeHtml(this._fmtDateTimeFull(this._chartEndTime)) + '</span>';
 
                 box.appendChild(startZone);
@@ -3410,20 +3415,17 @@
                 box.appendChild(endZone);
                 wrapper.appendChild(box);
 
-                // Dropdown
                 let dropdown = document.createElement('div');
                 dropdown.className = 'map-daterange-dropdown';
-                dropdown.id = 'mapDateRangeDropdown';
+                dropdown.id = idPrefix + 'Dropdown';
                 wrapper.appendChild(dropdown);
 
                 toolbar.appendChild(wrapper);
 
-                // State for picker
-                this._drPickerMode = null; // 'start' or 'end'
+                this._drPickerMode = null;
                 this._drTempStart = new Date(this._chartStartTime);
                 this._drTempEnd = new Date(this._chartEndTime);
 
-                // Click handlers for zones
                 let self = this;
                 startZone.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -3434,10 +3436,10 @@
                     self._openDateRangeDropdown('end');
                 });
 
-                // Close dropdown on outside click
+                let pfx = idPrefix;
                 this._drOutsideClickHandler = (e) => {
-                    let dd = document.getElementById('mapDateRangeDropdown');
-                    let bx = document.getElementById('mapDateRangeBox');
+                    let dd = document.getElementById(pfx + 'Dropdown');
+                    let bx = document.getElementById(pfx + 'Box');
                     if (dd && !dd.contains(e.target) && bx && !bx.contains(e.target)) {
                         dd.classList.remove('open');
                         this._drPickerMode = null;
@@ -3445,8 +3447,8 @@
                             clearInterval(this._timeIndicatorInterval);
                             this._timeIndicatorInterval = null;
                         }
-                        let sz = document.getElementById('mapDateRangeStartZone');
-                        let ez = document.getElementById('mapDateRangeEndZone');
+                        let sz = document.getElementById(pfx + 'StartZone');
+                        let ez = document.getElementById(pfx + 'EndZone');
                         if (sz) sz.classList.remove('active');
                         if (ez) ez.classList.remove('active');
                     }
@@ -3455,19 +3457,17 @@
             }
 
             _openDateRangeDropdown(mode) {
-                // Pause real-time updates when user manually picks date
                 this._chartRealtimePaused = true;
                 this._drPickerMode = mode;
-                let dropdown = document.getElementById('mapDateRangeDropdown');
-                let box = document.getElementById('mapDateRangeBox');
+                let pfx = this._drPrefix;
+                let dropdown = document.getElementById(pfx + 'Dropdown');
+                let box = document.getElementById(pfx + 'Box');
 
-                // Match dropdown width to box width
                 dropdown.style.width = box.offsetWidth + 'px';
                 dropdown.style.minWidth = '300px';
 
-                // Highlight active zone
-                let sz = document.getElementById('mapDateRangeStartZone');
-                let ez = document.getElementById('mapDateRangeEndZone');
+                let sz = document.getElementById(pfx + 'StartZone');
+                let ez = document.getElementById(pfx + 'EndZone');
                 sz.classList.toggle('active', mode === 'start');
                 ez.classList.toggle('active', mode === 'end');
 
@@ -3515,7 +3515,7 @@
                 // Time display
                 let timeDisplay = document.createElement('div');
                 timeDisplay.className = 'map-time-display';
-                timeDisplay.id = 'mapTimeDisplay';
+                timeDisplay.id = this._drPrefix + 'TimeDisplay';
                 let hh = currentDate.getHours();
                 let mm = currentDate.getMinutes();
                 timeDisplay.textContent = String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
@@ -3737,7 +3737,7 @@
                 let h = Math.floor(totalMin / 60);
                 let m = totalMin % 60;
 
-                let display = document.getElementById('mapTimeDisplay');
+                let display = document.getElementById(this._drPrefix + 'TimeDisplay');
                 if (display) {
                     display.textContent = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
                 }
@@ -3760,7 +3760,7 @@
             _buildCalendar(currentDate) {
                 let container = document.createElement('div');
                 container.className = 'map-calendar';
-                container.id = 'mapCalendarContainer';
+                container.id = this._drPrefix + 'Calendar';
 
                 let self = this;
                 let year = this._drViewYear;
@@ -3861,7 +3861,7 @@
             }
 
             _refreshCalendar(currentDate) {
-                let container = document.getElementById('mapCalendarContainer');
+                let container = document.getElementById(this._drPrefix + 'Calendar');
                 if (!container) return;
                 let parent = container.parentNode;
                 let newCal = this._buildCalendar(currentDate);
@@ -3886,18 +3886,17 @@
                 // Compute _combinedDays for pan-to-load compatibility
                 this._combinedDays = (this._chartEndTime - this._chartStartTime) / (24 * 60 * 60 * 1000);
 
-                // Update display
-                let startVal = document.getElementById('mapDateRangeStartVal');
-                let endVal = document.getElementById('mapDateRangeEndVal');
+                let pfx = this._drPrefix;
+                let startVal = document.getElementById(pfx + 'StartVal');
+                let endVal = document.getElementById(pfx + 'EndVal');
                 if (startVal) startVal.textContent = this._fmtDateTimeFull(this._chartStartTime);
                 if (endVal) endVal.textContent = this._fmtDateTimeFull(this._chartEndTime);
 
-                // Close dropdown
-                let dropdown = document.getElementById('mapDateRangeDropdown');
+                let dropdown = document.getElementById(pfx + 'Dropdown');
                 if (dropdown) dropdown.classList.remove('open');
                 this._drPickerMode = null;
-                let sz = document.getElementById('mapDateRangeStartZone');
-                let ez = document.getElementById('mapDateRangeEndZone');
+                let sz = document.getElementById(pfx + 'StartZone');
+                let ez = document.getElementById(pfx + 'EndZone');
                 if (sz) sz.classList.remove('active');
                 if (ez) ez.classList.remove('active');
 
@@ -5241,7 +5240,7 @@
 
                 // Use the same daterange widget as the chart; pass no-op callback so apply doesn't reload chart
                 let container = document.getElementById("mapReportDateRangeContainer");
-                this._buildDateRangeBox(container, () => { /* no-op: report reads dates on generate */ });
+                this._buildDateRangeBox(container, () => { /* no-op: report reads dates on generate */ }, 'mapDRReport');
 
                 document.getElementById("mapReportGenBtn").addEventListener("click", () => {
                     this._generateReport(markerIdx);
