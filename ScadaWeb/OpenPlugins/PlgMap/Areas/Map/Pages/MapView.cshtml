@@ -442,10 +442,10 @@
             background: #fff;
             border-radius: 8px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            width: 520px;
+            width: 640px;
             max-width: 94vw;
             max-height: 90vh;
-            overflow: auto;
+            overflow: visible;
             display: flex;
             flex-direction: column;
         }
@@ -467,24 +467,9 @@
             gap: 12px;
         }
 
-        .map-report-dates {
+        .map-report-dates-wrap {
             display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .map-report-dates label {
-            font-size: 13px;
-            font-weight: 600;
-            color: #555;
-        }
-
-        .map-report-dates input[type="datetime-local"] {
-            font-size: 14px;
-            padding: 4px 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
+            justify-content: center;
         }
 
         .map-report-generate-btn {
@@ -2284,6 +2269,7 @@
 
                 this._initSearch();
                 this._initChartOverlay();
+                this._initReportOverlay();
                 this._initMiniChartTooltip();
                 this._initTicketTooltip();
                 this._initStatusPanel();
@@ -3388,7 +3374,8 @@
                 return dd + '.' + mm + '.' + yy + ' ' + hh + ':' + mi;
             }
 
-            _buildDateRangeBox(toolbar) {
+            _buildDateRangeBox(toolbar, onApply) {
+                this._drApplyCallback = onApply || null;
                 let wrapper = document.createElement('div');
                 wrapper.className = 'map-daterange-wrapper';
 
@@ -3914,8 +3901,12 @@
                 if (sz) sz.classList.remove('active');
                 if (ez) ez.classList.remove('active');
 
-                // Reload chart
-                this._openCombinedChart(this._combinedMarkerIdx, this._combinedDays);
+                // Invoke custom callback (e.g. report) or default to chart reload
+                if (this._drApplyCallback) {
+                    this._drApplyCallback();
+                } else {
+                    this._openCombinedChart(this._combinedMarkerIdx, this._combinedDays);
+                }
             }
 
             _renderCombinedTooltip(ctx) {
@@ -5221,6 +5212,14 @@
             }
 
             // --- PNU Report ---
+            _initReportOverlay() {
+                let overlay = document.getElementById("mapReportOverlay");
+                if (!overlay) return;
+                overlay.addEventListener("click", (ev) => {
+                    if (ev.target === overlay) overlay.classList.remove("show");
+                });
+            }
+
             _openReport(markerIdx) {
                 let entry = this.markerEntries[markerIdx];
                 if (!entry) return;
@@ -5229,37 +5228,26 @@
                 let overlay = document.getElementById("mapReportOverlay");
                 document.getElementById("mapReportTitle").textContent = def.name;
 
-                let now = new Date();
-                let dayAgo = new Date(now.getTime() - 24 * 3600000);
-                let fmtDt = (d) => {
-                    let y = d.getFullYear();
-                    let m = String(d.getMonth() + 1).padStart(2, '0');
-                    let dd = String(d.getDate()).padStart(2, '0');
-                    let hh = String(d.getHours()).padStart(2, '0');
-                    let mi = String(d.getMinutes()).padStart(2, '0');
-                    return y + '-' + m + '-' + dd + 'T' + hh + ':' + mi;
-                };
+                // Default range: last 24 hours
+                this._chartEndTime = new Date();
+                this._chartStartTime = new Date(this._chartEndTime.getTime() - 24 * 3600000);
 
                 let body = document.getElementById("mapReportBody");
                 body.innerHTML =
-                    '<div class="map-report-dates">' +
-                        '<label>' + this._escapeHtml(this.t.start) + '</label>' +
-                        '<input type="datetime-local" id="mapReportStart" value="' + fmtDt(dayAgo) + '">' +
-                        '<label>' + this._escapeHtml(this.t.end) + '</label>' +
-                        '<input type="datetime-local" id="mapReportEnd" value="' + fmtDt(now) + '">' +
-                    '</div>' +
+                    '<div id="mapReportDateRangeContainer" class="map-report-dates-wrap"></div>' +
                     '<button class="map-report-generate-btn" id="mapReportGenBtn">' +
                         this._escapeHtml(this.t.reportGenerate) + '</button>' +
                     '<div class="map-report-status" id="mapReportStatus"></div>';
+
+                // Use the same daterange widget as the chart; pass no-op callback so apply doesn't reload chart
+                let container = document.getElementById("mapReportDateRangeContainer");
+                this._buildDateRangeBox(container, () => { /* no-op: report reads dates on generate */ });
 
                 document.getElementById("mapReportGenBtn").addEventListener("click", () => {
                     this._generateReport(markerIdx);
                 });
 
                 overlay.classList.add("show");
-                overlay.addEventListener("click", (ev) => {
-                    if (ev.target === overlay) overlay.classList.remove("show");
-                }, { once: true });
             }
 
             async _generateReport(markerIdx) {
@@ -5273,10 +5261,8 @@
                 btn.disabled = true;
                 statusEl.textContent = this.t.reportGenerating;
 
-                let startVal = document.getElementById("mapReportStart").value;
-                let endVal = document.getElementById("mapReportEnd").value;
-                let startTime = new Date(startVal);
-                let endTime = new Date(endVal);
+                let startTime = new Date(this._chartStartTime);
+                let endTime = new Date(this._chartEndTime);
 
                 // Channels: ch[0]=G, ch[2]=P напор, latCnlNum, lonCnlNum
                 let cnlNums = [];
