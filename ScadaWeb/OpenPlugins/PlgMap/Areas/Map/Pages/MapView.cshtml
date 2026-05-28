@@ -402,6 +402,119 @@
             padding-left: 2px;
         }
 
+        .map-pnu-report-btn {
+            padding: 3px 10px;
+            border: 2px solid #5c6bc0;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #5c6bc0;
+            background: #fff;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+            white-space: nowrap;
+            margin-left: auto;
+            margin-right: 6px;
+        }
+
+        .map-pnu-report-btn:hover {
+            background: #5c6bc0;
+            color: #fff;
+        }
+
+        /* Report overlay */
+        .map-report-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .map-report-overlay.show {
+            display: flex;
+        }
+
+        .map-report-panel {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            width: 520px;
+            max-width: 94vw;
+            max-height: 90vh;
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .map-report-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 14px 16px 8px;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            font-weight: 600;
+            font-size: 1.15em;
+        }
+
+        .map-report-body {
+            padding: 8px 20px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .map-report-dates {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .map-report-dates label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .map-report-dates input[type="datetime-local"] {
+            font-size: 14px;
+            padding: 4px 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .map-report-generate-btn {
+            padding: 8px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 600;
+            color: #fff;
+            background: #5c6bc0;
+            cursor: pointer;
+            transition: background 0.15s;
+            align-self: center;
+        }
+
+        .map-report-generate-btn:hover {
+            background: #3f51b5;
+        }
+
+        .map-report-generate-btn:disabled {
+            background: #bbb;
+            cursor: default;
+        }
+
+        .map-report-status {
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+        }
+
         .map-pnu-hydro-box {
             margin: 6px 0;
             padding: 6px 10px;
@@ -1645,7 +1758,16 @@
                 flowRateUnit: "@Html.Raw(Model.JsDict.FlowRateUnit)",
                 ticketsLabel: "@Html.Raw(Model.JsDict.TicketsLabel)",
                 noActiveTickets: "@Html.Raw(Model.JsDict.NoActiveTickets)",
-                openTicket: "@Html.Raw(Model.JsDict.OpenTicket)"
+                openTicket: "@Html.Raw(Model.JsDict.OpenTicket)",
+                reportBtn: "@Html.Raw(Model.JsDict.ReportBtn)",
+                reportTitle: "@Html.Raw(Model.JsDict.ReportTitle)",
+                reportGenerate: "@Html.Raw(Model.JsDict.ReportGenerate)",
+                reportPeriod: "@Html.Raw(Model.JsDict.ReportPeriod)",
+                reportMaxFlow: "@Html.Raw(Model.JsDict.ReportMaxFlow)",
+                reportMaxPressure: "@Html.Raw(Model.JsDict.ReportMaxPressure)",
+                reportLocation: "@Html.Raw(Model.JsDict.ReportLocation)",
+                reportNoData: "@Html.Raw(Model.JsDict.ReportNoData)",
+                reportGenerating: "@Html.Raw(Model.JsDict.ReportGenerating)"
             };
 
             constructor(options) {
@@ -2864,8 +2986,10 @@
                     '<path d="M5 13l2 2c2.761-2.761 7.239-2.761 10 0l2-2C15.521 9.521 8.479 9.521 5 13z"/>' +
                     '<path d="M9 17l3 3 3-3c-1.657-1.657-4.343-1.657-6 0z"/>' +
                     '</svg></span>';
+                let reportBtn = '<span class="map-pnu-report-btn" onclick="mapViewInstance._openReport(' +
+                    (markerIdx >= 0 ? markerIdx : 0) + ')">' + this._escapeHtml(this.t.reportBtn) + '</span>';
                 html += '<div class="map-popup-name-row"><span class="map-popup-name">' +
-                    this._escapeHtml(def.name) + '</span>' + connIcon + '</div>';
+                    this._escapeHtml(def.name) + '</span>' + reportBtn + connIcon + '</div>';
 
                 if (def.descr) {
                     html += '<div class="map-popup-descr">' + this._escapeHtml(def.descr) + '</div>';
@@ -5096,6 +5220,264 @@
                 return "#3388ff";  // blue — normal
             }
 
+            // --- PNU Report ---
+            _openReport(markerIdx) {
+                let entry = this.markerEntries[markerIdx];
+                if (!entry) return;
+                let def = entry.def;
+
+                let overlay = document.getElementById("mapReportOverlay");
+                document.getElementById("mapReportTitle").textContent = def.name;
+
+                let now = new Date();
+                let dayAgo = new Date(now.getTime() - 24 * 3600000);
+                let fmtDt = (d) => {
+                    let y = d.getFullYear();
+                    let m = String(d.getMonth() + 1).padStart(2, '0');
+                    let dd = String(d.getDate()).padStart(2, '0');
+                    let hh = String(d.getHours()).padStart(2, '0');
+                    let mi = String(d.getMinutes()).padStart(2, '0');
+                    return y + '-' + m + '-' + dd + 'T' + hh + ':' + mi;
+                };
+
+                let body = document.getElementById("mapReportBody");
+                body.innerHTML =
+                    '<div class="map-report-dates">' +
+                        '<label>' + this._escapeHtml(this.t.start) + '</label>' +
+                        '<input type="datetime-local" id="mapReportStart" value="' + fmtDt(dayAgo) + '">' +
+                        '<label>' + this._escapeHtml(this.t.end) + '</label>' +
+                        '<input type="datetime-local" id="mapReportEnd" value="' + fmtDt(now) + '">' +
+                    '</div>' +
+                    '<button class="map-report-generate-btn" id="mapReportGenBtn">' +
+                        this._escapeHtml(this.t.reportGenerate) + '</button>' +
+                    '<div class="map-report-status" id="mapReportStatus"></div>';
+
+                document.getElementById("mapReportGenBtn").addEventListener("click", () => {
+                    this._generateReport(markerIdx);
+                });
+
+                overlay.classList.add("show");
+                overlay.addEventListener("click", (ev) => {
+                    if (ev.target === overlay) overlay.classList.remove("show");
+                }, { once: true });
+            }
+
+            async _generateReport(markerIdx) {
+                let entry = this.markerEntries[markerIdx];
+                if (!entry) return;
+                let def = entry.def;
+                let ch = def.channels || [];
+
+                let statusEl = document.getElementById("mapReportStatus");
+                let btn = document.getElementById("mapReportGenBtn");
+                btn.disabled = true;
+                statusEl.textContent = this.t.reportGenerating;
+
+                let startVal = document.getElementById("mapReportStart").value;
+                let endVal = document.getElementById("mapReportEnd").value;
+                let startTime = new Date(startVal);
+                let endTime = new Date(endVal);
+
+                // Channels: ch[0]=G, ch[2]=P напор, latCnlNum, lonCnlNum
+                let cnlNums = [];
+                if (ch[0]) cnlNums.push(ch[0].cnlNum); // G
+                if (ch[2]) cnlNums.push(ch[2].cnlNum); // P напор
+                if (def.latCnlNum) cnlNums.push(def.latCnlNum);
+                if (def.lonCnlNum) cnlNums.push(def.lonCnlNum);
+
+                try {
+                    let histData = await this._fetchHistDataRange(cnlNums, startTime, endTime, 1);
+                    if (!histData || !histData.trends || histData.trends.length === 0) {
+                        statusEl.textContent = this.t.reportNoData;
+                        btn.disabled = false;
+                        return;
+                    }
+
+                    let gIdx = ch[0] ? cnlNums.indexOf(ch[0].cnlNum) : -1;
+                    let pIdx = ch[2] ? cnlNums.indexOf(ch[2].cnlNum) : -1;
+                    let latIdx = def.latCnlNum ? cnlNums.indexOf(def.latCnlNum) : -1;
+                    let lonIdx = def.lonCnlNum ? cnlNums.indexOf(def.lonCnlNum) : -1;
+
+                    let maxG = null, maxGTime = null;
+                    let maxP = null, maxPTime = null;
+
+                    let timestamps = histData.timestamps || [];
+                    let trends = histData.trends || [];
+
+                    for (let i = 0; i < timestamps.length; i++) {
+                        if (gIdx >= 0 && trends[gIdx] && trends[gIdx][i]) {
+                            let rec = trends[gIdx][i];
+                            if (rec.d && rec.d.stat > 0 && (maxG === null || rec.d.val > maxG)) {
+                                maxG = rec.d.val;
+                                maxGTime = timestamps[i];
+                            }
+                        }
+                        if (pIdx >= 0 && trends[pIdx] && trends[pIdx][i]) {
+                            let rec = trends[pIdx][i];
+                            if (rec.d && rec.d.stat > 0 && (maxP === null || rec.d.val > maxP)) {
+                                maxP = rec.d.val;
+                                maxPTime = timestamps[i];
+                            }
+                        }
+                    }
+
+                    // Find coordinates at max G time
+                    let lat = null, lon = null;
+                    if (maxGTime && latIdx >= 0 && lonIdx >= 0) {
+                        let tIdx = timestamps.indexOf(maxGTime);
+                        if (tIdx >= 0) {
+                            let latRec = trends[latIdx] ? trends[latIdx][tIdx] : null;
+                            let lonRec = trends[lonIdx] ? trends[lonIdx][tIdx] : null;
+                            if (latRec && latRec.d && latRec.d.stat > 0) lat = latRec.d.val;
+                            if (lonRec && lonRec.d && lonRec.d.stat > 0) lon = lonRec.d.val;
+                        }
+                    }
+                    // Fallback: find nearest valid coordinate
+                    if (lat === null && latIdx >= 0 && lonIdx >= 0) {
+                        for (let i = timestamps.length - 1; i >= 0; i--) {
+                            let latRec = trends[latIdx] ? trends[latIdx][i] : null;
+                            let lonRec = trends[lonIdx] ? trends[lonIdx][i] : null;
+                            if (latRec && latRec.d && latRec.d.stat > 0 && lonRec && lonRec.d && lonRec.d.stat > 0) {
+                                lat = latRec.d.val;
+                                lon = lonRec.d.val;
+                                break;
+                            }
+                        }
+                    }
+
+                    await this._buildReportPdf(def, startTime, endTime, maxG, maxGTime, maxP, maxPTime, lat, lon);
+                    statusEl.textContent = '';
+                } catch (err) {
+                    console.error("Report generation error:", err);
+                    statusEl.textContent = this.t.error;
+                }
+                btn.disabled = false;
+            }
+
+            async _loadJsPdf() {
+                if (window.jspdf) return;
+                return new Promise((resolve, reject) => {
+                    let s = document.createElement("script");
+                    s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js";
+                    s.onload = resolve;
+                    s.onerror = reject;
+                    document.head.appendChild(s);
+                });
+            }
+
+            async _buildReportPdf(def, startTime, endTime, maxG, maxGTime, maxP, maxPTime, lat, lon) {
+                await this._loadJsPdf();
+                let { jsPDF } = window.jspdf;
+                let doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+                let fmtDt = (d) => {
+                    if (!d) return '—';
+                    let dt = typeof d === 'string' ? new Date(d) : d;
+                    let dd = String(dt.getDate()).padStart(2, '0');
+                    let mm = String(dt.getMonth() + 1).padStart(2, '0');
+                    let yy = dt.getFullYear();
+                    let hh = String(dt.getHours()).padStart(2, '0');
+                    let mi = String(dt.getMinutes()).padStart(2, '0');
+                    let ss = String(dt.getSeconds()).padStart(2, '0');
+                    return dd + '.' + mm + '.' + yy + ' ' + hh + ':' + mi + ':' + ss;
+                };
+
+                let pageW = 210;
+                let marginL = 20;
+                let marginR = 20;
+                let contentW = pageW - marginL - marginR;
+                let y = 20;
+
+                // Title
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(16);
+                doc.text(this.t.reportTitle, pageW / 2, y, { align: 'center' });
+                y += 10;
+
+                // PNU name
+                doc.setFontSize(13);
+                doc.text(def.name, pageW / 2, y, { align: 'center' });
+                y += 8;
+
+                // Separator
+                doc.setDrawColor(100);
+                doc.setLineWidth(0.5);
+                doc.line(marginL, y, pageW - marginR, y);
+                y += 10;
+
+                // Period
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(11);
+                doc.text(this.t.reportPeriod + ':', marginL, y);
+                y += 6;
+                doc.text(fmtDt(startTime) + '  —  ' + fmtDt(endTime), marginL + 5, y);
+                y += 12;
+
+                // Table
+                let tableData = [];
+
+                // Max G
+                let gVal = maxG !== null ? maxG.toFixed(2) + ' ' + this.t.flowRateUnit : '—';
+                let gTime = maxGTime ? fmtDt(maxGTime) : '—';
+                tableData.push([this.t.reportMaxFlow, gVal, gTime]);
+
+                // Max P
+                let pVal = maxP !== null ? maxP.toFixed(2) + ' ' + this.t.pressureUnit : '—';
+                let pTime = maxPTime ? fmtDt(maxPTime) : '—';
+                tableData.push([this.t.reportMaxPressure, pVal, pTime]);
+
+                // Location
+                let locText = (lat !== null && lon !== null) ? lat.toFixed(6) + ', ' + lon.toFixed(6) : '—';
+                tableData.push([this.t.reportLocation, locText, '']);
+
+                // Draw table
+                let colWidths = [contentW * 0.45, contentW * 0.25, contentW * 0.30];
+                let headers = [' ', ' ', ' '];
+                let rowH = 8;
+
+                // Table header
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(10);
+                doc.setFillColor(92, 107, 192);
+                doc.setTextColor(255);
+                doc.rect(marginL, y, contentW, rowH, 'F');
+                doc.text('Параметр', marginL + 3, y + 5.5);
+                doc.text('Значение', marginL + colWidths[0] + 3, y + 5.5);
+                doc.text('Время', marginL + colWidths[0] + colWidths[1] + 3, y + 5.5);
+                y += rowH;
+
+                // Table rows
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(0);
+                for (let i = 0; i < tableData.length; i++) {
+                    let row = tableData[i];
+                    let bgColor = i % 2 === 0 ? [245, 245, 255] : [255, 255, 255];
+                    doc.setFillColor(...bgColor);
+                    doc.rect(marginL, y, contentW, rowH, 'F');
+                    doc.setDrawColor(200);
+                    doc.rect(marginL, y, contentW, rowH, 'S');
+
+                    doc.setFontSize(9);
+                    doc.text(row[0], marginL + 3, y + 5.5);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(row[1], marginL + colWidths[0] + 3, y + 5.5);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text(row[2], marginL + colWidths[0] + colWidths[1] + 3, y + 5.5);
+                    y += rowH;
+                }
+
+                y += 12;
+
+                // Footer
+                doc.setFontSize(8);
+                doc.setTextColor(150);
+                doc.text('Дата формирования: ' + fmtDt(new Date()), marginL, 285);
+
+                let fileName = def.name.replace(/[^a-zA-Zа-яА-ЯёЁ0-9-_ ]/g, '') + '_' +
+                    startTime.toISOString().slice(0, 10) + '.pdf';
+                doc.save(fileName);
+            }
+
             _escapeHtml(text) {
                 if (!text) return "";
                 let div = document.createElement("div");
@@ -5213,6 +5595,16 @@
 <div id="mapTicketTooltip" class="map-ticket-tooltip">
     <div id="mapTicketTooltipTitle" class="map-ticket-tooltip-title"></div>
     <div id="mapTicketTooltipBody" class="map-ticket-tooltip-body"></div>
+</div>
+
+<!-- PNU Report Overlay -->
+<div id="mapReportOverlay" class="map-report-overlay">
+    <div class="map-report-panel">
+        <div class="map-report-header">
+            <span id="mapReportTitle"></span>
+        </div>
+        <div class="map-report-body" id="mapReportBody"></div>
+    </div>
 </div>
 
 <!-- Extra Channels Popup (secondary popup from "more" button) -->

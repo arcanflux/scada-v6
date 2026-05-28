@@ -66,5 +66,14 @@
     <Phrase key="TicketsLabel">Заявки</Phrase>
     <Phrase key="NoActiveTickets">Нет активных заявок</Phrase>
     <Phrase key="OpenTicket">Открытая заявка</Phrase>
+    <Phrase key="ReportBtn">Отчет</Phrase>
+    <Phrase key="ReportTitle">Отчет по гидравлическим испытаниям</Phrase>
+    <Phrase key="ReportGenerate">Сформировать</Phrase>
+    <Phrase key="ReportPeriod">Период</Phrase>
+    <Phrase key="ReportMaxFlow">Максимальный расход (G)</Phrase>
+    <Phrase key="ReportMaxPressure">Максимальное давление напора (P напор)</Phrase>
+    <Phrase key="ReportLocation">Местоположение ПНУ</Phrase>
+    <Phrase key="ReportNoData">Нет данных за выбранный период</Phrase>
+    <Phrase key="ReportGenerating">Формирование отчета...</Phrase>
   </Dictionary>
 </PlgMapDictionaries>
