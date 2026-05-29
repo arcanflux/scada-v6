@@ -5503,27 +5503,39 @@
 
                 y += 8;
 
-                // Chart image
-                if (chartData) {
-                    let chartImg = await this._renderReportChart(chartData, def, fmtDt);
-                    if (chartImg) {
-                        let chartW = contentW;
-                        let chartH = chartW * 0.45;
-                        if (y + chartH > 275) {
-                            doc.addPage();
-                            y = 15;
-                        }
-                        doc.addImage(chartImg, 'PNG', marginL, y, chartW, chartH);
-                        y += chartH + 5;
-                    }
-                }
-
-                // Footer
-                let footerY = Math.max(y + 8, 280);
+                // Footer on page 1
                 doc.setFontSize(8);
                 doc.setTextColor(150);
                 doc.setFont('DejaVu', 'normal');
-                doc.text('Дата формирования: ' + fmtDt(new Date()), marginL, footerY);
+                doc.text('Дата формирования: ' + fmtDt(new Date()), marginL, 285);
+
+                // Chart on a dedicated landscape page (full size, detailed)
+                if (chartData) {
+                    let chartImg = await this._renderReportChart(chartData, def, fmtDt);
+                    if (chartImg) {
+                        doc.addPage('a4', 'landscape');
+                        let lpW = 297, lpH = 210;
+                        let lMargin = 12;
+
+                        // Title on chart page
+                        doc.setFont('DejaVu', 'bold');
+                        doc.setFontSize(13);
+                        doc.setTextColor(0);
+                        doc.text((def.name || '') + ' — ' + this.t.combinedChart,
+                            lpW / 2, 12, { align: 'center' });
+                        doc.setFont('DejaVu', 'normal');
+                        doc.setFontSize(9);
+                        doc.setTextColor(90);
+                        doc.text(fmtDt(startTime) + '  —  ' + fmtDt(endTime),
+                            lpW / 2, 18, { align: 'center' });
+                        doc.setTextColor(0);
+
+                        let imgY = 22;
+                        let imgW = lpW - lMargin * 2;
+                        let imgH = lpH - imgY - 10;
+                        doc.addImage(chartImg, 'PNG', lMargin, imgY, imgW, imgH);
+                    }
+                }
 
                 let safeName = (def.name || 'report').replace(/[^a-zA-Zа-яА-ЯёЁ0-9-_ ]/g, '');
                 let fileName = safeName + '_' + startTime.toISOString().slice(0, 10) + '.pdf';
@@ -5576,8 +5588,8 @@
                     if (datasets.length === 0) { resolve(null); return; }
 
                     let canvas = document.createElement('canvas');
-                    canvas.width = 1700;
-                    canvas.height = 750;
+                    canvas.width = 2400;
+                    canvas.height = 1560;
                     canvas.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
                     document.body.appendChild(canvas);
 
