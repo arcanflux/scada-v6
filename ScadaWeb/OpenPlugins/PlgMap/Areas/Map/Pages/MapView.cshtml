@@ -5515,8 +5515,8 @@
                 if (chartData) {
                     let chartImg = await this._renderReportChart(chartData, def, fmtDt);
                     if (chartImg) {
-                        doc.addPage('a2', 'landscape');
-                        doc.addImage(chartImg, 'PNG', 3, 3, 588, 414);
+                        doc.addPage([840, 594], 'landscape');
+                        doc.addImage(chartImg, 'PNG', 3, 3, 834, 588);
                     }
                 }
 
@@ -5547,7 +5547,7 @@
                             data: pts,
                             borderColor: '#ff7f0e',
                             backgroundColor: '#ff7f0e20',
-                            borderWidth: 3,
+                            borderWidth: 4,
                             pointRadius: 0,
                             tension: 0.3,
                             fill: false,
@@ -5558,8 +5558,8 @@
                                 label: 'Макс. G',
                                 data: [{ x: maxGTime, y: maxG }],
                                 borderColor: '#ff7f0e',
-                                borderDash: [10, 7],
-                                borderWidth: 3,
+                                borderDash: [14, 10],
+                                borderWidth: 4,
                                 pointRadius: 0,
                                 showLine: false,
                                 yAxisID: 'yG',
@@ -5575,7 +5575,7 @@
                             data: pts,
                             borderColor: '#d32f2f',
                             backgroundColor: '#d32f2f20',
-                            borderWidth: 3,
+                            borderWidth: 4,
                             pointRadius: 0,
                             tension: 0.3,
                             fill: false,
@@ -5586,8 +5586,8 @@
                                 label: 'Макс. P напор',
                                 data: [{ x: maxPTime, y: maxP }],
                                 borderColor: '#d32f2f',
-                                borderDash: [10, 7],
-                                borderWidth: 3,
+                                borderDash: [14, 10],
+                                borderWidth: 4,
                                 pointRadius: 0,
                                 showLine: false,
                                 yAxisID: 'yP',
@@ -5599,8 +5599,8 @@
                     if (datasets.length === 0) { resolve(null); return; }
 
                     let canvas = document.createElement('canvas');
-                    canvas.width = 5400;
-                    canvas.height = 3800;
+                    canvas.width = 8192;
+                    canvas.height = 5792;
                     canvas.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
                     document.body.appendChild(canvas);
 
@@ -5621,7 +5621,7 @@
                             ticks: {
                                 callback: (v) => fmtAxis(v),
                                 maxTicksLimit: 16,
-                                font: { size: 28 },
+                                font: { size: 40 },
                                 color: '#222',
                                 maxRotation: 45,
                                 minRotation: 0
@@ -5635,7 +5635,7 @@
                             type: 'linear',
                             position: 'left',
                             title: { display: false },
-                            ticks: { font: { size: 28, weight: '600' }, color: '#ff7f0e' },
+                            ticks: { font: { size: 40, weight: '600' }, color: '#ff7f0e' },
                             grid: { color: '#e8e8e8' }
                         };
                     }
@@ -5644,7 +5644,7 @@
                             type: 'linear',
                             position: gIdx >= 0 ? 'right' : 'left',
                             title: { display: false },
-                            ticks: { font: { size: 28, weight: '600' }, color: '#d32f2f' },
+                            ticks: { font: { size: 40, weight: '600' }, color: '#d32f2f' },
                             grid: { drawOnChartArea: gIdx < 0, color: '#e8e8e8' }
                         };
                     }
@@ -5663,9 +5663,9 @@
                                 let py = yAxis.getPixelForValue(pt.y);
 
                                 ctx.save();
-                                ctx.setLineDash([10, 7]);
+                                ctx.setLineDash([14, 10]);
                                 ctx.strokeStyle = ds.borderColor;
-                                ctx.lineWidth = 3;
+                                ctx.lineWidth = 4;
                                 ctx.beginPath();
                                 ctx.moveTo(px, chart.chartArea.top);
                                 ctx.lineTo(px, py);
@@ -5687,17 +5687,17 @@
                                     display: true,
                                     position: 'top',
                                     labels: {
-                                        font: { size: 28 },
+                                        font: { size: 40 },
                                         usePointStyle: false,
-                                        padding: 30,
+                                        padding: 40,
                                         color: '#222',
                                         generateLabels: (chart) => {
                                             return chart.data.datasets.map((ds, i) => ({
                                                 text: ds.label,
                                                 strokeStyle: ds.borderColor,
                                                 fillStyle: 'transparent',
-                                                lineWidth: 3,
-                                                lineDash: ds._isAnnotation ? [8, 5] : [],
+                                                lineWidth: 4,
+                                                lineDash: ds._isAnnotation ? [10, 7] : [],
                                                 hidden: false,
                                                 datasetIndex: i
                                             }));
@@ -5707,7 +5707,7 @@
                                 tooltip: { enabled: false }
                             },
                             scales: scales,
-                            layout: { padding: { top: 15, right: 25, bottom: 10, left: 15 } }
+                            layout: { padding: { top: 20, right: 35, bottom: 15, left: 20 } }
                         },
                         plugins: [maxAnnotationPlugin]
                     });
