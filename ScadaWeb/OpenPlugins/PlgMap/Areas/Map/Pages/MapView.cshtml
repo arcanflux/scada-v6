@@ -5338,9 +5338,10 @@
                     let maxGTime = maxGIdx >= 0 ? timestamps[maxGIdx] : null;
                     let maxPTime = maxPIdx >= 0 ? timestamps[maxPIdx] : null;
 
+                    let chartData = { timestamps: timestamps, trends: trends, gIdx: gIdx, pIdx: pIdx };
                     await this._buildReportPdf(def, startTime, endTime,
                         maxG, maxGTime, coordsAtG,
-                        maxP, maxPTime, coordsAtP);
+                        maxP, maxPTime, coordsAtP, chartData);
                     statusEl.textContent = '';
                 } catch (err) {
                     console.error("Report generation error:", err);
@@ -5379,7 +5380,7 @@
                 }
             }
 
-            async _buildReportPdf(def, startTime, endTime, maxG, maxGTime, coordsAtG, maxP, maxPTime, coordsAtP) {
+            async _buildReportPdf(def, startTime, endTime, maxG, maxGTime, coordsAtG, maxP, maxPTime, coordsAtP, chartData) {
                 await this._loadJsPdf();
                 let { jsPDF } = window.jspdf;
                 let doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -5500,16 +5501,168 @@
                     y += rowH;
                 }
 
-                y += 12;
+                y += 8;
+
+                // Chart image
+                if (chartData) {
+                    let chartImg = await this._renderReportChart(chartData, def, fmtDt);
+                    if (chartImg) {
+                        let chartW = contentW;
+                        let chartH = chartW * 0.45;
+                        if (y + chartH > 275) {
+                            doc.addPage();
+                            y = 15;
+                        }
+                        doc.addImage(chartImg, 'PNG', marginL, y, chartW, chartH);
+                        y += chartH + 5;
+                    }
+                }
 
                 // Footer
+                let footerY = Math.max(y + 8, 280);
                 doc.setFontSize(8);
                 doc.setTextColor(150);
-                doc.text('Дата формирования: ' + fmtDt(new Date()), marginL, 285);
+                doc.setFont('DejaVu', 'normal');
+                doc.text('Дата формирования: ' + fmtDt(new Date()), marginL, footerY);
 
                 let safeName = (def.name || 'report').replace(/[^a-zA-Zа-яА-ЯёЁ0-9-_ ]/g, '');
                 let fileName = safeName + '_' + startTime.toISOString().slice(0, 10) + '.pdf';
                 doc.save(fileName);
+            }
+
+            _renderReportChart(chartData, def, fmtDt) {
+                return new Promise((resolve) => {
+                    let { timestamps, trends, gIdx, pIdx } = chartData;
+                    let ch = def.channels || [];
+                    let datasets = [];
+
+                    let buildPoints = (trendIdx) => {
+                        if (trendIdx < 0 || !trends[trendIdx]) return [];
+                        return trends[trendIdx].map((rec, i) => ({
+                            x: timestamps[i],
+                            y: (rec && rec.d && rec.d.stat > 0) ? rec.d.val : null
+                        })).filter(p => p.y !== null);
+                    };
+
+                    if (gIdx >= 0) {
+                        let alias = ch[0] ? (ch[0].alias || 'G') : 'G';
+                        datasets.push({
+                            label: alias + ' (' + this.t.flowRateUnit + ')',
+                            data: buildPoints(gIdx),
+                            borderColor: '#ff7f0e',
+                            backgroundColor: '#ff7f0e20',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            tension: 0.3,
+                            fill: false,
+                            yAxisID: 'yG'
+                        });
+                    }
+                    if (pIdx >= 0) {
+                        let alias = ch[2] ? (ch[2].alias || 'P напор') : 'P напор';
+                        datasets.push({
+                            label: alias + ' (' + this.t.pressureUnit + ')',
+                            data: buildPoints(pIdx),
+                            borderColor: '#d32f2f',
+                            backgroundColor: '#d32f2f20',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            tension: 0.3,
+                            fill: false,
+                            yAxisID: 'yP'
+                        });
+                    }
+
+                    if (datasets.length === 0) { resolve(null); return; }
+
+                    let canvas = document.createElement('canvas');
+                    canvas.width = 1700;
+                    canvas.height = 750;
+                    canvas.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
+                    document.body.appendChild(canvas);
+
+                    let fmtAxis = (ts) => {
+                        let d = new Date(ts);
+                        let dd = String(d.getDate()).padStart(2, '0');
+                        let mm = String(d.getMonth() + 1).padStart(2, '0');
+                        let hh = String(d.getHours()).padStart(2, '0');
+                        let mi = String(d.getMinutes()).padStart(2, '0');
+                        return dd + '.' + mm + ' ' + hh + ':' + mi;
+                    };
+
+                    let scales = {
+                        x: {
+                            type: 'linear',
+                            min: timestamps[0],
+                            max: timestamps[timestamps.length - 1],
+                            ticks: {
+                                callback: (v) => fmtAxis(v),
+                                maxTicksLimit: 12,
+                                font: { size: 16 },
+                                color: '#333'
+                            },
+                            grid: { color: '#e0e0e0' }
+                        }
+                    };
+
+                    if (gIdx >= 0) {
+                        scales.yG = {
+                            type: 'linear',
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: this.t.flowRateUnit,
+                                font: { size: 18, weight: '600' },
+                                color: '#ff7f0e'
+                            },
+                            ticks: { font: { size: 15 }, color: '#ff7f0e' },
+                            grid: { color: '#e0e0e0' }
+                        };
+                    }
+                    if (pIdx >= 0) {
+                        scales.yP = {
+                            type: 'linear',
+                            position: gIdx >= 0 ? 'right' : 'left',
+                            title: {
+                                display: true,
+                                text: this.t.pressureUnit,
+                                font: { size: 18, weight: '600' },
+                                color: '#d32f2f'
+                            },
+                            ticks: { font: { size: 15 }, color: '#d32f2f' },
+                            grid: { drawOnChartArea: gIdx < 0, color: '#e0e0e0' }
+                        };
+                    }
+
+                    let chart = new Chart(canvas, {
+                        type: 'line',
+                        data: { datasets: datasets },
+                        options: {
+                            responsive: false,
+                            animation: false,
+                            parsing: false,
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'top',
+                                    labels: { font: { size: 16 }, usePointStyle: false, padding: 20, color: '#222' }
+                                },
+                                tooltip: { enabled: false }
+                            },
+                            scales: scales,
+                            layout: { padding: { top: 10, right: 15, bottom: 5, left: 10 } }
+                        }
+                    });
+
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            let imgData = canvas.toDataURL('image/png', 1.0);
+                            chart.destroy();
+                            document.body.removeChild(canvas);
+                            resolve(imgData);
+                        });
+                    });
+                });
             }
 
             _escapeHtml(text) {
