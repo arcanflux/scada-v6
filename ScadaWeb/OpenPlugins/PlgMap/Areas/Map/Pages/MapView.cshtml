@@ -5338,7 +5338,10 @@
                     let maxGTime = maxGIdx >= 0 ? timestamps[maxGIdx] : null;
                     let maxPTime = maxPIdx >= 0 ? timestamps[maxPIdx] : null;
 
-                    let chartData = { timestamps: timestamps, trends: trends, gIdx: gIdx, pIdx: pIdx };
+                    let chartData = {
+                        timestamps: timestamps, trends: trends, gIdx: gIdx, pIdx: pIdx,
+                        maxG: maxG, maxGTime: maxGTime, maxP: maxP, maxPTime: maxPTime
+                    };
                     await this._buildReportPdf(def, startTime, endTime,
                         maxG, maxGTime, coordsAtG,
                         maxP, maxPTime, coordsAtP, chartData);
@@ -5509,31 +5512,11 @@
                 doc.setFont('DejaVu', 'normal');
                 doc.text('Дата формирования: ' + fmtDt(new Date()), marginL, 285);
 
-                // Chart on a dedicated landscape page (full size, detailed)
                 if (chartData) {
                     let chartImg = await this._renderReportChart(chartData, def, fmtDt);
                     if (chartImg) {
                         doc.addPage('a4', 'landscape');
-                        let lpW = 297, lpH = 210;
-                        let lMargin = 12;
-
-                        // Title on chart page
-                        doc.setFont('DejaVu', 'bold');
-                        doc.setFontSize(13);
-                        doc.setTextColor(0);
-                        doc.text((def.name || '') + ' — ' + this.t.combinedChart,
-                            lpW / 2, 12, { align: 'center' });
-                        doc.setFont('DejaVu', 'normal');
-                        doc.setFontSize(9);
-                        doc.setTextColor(90);
-                        doc.text(fmtDt(startTime) + '  —  ' + fmtDt(endTime),
-                            lpW / 2, 18, { align: 'center' });
-                        doc.setTextColor(0);
-
-                        let imgY = 22;
-                        let imgW = lpW - lMargin * 2;
-                        let imgH = lpH - imgY - 10;
-                        doc.addImage(chartImg, 'PNG', lMargin, imgY, imgW, imgH);
+                        doc.addImage(chartImg, 'PNG', 3, 3, 291, 204);
                     }
                 }
 
@@ -5544,7 +5527,7 @@
 
             _renderReportChart(chartData, def, fmtDt) {
                 return new Promise((resolve) => {
-                    let { timestamps, trends, gIdx, pIdx } = chartData;
+                    let { timestamps, trends, gIdx, pIdx, maxG, maxGTime, maxP, maxPTime } = chartData;
                     let ch = def.channels || [];
                     let datasets = [];
 
@@ -5558,38 +5541,68 @@
 
                     if (gIdx >= 0) {
                         let alias = ch[0] ? (ch[0].alias || 'G') : 'G';
+                        let pts = buildPoints(gIdx);
                         datasets.push({
                             label: alias + ' (' + this.t.flowRateUnit + ')',
-                            data: buildPoints(gIdx),
+                            data: pts,
                             borderColor: '#ff7f0e',
                             backgroundColor: '#ff7f0e20',
-                            borderWidth: 2,
+                            borderWidth: 3,
                             pointRadius: 0,
                             tension: 0.3,
                             fill: false,
                             yAxisID: 'yG'
                         });
+                        if (maxG !== null && maxGTime !== null) {
+                            datasets.push({
+                                label: 'Max G: ' + maxG.toFixed(2) + ' ' + this.t.flowRateUnit,
+                                data: [{ x: maxGTime, y: maxG }],
+                                borderColor: '#ff7f0e',
+                                backgroundColor: '#ff7f0e',
+                                borderWidth: 2,
+                                pointRadius: 10,
+                                pointStyle: 'triangle',
+                                showLine: false,
+                                yAxisID: 'yG',
+                                _isAnnotation: true
+                            });
+                        }
                     }
                     if (pIdx >= 0) {
                         let alias = ch[2] ? (ch[2].alias || 'P напор') : 'P напор';
+                        let pts = buildPoints(pIdx);
                         datasets.push({
                             label: alias + ' (' + this.t.pressureUnit + ')',
-                            data: buildPoints(pIdx),
+                            data: pts,
                             borderColor: '#d32f2f',
                             backgroundColor: '#d32f2f20',
-                            borderWidth: 2,
+                            borderWidth: 3,
                             pointRadius: 0,
                             tension: 0.3,
                             fill: false,
                             yAxisID: 'yP'
                         });
+                        if (maxP !== null && maxPTime !== null) {
+                            datasets.push({
+                                label: 'Max P: ' + maxP.toFixed(2) + ' ' + this.t.pressureUnit,
+                                data: [{ x: maxPTime, y: maxP }],
+                                borderColor: '#d32f2f',
+                                backgroundColor: '#d32f2f',
+                                borderWidth: 2,
+                                pointRadius: 10,
+                                pointStyle: 'triangle',
+                                showLine: false,
+                                yAxisID: 'yP',
+                                _isAnnotation: true
+                            });
+                        }
                     }
 
                     if (datasets.length === 0) { resolve(null); return; }
 
                     let canvas = document.createElement('canvas');
-                    canvas.width = 2400;
-                    canvas.height = 1560;
+                    canvas.width = 3840;
+                    canvas.height = 2400;
                     canvas.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
                     document.body.appendChild(canvas);
 
@@ -5599,7 +5612,7 @@
                         let mm = String(d.getMonth() + 1).padStart(2, '0');
                         let hh = String(d.getHours()).padStart(2, '0');
                         let mi = String(d.getMinutes()).padStart(2, '0');
-                        return dd + '.' + mm + ' ' + hh + ':' + mi;
+                        return dd + '.' + mm + '  ' + hh + ':' + mi;
                     };
 
                     let scales = {
@@ -5609,11 +5622,13 @@
                             max: timestamps[timestamps.length - 1],
                             ticks: {
                                 callback: (v) => fmtAxis(v),
-                                maxTicksLimit: 12,
-                                font: { size: 16 },
-                                color: '#333'
+                                maxTicksLimit: 16,
+                                font: { size: 28 },
+                                color: '#222',
+                                maxRotation: 45,
+                                minRotation: 0
                             },
-                            grid: { color: '#e0e0e0' }
+                            grid: { color: '#ddd' }
                         }
                     };
 
@@ -5621,30 +5636,55 @@
                         scales.yG = {
                             type: 'linear',
                             position: 'left',
-                            title: {
-                                display: true,
-                                text: this.t.flowRateUnit,
-                                font: { size: 18, weight: '600' },
-                                color: '#ff7f0e'
-                            },
-                            ticks: { font: { size: 15 }, color: '#ff7f0e' },
-                            grid: { color: '#e0e0e0' }
+                            title: { display: false },
+                            ticks: { font: { size: 28, weight: '600' }, color: '#ff7f0e' },
+                            grid: { color: '#e8e8e8' }
                         };
                     }
                     if (pIdx >= 0) {
                         scales.yP = {
                             type: 'linear',
                             position: gIdx >= 0 ? 'right' : 'left',
-                            title: {
-                                display: true,
-                                text: this.t.pressureUnit,
-                                font: { size: 18, weight: '600' },
-                                color: '#d32f2f'
-                            },
-                            ticks: { font: { size: 15 }, color: '#d32f2f' },
-                            grid: { drawOnChartArea: gIdx < 0, color: '#e0e0e0' }
+                            title: { display: false },
+                            ticks: { font: { size: 28, weight: '600' }, color: '#d32f2f' },
+                            grid: { drawOnChartArea: gIdx < 0, color: '#e8e8e8' }
                         };
                     }
+
+                    let maxAnnotationPlugin = {
+                        id: 'maxAnnotations',
+                        afterDraw: (chart) => {
+                            let ctx = chart.ctx;
+                            chart.data.datasets.forEach((ds) => {
+                                if (!ds._isAnnotation || !ds.data || ds.data.length === 0) return;
+                                let pt = ds.data[0];
+                                let xAxis = chart.scales.x;
+                                let yAxis = chart.scales[ds.yAxisID];
+                                if (!xAxis || !yAxis) return;
+                                let px = xAxis.getPixelForValue(pt.x);
+                                let py = yAxis.getPixelForValue(pt.y);
+
+                                ctx.save();
+                                ctx.setLineDash([8, 6]);
+                                ctx.strokeStyle = ds.borderColor;
+                                ctx.lineWidth = 2;
+                                ctx.beginPath();
+                                ctx.moveTo(px, chart.chartArea.top);
+                                ctx.lineTo(px, chart.chartArea.bottom);
+                                ctx.stroke();
+                                ctx.setLineDash([]);
+
+                                let label = ds.label;
+                                ctx.font = 'bold 26px sans-serif';
+                                ctx.fillStyle = ds.borderColor;
+                                ctx.textAlign = 'center';
+                                let labelY = py - 20;
+                                if (labelY < chart.chartArea.top + 30) labelY = py + 35;
+                                ctx.fillText(label, px, labelY);
+                                ctx.restore();
+                            });
+                        }
+                    };
 
                     let chart = new Chart(canvas, {
                         type: 'line',
@@ -5657,13 +5697,20 @@
                                 legend: {
                                     display: true,
                                     position: 'top',
-                                    labels: { font: { size: 16 }, usePointStyle: false, padding: 20, color: '#222' }
+                                    labels: {
+                                        font: { size: 28 },
+                                        usePointStyle: true,
+                                        padding: 30,
+                                        color: '#222',
+                                        filter: (item, data) => !data.datasets[item.datasetIndex]._isAnnotation
+                                    }
                                 },
                                 tooltip: { enabled: false }
                             },
                             scales: scales,
-                            layout: { padding: { top: 10, right: 15, bottom: 5, left: 10 } }
-                        }
+                            layout: { padding: { top: 15, right: 25, bottom: 10, left: 15 } }
+                        },
+                        plugins: [maxAnnotationPlugin]
                     });
 
                     requestAnimationFrame(() => {
