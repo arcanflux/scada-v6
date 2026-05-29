@@ -5293,7 +5293,7 @@
                     if (latIdx === undefined) latIdx = -1;
                     if (lonIdx === undefined) lonIdx = -1;
 
-                    let timestamps = histData.timestamps || [];
+                    let timestamps = (histData.timestamps || []).map(t => t.ms);
                     let trends = histData.trends || [];
 
                     let maxG = null, maxGIdx = -1;
@@ -5418,7 +5418,18 @@
                 // PNU name
                 doc.setFontSize(13);
                 doc.text(def.name || '', pageW / 2, y, { align: 'center' });
-                y += 8;
+                y += 7;
+
+                // PNU description (from <Descr>)
+                if (def.descr) {
+                    doc.setFont('DejaVu', 'normal');
+                    doc.setFontSize(10);
+                    doc.setTextColor(90);
+                    let descrLines = doc.splitTextToSize(def.descr, contentW);
+                    doc.text(descrLines, pageW / 2, y, { align: 'center' });
+                    y += descrLines.length * 5 + 2;
+                    doc.setTextColor(0);
+                }
 
                 // Separator
                 doc.setDrawColor(100);
