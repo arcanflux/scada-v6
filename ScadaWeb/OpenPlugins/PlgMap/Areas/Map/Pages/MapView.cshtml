@@ -473,6 +473,48 @@
             justify-content: center;
         }
 
+        .map-report-size-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .map-report-size-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
+        }
+
+        .map-report-size-options {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .map-report-size-btn {
+            padding: 7px 14px;
+            border: 2px solid #ccc;
+            border-radius: 6px;
+            background: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+            cursor: pointer;
+            transition: border-color 0.15s, color 0.15s, background 0.15s;
+        }
+
+        .map-report-size-btn:hover {
+            border-color: #9fa8da;
+        }
+
+        .map-report-size-btn.active {
+            border-color: #5c6bc0;
+            color: #3f51b5;
+            background: #eef0fb;
+        }
+
         .map-report-generate-btn {
             padding: 8px 24px;
             border: none;
@@ -1754,7 +1796,10 @@
                 reportLocationAtG: "@Html.Raw(Model.JsDict.ReportLocationAtG)",
                 reportLocationAtP: "@Html.Raw(Model.JsDict.ReportLocationAtP)",
                 reportNoData: "@Html.Raw(Model.JsDict.ReportNoData)",
-                reportGenerating: "@Html.Raw(Model.JsDict.ReportGenerating)"
+                reportGenerating: "@Html.Raw(Model.JsDict.ReportGenerating)",
+                reportSizeLabel: "@Html.Raw(Model.JsDict.ReportSizeLabel)",
+                reportSizeA4: "@Html.Raw(Model.JsDict.ReportSizeA4)",
+                reportSizeA1: "@Html.Raw(Model.JsDict.ReportSizeA1)"
             };
 
             constructor(options) {
@@ -5231,9 +5276,19 @@
                 this._chartEndTime = new Date();
                 this._chartStartTime = new Date(this._chartEndTime.getTime() - 24 * 3600000);
 
+                // Default chart size: A4 (printable)
+                this._reportChartSize = this._reportChartSize || 'a4';
+
                 let body = document.getElementById("mapReportBody");
                 body.innerHTML =
                     '<div id="mapReportDateRangeContainer" class="map-report-dates-wrap"></div>' +
+                    '<div class="map-report-size-wrap">' +
+                        '<span class="map-report-size-label">' + this._escapeHtml(this.t.reportSizeLabel) + '</span>' +
+                        '<div class="map-report-size-options" id="mapReportSizeOptions">' +
+                            '<button class="map-report-size-btn" data-size="a4">' + this._escapeHtml(this.t.reportSizeA4) + '</button>' +
+                            '<button class="map-report-size-btn" data-size="a1">' + this._escapeHtml(this.t.reportSizeA1) + '</button>' +
+                        '</div>' +
+                    '</div>' +
                     '<button class="map-report-generate-btn" id="mapReportGenBtn">' +
                         this._escapeHtml(this.t.reportGenerate) + '</button>' +
                     '<div class="map-report-status" id="mapReportStatus"></div>';
@@ -5241,6 +5296,18 @@
                 // Use the same daterange widget as the chart; pass no-op callback so apply doesn't reload chart
                 let container = document.getElementById("mapReportDateRangeContainer");
                 this._buildDateRangeBox(container, () => { /* no-op: report reads dates on generate */ }, 'mapDRReport');
+
+                // Size selector
+                let sizeOptions = document.getElementById("mapReportSizeOptions");
+                let sizeBtns = sizeOptions.querySelectorAll(".map-report-size-btn");
+                let applySizeActive = () => {
+                    sizeBtns.forEach(b => b.classList.toggle("active", b.dataset.size === this._reportChartSize));
+                };
+                applySizeActive();
+                sizeBtns.forEach(b => b.addEventListener("click", () => {
+                    this._reportChartSize = b.dataset.size;
+                    applySizeActive();
+                }));
 
                 document.getElementById("mapReportGenBtn").addEventListener("click", () => {
                     this._generateReport(markerIdx);
@@ -5344,7 +5411,8 @@
                     };
                     await this._buildReportPdf(def, startTime, endTime,
                         maxG, maxGTime, coordsAtG,
-                        maxP, maxPTime, coordsAtP, chartData);
+                        maxP, maxPTime, coordsAtP, chartData,
+                        this._reportChartSize || 'a4');
                     statusEl.textContent = '';
                 } catch (err) {
                     console.error("Report generation error:", err);
@@ -5383,7 +5451,7 @@
                 }
             }
 
-            async _buildReportPdf(def, startTime, endTime, maxG, maxGTime, coordsAtG, maxP, maxPTime, coordsAtP, chartData) {
+            async _buildReportPdf(def, startTime, endTime, maxG, maxGTime, coordsAtG, maxP, maxPTime, coordsAtP, chartData, chartSize) {
                 await this._loadJsPdf();
                 let { jsPDF } = window.jspdf;
                 let doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -5513,10 +5581,19 @@
                 doc.text('Дата формирования: ' + fmtDt(new Date()), marginL, 285);
 
                 if (chartData) {
-                    let chartImg = await this._renderReportChart(chartData, def, fmtDt);
+                    // 'a4' -> printable A4 landscape (297x210 mm, ~300 DPI canvas)
+                    // 'a1' -> oversized A1 landscape (840x594 mm, max-resolution canvas)
+                    let isA1 = chartSize === 'a1';
+                    let chartImg = await this._renderReportChart(chartData, def, fmtDt, isA1);
                     if (chartImg) {
-                        doc.addPage([840, 594], 'landscape');
-                        doc.addImage(chartImg, 'PNG', 3, 3, 834, 588);
+                        if (isA1) {
+                            doc.addPage([840, 594], 'landscape');
+                            doc.addImage(chartImg, 'PNG', 3, 3, 834, 588);
+                        } else {
+                            doc.addPage('a4', 'landscape');
+                            // A4 landscape = 297 x 210 mm; fill the full page
+                            doc.addImage(chartImg, 'PNG', 0, 0, 297, 210);
+                        }
                     }
                 }
 
@@ -5525,11 +5602,20 @@
                 doc.save(fileName);
             }
 
-            _renderReportChart(chartData, def, fmtDt) {
+            _renderReportChart(chartData, def, fmtDt, isA1) {
                 return new Promise((resolve) => {
                     let { timestamps, trends, gIdx, pIdx, maxG, maxGTime, maxP, maxPTime } = chartData;
                     let ch = def.channels || [];
                     let datasets = [];
+
+                    // Drawing scale: A1 is oversized; A4 keeps proportions with print-readable fonts.
+                    let fS = isA1 ? 40 : 26;          // tick / legend font size
+                    let lw = isA1 ? 4 : 3;            // data line width
+                    let dashPat = isA1 ? [14, 10] : [9, 6];
+                    let legPad = isA1 ? 40 : 26;
+                    let layoutPad = isA1
+                        ? { top: 20, right: 35, bottom: 15, left: 20 }
+                        : { top: 13, right: 22, bottom: 10, left: 13 };
 
                     let buildPoints = (trendIdx) => {
                         if (trendIdx < 0 || !trends[trendIdx]) return [];
@@ -5547,7 +5633,7 @@
                             data: pts,
                             borderColor: '#ff7f0e',
                             backgroundColor: '#ff7f0e20',
-                            borderWidth: 4,
+                            borderWidth: lw,
                             pointRadius: 0,
                             tension: 0.3,
                             fill: false,
@@ -5558,8 +5644,8 @@
                                 label: 'Макс. G',
                                 data: [{ x: maxGTime, y: maxG }],
                                 borderColor: '#ff7f0e',
-                                borderDash: [14, 10],
-                                borderWidth: 4,
+                                borderDash: dashPat,
+                                borderWidth: lw,
                                 pointRadius: 0,
                                 showLine: false,
                                 yAxisID: 'yG',
@@ -5575,7 +5661,7 @@
                             data: pts,
                             borderColor: '#d32f2f',
                             backgroundColor: '#d32f2f20',
-                            borderWidth: 4,
+                            borderWidth: lw,
                             pointRadius: 0,
                             tension: 0.3,
                             fill: false,
@@ -5586,8 +5672,8 @@
                                 label: 'Макс. P напор',
                                 data: [{ x: maxPTime, y: maxP }],
                                 borderColor: '#d32f2f',
-                                borderDash: [14, 10],
-                                borderWidth: 4,
+                                borderDash: dashPat,
+                                borderWidth: lw,
                                 pointRadius: 0,
                                 showLine: false,
                                 yAxisID: 'yP',
@@ -5599,8 +5685,9 @@
                     if (datasets.length === 0) { resolve(null); return; }
 
                     let canvas = document.createElement('canvas');
-                    canvas.width = 8192;
-                    canvas.height = 5792;
+                    // A1: max-resolution canvas (8192x5792). A4: true 300 DPI (3508x2480, 297x210mm).
+                    canvas.width = isA1 ? 8192 : 3508;
+                    canvas.height = isA1 ? 5792 : 2480;
                     canvas.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
                     document.body.appendChild(canvas);
 
@@ -5621,7 +5708,7 @@
                             ticks: {
                                 callback: (v) => fmtAxis(v),
                                 maxTicksLimit: 16,
-                                font: { size: 40 },
+                                font: { size: fS },
                                 color: '#222',
                                 maxRotation: 45,
                                 minRotation: 0
@@ -5635,7 +5722,7 @@
                             type: 'linear',
                             position: 'left',
                             title: { display: false },
-                            ticks: { font: { size: 40, weight: '600' }, color: '#ff7f0e' },
+                            ticks: { font: { size: fS, weight: '600' }, color: '#ff7f0e' },
                             grid: { color: '#e8e8e8' }
                         };
                     }
@@ -5644,7 +5731,7 @@
                             type: 'linear',
                             position: gIdx >= 0 ? 'right' : 'left',
                             title: { display: false },
-                            ticks: { font: { size: 40, weight: '600' }, color: '#d32f2f' },
+                            ticks: { font: { size: fS, weight: '600' }, color: '#d32f2f' },
                             grid: { drawOnChartArea: gIdx < 0, color: '#e8e8e8' }
                         };
                     }
@@ -5663,9 +5750,9 @@
                                 let py = yAxis.getPixelForValue(pt.y);
 
                                 ctx.save();
-                                ctx.setLineDash([14, 10]);
+                                ctx.setLineDash(dashPat);
                                 ctx.strokeStyle = ds.borderColor;
-                                ctx.lineWidth = 4;
+                                ctx.lineWidth = lw;
                                 ctx.beginPath();
                                 ctx.moveTo(px, chart.chartArea.top);
                                 ctx.lineTo(px, py);
@@ -5687,17 +5774,17 @@
                                     display: true,
                                     position: 'top',
                                     labels: {
-                                        font: { size: 40 },
+                                        font: { size: fS },
                                         usePointStyle: false,
-                                        padding: 40,
+                                        padding: legPad,
                                         color: '#222',
                                         generateLabels: (chart) => {
                                             return chart.data.datasets.map((ds, i) => ({
                                                 text: ds.label,
                                                 strokeStyle: ds.borderColor,
                                                 fillStyle: 'transparent',
-                                                lineWidth: 4,
-                                                lineDash: ds._isAnnotation ? [10, 7] : [],
+                                                lineWidth: lw,
+                                                lineDash: ds._isAnnotation ? dashPat : [],
                                                 hidden: false,
                                                 datasetIndex: i
                                             }));
@@ -5707,7 +5794,7 @@
                                 tooltip: { enabled: false }
                             },
                             scales: scales,
-                            layout: { padding: { top: 20, right: 35, bottom: 15, left: 20 } }
+                            layout: { padding: layoutPad }
                         },
                         plugins: [maxAnnotationPlugin]
                     });

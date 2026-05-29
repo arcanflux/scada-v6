@@ -76,5 +76,8 @@
     <Phrase key="ReportLocationAtP">Координаты при макс. P напор</Phrase>
     <Phrase key="ReportNoData">Нет данных за выбранный период</Phrase>
     <Phrase key="ReportGenerating">Формирование отчета...</Phrase>
+    <Phrase key="ReportSizeLabel">Размер графика</Phrase>
+    <Phrase key="ReportSizeA4">A4 · 297×210 мм · 300 DPI (для печати)</Phrase>
+    <Phrase key="ReportSizeA1">A1 · 840×594 мм · 8192×5792 (макс.)</Phrase>
   </Dictionary>
 </PlgMapDictionaries>
