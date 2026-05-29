@@ -5515,8 +5515,8 @@
                 if (chartData) {
                     let chartImg = await this._renderReportChart(chartData, def, fmtDt);
                     if (chartImg) {
-                        doc.addPage('a3', 'landscape');
-                        doc.addImage(chartImg, 'PNG', 3, 3, 414, 291);
+                        doc.addPage('a2', 'landscape');
+                        doc.addImage(chartImg, 'PNG', 3, 3, 588, 414);
                     }
                 }
 
@@ -5599,8 +5599,8 @@
                     if (datasets.length === 0) { resolve(null); return; }
 
                     let canvas = document.createElement('canvas');
-                    canvas.width = 3840;
-                    canvas.height = 2700;
+                    canvas.width = 5400;
+                    canvas.height = 3800;
                     canvas.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
                     document.body.appendChild(canvas);
 
