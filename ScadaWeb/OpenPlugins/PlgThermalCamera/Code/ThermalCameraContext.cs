@@ -934,8 +934,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         {
             if (intervals.Count == 0) return [];
             intervals.Sort((a, b) => a[0].CompareTo(b[0]));
-            var merged = new List<long[]>();
-            merged.Add([intervals[0][0], intervals[0][1]]);
+            List<long[]> merged = [[intervals[0][0], intervals[0][1]]];
             for (int i = 1; i < intervals.Count; i++)
             {
                 long[] last = merged[^1];
