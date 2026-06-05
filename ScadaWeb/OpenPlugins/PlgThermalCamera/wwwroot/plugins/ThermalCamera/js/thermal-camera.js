@@ -1351,6 +1351,10 @@ var thermalCamera = (function () {
                 if (todayTooltipEl && todayTooltipEl.style.display === "block")
                     positionTodayTooltip();
             }
+            // "Кэш" badge — right side, near the bottom edge of the blue header.
+            if (cacheBadgeEl) {
+                cacheBadgeEl.style.top = (headerRect.bottom - cacheBadgeEl.offsetHeight - 4) + "px";
+            }
         }
 
         // Search width — end at right edge of Address column

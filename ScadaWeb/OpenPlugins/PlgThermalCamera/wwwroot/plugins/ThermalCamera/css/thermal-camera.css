@@ -1680,7 +1680,7 @@ td.tc-col-flooding:hover {
 /* "Кэш" status badge — top-right corner; flood-history preload progress. */
 .tc-cache-badge {
     position: fixed;
-    top: 3px;
+    top: 0;      /* overridden by positionJournal() at runtime */
     right: 12px;
     display: flex;
     align-items: center;
