@@ -887,16 +887,16 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                 var channels = new[] { (CnlNum: cnl200, Kind: "200"),
                                        (CnlNum: cnl700, Kind: "700") };
 
-                foreach (var ch in channels)
+                foreach (var (cnlNum, kind) in channels)
                 {
-                    if (ch.CnlNum <= 0) continue;
+                    if (cnlNum <= 0) continue;
                     Trend trend = client.GetTrend(
                         MinuteArchiveBit,
                         new TimeRange(yearStart, yearEnd, true),
-                        ch.CnlNum);
+                        cnlNum);
                     List<long[]> raw = ExtractFloodIntervalList(trend, periodEndMs);
                     if (raw.Count > 0)
-                        intervals[ch.Kind] = MergeIntervalList(raw);
+                        intervals[kind] = MergeIntervalList(raw);
                 }
 
                 return new FloodHistoryResult
@@ -934,7 +934,8 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         {
             if (intervals.Count == 0) return [];
             intervals.Sort((a, b) => a[0].CompareTo(b[0]));
-            var merged = new List<long[]> { [intervals[0][0], intervals[0][1]] };
+            var merged = new List<long[]>();
+            merged.Add([intervals[0][0], intervals[0][1]]);
             for (int i = 1; i < intervals.Count; i++)
             {
                 long[] last = merged[^1];
