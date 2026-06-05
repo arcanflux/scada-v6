@@ -485,15 +485,15 @@ var thermalCamera = (function () {
             }
             html += '</div></td>';
 
-            // 7. Battery
-            html += '<td class="tc-col-battery text-center">';
-            if (item.batteryCnlNum > 0) {
-                html += '<span id="battery-' + item.id + '" class="tc-battery-value tc-battery-unknown">' +
-                    '<i class="fa-solid fa-battery-half"></i> \u2014</span>';
-            } else {
-                html += '<span class="text-muted">\u2014</span>';
-            }
-            html += '</td>';
+            // 7. Battery \u2014 column hidden; keep code for easy restore.
+            // html += '<td class="tc-col-battery text-center">';
+            // if (item.batteryCnlNum > 0) {
+            //     html += '<span id="battery-' + item.id + '" class="tc-battery-value tc-battery-unknown">' +
+            //         '<i class="fa-solid fa-battery-half"></i> \u2014</span>';
+            // } else {
+            //     html += '<span class="text-muted">\u2014</span>';
+            // }
+            // html += '</td>';
 
             // 8. Journal column placeholder (panel overlay added in Part 3)
             html += '<td class="tc-col-journal"></td>';
