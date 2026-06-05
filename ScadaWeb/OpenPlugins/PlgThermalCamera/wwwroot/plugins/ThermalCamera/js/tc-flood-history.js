@@ -15,17 +15,29 @@ var tcFloodHistory = (function () {
 
     function apiUrl(path) { return rootPath() + "Api/Main/" + path; }
 
-    // ---- Single-flight queue + per-key dedup ----
-    // Prevents a wave of parallel GetHistData requests when the user hovers
-    // over many TKs in quick succession (which previously saturated the
-    // SCADA server's network and CPU).
+    // ---- Single-flight queue + per-key dedup + result cache ----
+    // Prevents a wave of parallel GetHistData requests when several TKs are
+    // opened in quick succession (which previously saturated the SCADA server's
+    // network and CPU). Modal requests are enqueued with priority so the open
+    // window never waits behind other queued tasks, while the queue still
+    // serializes everything to avoid parallel load spikes.
     var inFlightPromises = {};   // key -> Promise (dedup identical requests)
     var fetchQueue = [];          // queue of { run, resolve, reject }
     var fetchInProgress = false;
 
-    function enqueueFetch(taskFn) {
+    // Per-(item, year) result cache. The current year changes as the archive
+    // grows and floods evolve, so it uses a short TTL; completed past years are
+    // effectively immutable and cached for the whole session.
+    var resultCache = {};        // key -> { ts, data }
+    var CACHE_TTL_CURRENT = 30 * 1000;        // 30 s for the current year
+    var CACHE_TTL_PAST = 30 * 60 * 1000;      // 30 min for past years
+
+    function enqueueFetch(taskFn, priority) {
         return new Promise(function (resolve, reject) {
-            fetchQueue.push({ run: taskFn, resolve: resolve, reject: reject });
+            var task = { run: taskFn, resolve: resolve, reject: reject };
+            // Priority tasks jump to the front so the active modal loads first.
+            if (priority) fetchQueue.unshift(task);
+            else fetchQueue.push(task);
             processQueue();
         });
     }
@@ -75,6 +87,16 @@ var tcFloodHistory = (function () {
         var def = buildFloodDef(item);
         if (!def) return Promise.resolve(null);
         var key = "y_" + item.id + "_" + year;
+
+        // 1) Fresh cached result → return instantly, no network.
+        var cached = resultCache[key];
+        if (cached) {
+            var ttl = (year === new Date().getFullYear()) ? CACHE_TTL_CURRENT : CACHE_TTL_PAST;
+            if (Date.now() - cached.ts < ttl)
+                return Promise.resolve(cached.data);
+        }
+
+        // 2) An identical request is already running → share it.
         if (inFlightPromises[key]) return inFlightPromises[key];
 
         var now = new Date();
@@ -84,11 +106,18 @@ var tcFloodHistory = (function () {
                       new Date(year, 11, 31, 23, 59, 59, 999);
         var cnls = def.channels.map(function (c) { return c.cnlNum; });
 
+        // 3) Priority fetch — jumps the queue so the open modal loads first.
         var promise = enqueueFetch(function () {
             return fetchHistData(cnls, yearStart, yearEnd).then(function (histData) {
-                return bucketByMonth(histData, def.channels, year, lastMonthIdx);
+                var result = bucketByMonth(histData, def.channels, year, lastMonthIdx);
+                // Only cache a genuine response. A failed fetch (histData == null)
+                // yields an all-zero result; caching it would reproduce the old
+                // "0ч everywhere" bug until the TTL expired, so let it retry.
+                if (histData)
+                    resultCache[key] = { ts: Date.now(), data: result };
+                return result;
             });
-        });
+        }, true);
         promise = promise.finally(function () { delete inFlightPromises[key]; });
         inFlightPromises[key] = promise;
         return promise;
@@ -149,6 +178,21 @@ var tcFloodHistory = (function () {
             }
         }
         return { months: months, archiveOngoing: archiveOngoing, lastArchiveMs: lastArchiveMs };
+    }
+
+    // Deep-clones the months array so the cached bucketByMonth result is never
+    // mutated by the per-open live-timer injection in loadYearData.
+    function cloneMonths(months) {
+        return months.map(function (m) {
+            return {
+                month: m.month,
+                time200: m.time200,
+                time700: m.time700,
+                days: m.days.map(function (d) {
+                    return { has200: d.has200, has700: d.has700 };
+                })
+            };
+        });
     }
 
     function tsMs(rec) {
@@ -247,7 +291,10 @@ var tcFloodHistory = (function () {
         body.innerHTML = '<div class="tc-fh-loading">Загрузка...</div>';
         try {
             var result = await fetchYearlyCounts(currentItem, year);
-            var months = result ? result.months : null;
+            // Clone the cached months before mutating: the live-timer injection
+            // below writes into the array, and the same result object may be
+            // served again from the cache on the next open.
+            var months = (result && result.months) ? cloneMonths(result.months) : null;
             if (!months || !months.length) {
                 body.innerHTML = '<div class="tc-fh-loading">Нет данных</div>';
                 return;
