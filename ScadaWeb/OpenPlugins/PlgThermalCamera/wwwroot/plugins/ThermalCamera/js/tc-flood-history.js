@@ -108,8 +108,9 @@ var tcFloodHistory = (function () {
             months.push({ month: m, time200: 0, time700: 0, days: days });
         }
         var archiveOngoing = {}; // kind -> true if archive last record is active flood (extrapolated to now)
+        var lastArchiveMs = {};  // kind -> ts (ms) of the last record with data; live-timer fill starts here
         if (!histData || !histData.cnlNums || !histData.trends || !histData.timestamps) {
-            return { months: months, archiveOngoing: archiveOngoing };
+            return { months: months, archiveOngoing: archiveOngoing, lastArchiveMs: lastArchiveMs };
         }
         var cnlIdx = {};
         histData.cnlNums.forEach(function (n, i) { cnlIdx[n] = i; });
@@ -135,15 +136,19 @@ var tcFloodHistory = (function () {
                 addOverlapToMonths(months, startMs, endMs, year, ch.kind);
             }
             // Determine if archive already covers the ongoing flood up to now
-            // (last valid record is flooded → was extrapolated to periodEnd above)
+            // (last valid record is flooded → was extrapolated to periodEnd above),
+            // and remember the last archived timestamp so the live timer only fills
+            // the tail after the archive's coverage (no double-counting).
             for (var k = trend.length - 1; k >= 0; k--) {
                 var lr = trend[k];
                 if (!lr || !lr.d || lr.d.stat <= 0) continue;
                 archiveOngoing[ch.kind] = (lr.d.val === 0);
+                var lrMs = tsMs(ts[k]);
+                if (lrMs !== null) lastArchiveMs[ch.kind] = lrMs;
                 break;
             }
         }
-        return { months: months, archiveOngoing: archiveOngoing };
+        return { months: months, archiveOngoing: archiveOngoing, lastArchiveMs: lastArchiveMs };
     }
 
     function tsMs(rec) {
@@ -250,14 +255,25 @@ var tcFloodHistory = (function () {
             // Inject live timer data for channels not yet captured by the archive.
             // This ensures an active flood is visible on the very first open even if
             // the minute archive hasn't written the current interval yet.
+            //
+            // Only fill the tail AFTER the archive's last record — never from the
+            // flood start — so the ongoing flood already integrated from the archive
+            // is not counted a second time. (The 24h ack debounce keeps the live
+            // start old through sensor blips, while the archive may have logged a
+            // dry blip as its last record; re-adding from the start would double-count.)
             if (year === new Date().getFullYear()) {
                 var archiveOngoing = result.archiveOngoing || {};
+                var lastArchiveMs = result.lastArchiveMs || {};
                 var nowMs = Date.now();
                 var lt = currentLiveTimers;
-                if (lt.flood700StartMs > 0 && !archiveOngoing['700'])
-                    addOverlapToMonths(months, lt.flood700StartMs, nowMs, year, '700');
-                if (lt.flood200StartMs > 0 && !archiveOngoing['200'])
-                    addOverlapToMonths(months, lt.flood200StartMs, nowMs, year, '200');
+                if (lt.flood700StartMs > 0 && !archiveOngoing['700']) {
+                    var from700 = Math.max(lt.flood700StartMs, lastArchiveMs['700'] || 0);
+                    addOverlapToMonths(months, from700, nowMs, year, '700');
+                }
+                if (lt.flood200StartMs > 0 && !archiveOngoing['200']) {
+                    var from200 = Math.max(lt.flood200StartMs, lastArchiveMs['200'] || 0);
+                    addOverlapToMonths(months, from200, nowMs, year, '200');
+                }
             }
             var ackDayMap = buildAckDayMap(currentAckList, year);
             renderTable(body, months, ackDayMap);
