@@ -14,6 +14,7 @@ var tcFloodHistory = (function () {
     }
 
     function apiUrl(path) { return rootPath() + "Api/Main/" + path; }
+    function tcApiUrl(path) { return rootPath() + "Api/ThermalCamera/" + path; }
 
     // ---- Single-flight queue + per-key dedup + result cache ----
     // Prevents a wave of parallel GetHistData requests when several TKs are
@@ -31,8 +32,11 @@ var tcFloodHistory = (function () {
     // only decides when a background refresh is triggered — never whether
     // something is shown.
     var resultCache = {};        // key -> { ts, data }
-    var CACHE_TTL_CURRENT = 5 * 60 * 1000;    // 5 min before a background refresh
-    var CACHE_TTL_PAST = 6 * 60 * 60 * 1000;  // 6 h for past (near-immutable) years
+    // Client-side TTLs: short because the server carries the expensive cache.
+    // When stale the client re-fetches from the server, which usually serves
+    // from its own 10-min / 6-h cache — so the client call is cheap.
+    var CACHE_TTL_CURRENT = 60 * 1000;         // 1 min for current year
+    var CACHE_TTL_PAST    = 30 * 60 * 1000;    // 30 min for past (near-immutable) years
 
     // Background-preload progress, surfaced by getPreloadProgress() for the
     // "Кэш" status badge in the header.
@@ -68,15 +72,17 @@ var tcFloodHistory = (function () {
             });
     }
 
-    // GET /Api/Main/GetHistData — standard PlgMain endpoint
-    async function fetchHistData(cnlNums, startTime, endTime) {
-        if (!cnlNums || !cnlNums.length) return null;
-        var url = apiUrl("GetHistData") +
-            "?archiveBit=1" +
-            "&startTime=" + encodeURIComponent(startTime.toISOString()) +
-            "&endTime=" + encodeURIComponent(endTime.toISOString()) +
-            "&endInclusive=true" +
-            "&cnlNums=" + encodeURIComponent(cnlNums.join(","));
+    // GET /Api/ThermalCamera/GetFloodHistory — server-side computed + cached.
+    // Returns { intervals: { "200": [[startMs,endMs],...], "700": [...] }, cachedAtMs }.
+    // The server computes from the SCADA archive once and caches for 10 min (current year)
+    // or 6 h (past years), shared across all users. Much lighter than GetHistData which
+    // returns the full raw minute archive.
+    async function fetchFloodHistory(item, year) {
+        var url = tcApiUrl("GetFloodHistory") +
+            "?itemId=" + item.id +
+            "&year=" + year +
+            (item.flood200CnlNum > 0 ? "&cnl200=" + item.flood200CnlNum : "") +
+            (item.flood700CnlNum > 0 ? "&cnl700=" + item.flood700CnlNum : "");
         try {
             var resp = await fetch(url);
             var dto = await resp.json();
@@ -114,22 +120,16 @@ var tcFloodHistory = (function () {
         // 2) An identical request is already running → share it.
         if (inFlightPromises[key]) return inFlightPromises[key];
 
-        var now = new Date();
-        var yearStart = new Date(year, 0, 1, 0, 0, 0, 0);
-        var yearEnd = (year === now.getFullYear()) ? now :
-                      new Date(year, 11, 31, 23, 59, 59, 999);
-        var cnls = def.channels.map(function (c) { return c.cnlNum; });
-
         var isHighPriority = (priority !== false); // default true for modal opens
         var promise = enqueueFetch(function () {
-            return fetchHistData(cnls, yearStart, yearEnd).then(function (histData) {
-                var result = extractFloodIntervals(histData, def.channels, year);
-                // Only cache a genuine response. A failed fetch (histData == null)
-                // yields an empty result; caching it would reproduce the old
-                // "0ч everywhere" bug until the TTL expired, so let it retry.
-                if (histData)
-                    resultCache[key] = { ts: Date.now(), data: result };
-                return result;
+            // fetchFloodHistory hits the ThermalCamera server endpoint which returns
+            // pre-computed, merged intervals (tiny JSON) instead of the full raw
+            // minute archive. Server caches result for all users for 10 min.
+            return fetchFloodHistory(item, year).then(function (data) {
+                // Only cache genuine responses. Failed fetches (data == null) must
+                // not be cached so they retry on the next modal open.
+                if (data) resultCache[key] = { ts: Date.now(), data: data };
+                return data;
             });
         }, isHighPriority);
         promise = promise.finally(function () { delete inFlightPromises[key]; });
@@ -186,48 +186,6 @@ var tcFloodHistory = (function () {
         };
     }
 
-    // Extract flooded intervals per kind from a year of archive data. For each
-    // record in a flooded state (val === 0, stat > 0) the device is treated as
-    // flooded from ts[j].ms until the next record's timestamp (or the end of the
-    // requested period for the trailing record). Adjacent/overlapping intervals
-    // are merged so the cached result is a compact, non-overlapping set — which
-    // is what guarantees the duration total and the coloured day squares always
-    // agree (both are derived from the very same merged intervals downstream).
-    function extractFloodIntervals(histData, floodChannels, year) {
-        var intervals = {};
-        for (var c0 = 0; c0 < floodChannels.length; c0++) intervals[floodChannels[c0].kind] = [];
-        if (!histData || !histData.cnlNums || !histData.trends || !histData.timestamps)
-            return { intervals: intervals };
-
-        var cnlIdx = {};
-        histData.cnlNums.forEach(function (n, i) { cnlIdx[n] = i; });
-        var ts = histData.timestamps;
-        var nowMs = Date.now();
-        var periodEnd = (year === new Date().getFullYear())
-            ? nowMs
-            : new Date(year + 1, 0, 1).getTime();
-
-        for (var c = 0; c < floodChannels.length; c++) {
-            var ch = floodChannels[c];
-            var idx = cnlIdx[ch.cnlNum];
-            if (idx === undefined) continue;
-            var trend = histData.trends[idx];
-            var arr = [];
-            for (var j = 0; j < trend.length; j++) {
-                var rec = trend[j];
-                if (!rec || !rec.d || rec.d.stat <= 0) continue;
-                if (rec.d.val !== 0) continue;
-                var startMs = tsMs(ts[j]);
-                if (startMs === null) continue;
-                var endMs = (j + 1 < trend.length) ? tsMs(ts[j + 1]) : null;
-                if (endMs === null) endMs = periodEnd;
-                if (endMs > startMs) arr.push([startMs, endMs]);
-            }
-            intervals[ch.kind] = mergeIntervals(arr);
-        }
-        return { intervals: intervals };
-    }
-
     // Merge a list of [start, end] intervals into a sorted, non-overlapping set.
     // Touching intervals (next.start === prev.end) are joined too.
     function mergeIntervals(list) {
@@ -261,12 +219,6 @@ var tcFloodHistory = (function () {
                 addOverlapToMonths(months, list[i][0], list[i][1], year, kind);
         }
         return months;
-    }
-
-    function tsMs(rec) {
-        if (rec && typeof rec.ms === 'number') return rec.ms;
-        if (typeof rec === 'number') return rec;
-        return null;
     }
 
     function addOverlapToMonths(months, startMs, endMs, year, kind) {

@@ -5,6 +5,7 @@ using Scada.Client;
 using Scada.Data.Models;
 using Scada.Web.Plugins.PlgThermalCamera.Models;
 using Scada.Web.Services;
+using System.Linq;
 
 namespace Scada.Web.Plugins.PlgThermalCamera.Code
 {
@@ -70,6 +71,16 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         // Keyed by (itemId, kind). Committed by DetectFloodTransitions once they age past
         // the delay; discarded if the flood clears or the device goes offline first.
         private readonly Dictionary<(int itemId, string kind), long> floodPendingStartMs = [];
+
+        // ---- Server-side flood-history cache ------------------------------------
+        // Computed once per item/year, shared across all users and page reloads.
+        // Current year: 10-min TTL (archive grows); past years: 6-hour TTL (immutable).
+        private const long HistTtlCurrentMs = 10 * 60 * 1000L;
+        private const long HistTtlPastMs    =  6 * 60 * 60 * 1000L;
+
+        private readonly Dictionary<string, (long ts, FloodHistoryResult data)> histCache = [];
+        private readonly SemaphoreSlim histSemaphore = new(2, 2); // max 2 parallel computes
+        private bool histPreloadStarted = false;
 
         public string GetUserDataFilePath()
         {
@@ -812,6 +823,170 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
             }
         }
 
+        // ---- Flood-history server cache API ------------------------------------
+
+        /// <summary>
+        /// Returns merged flood intervals for one item + year. Serves from the
+        /// in-memory server cache if fresh; otherwise computes from the SCADA
+        /// minute archive and caches. Shared across all connected users.
+        /// </summary>
+        public async Task<FloodHistoryResult> GetFloodHistory(
+            int itemId, int year, int cnl200, int cnl700)
+        {
+            string key = $"h_{itemId}_{year}";
+            long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            long ttl = (year == DateTime.UtcNow.Year) ? HistTtlCurrentMs : HistTtlPastMs;
+
+            // Fast path: fresh cache hit (no lock needed — Dictionary reads are
+            // safe when the only concurrent writer holds histSemaphore).
+            lock (lockObj)
+            {
+                if (histCache.TryGetValue(key, out var hit) && nowMs - hit.ts < ttl)
+                    return hit.data;
+            }
+
+            await histSemaphore.WaitAsync();
+            try
+            {
+                // Double-check: another task may have filled the cache while we waited.
+                lock (lockObj)
+                {
+                    if (histCache.TryGetValue(key, out var hit2) && nowMs - hit2.ts < ttl)
+                        return hit2.data;
+                }
+
+                FloodHistoryResult result = await Task.Run(
+                    () => ComputeFloodHistory(year, cnl200, cnl700));
+
+                lock (lockObj)
+                {
+                    histCache[key] = (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), result);
+                }
+                return result;
+            }
+            finally
+            {
+                histSemaphore.Release();
+            }
+        }
+
+        private FloodHistoryResult ComputeFloodHistory(int year, int cnl200, int cnl700)
+        {
+            ScadaClient client = null;
+            try
+            {
+                client = webContext.ClientPool.GetClient(webContext.AppConfig.ConnectionOptions);
+
+                DateTime now = DateTime.UtcNow;
+                DateTime yearStart = new(year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+                DateTime yearEnd = (year == now.Year)
+                    ? now : new DateTime(year + 1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+                long periodEndMs = new DateTimeOffset(yearEnd).ToUnixTimeMilliseconds();
+
+                Dictionary<string, long[][]> intervals = [];
+                var channels = new[] { (CnlNum: cnl200, Kind: "200"),
+                                       (CnlNum: cnl700, Kind: "700") };
+
+                foreach (var ch in channels)
+                {
+                    if (ch.CnlNum <= 0) continue;
+                    Trend trend = client.GetTrend(
+                        MinuteArchiveBit,
+                        new TimeRange(yearStart, yearEnd, true),
+                        ch.CnlNum);
+                    List<long[]> raw = ExtractFloodIntervalList(trend, periodEndMs);
+                    if (raw.Count > 0)
+                        intervals[ch.Kind] = MergeIntervalList(raw);
+                }
+
+                return new FloodHistoryResult
+                {
+                    Intervals = intervals,
+                    CachedAtMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                };
+            }
+            finally
+            {
+                if (client != null) webContext.ClientPool.ReturnClient(client);
+            }
+        }
+
+        private static List<long[]> ExtractFloodIntervalList(Trend trend, long periodEndMs)
+        {
+            var result = new List<long[]>();
+            if (trend == null || trend.Points.Count == 0) return result;
+            for (int j = 0; j < trend.Points.Count; j++)
+            {
+                TrendPoint p = trend.Points[j];
+                if (p.Stat <= 0 || p.Val != 0) continue;
+                long startMs = new DateTimeOffset(p.Timestamp, TimeSpan.Zero)
+                    .ToUnixTimeMilliseconds();
+                long endMs = (j + 1 < trend.Points.Count)
+                    ? new DateTimeOffset(trend.Points[j + 1].Timestamp, TimeSpan.Zero)
+                        .ToUnixTimeMilliseconds()
+                    : periodEndMs;
+                if (endMs > startMs) result.Add([startMs, endMs]);
+            }
+            return result;
+        }
+
+        private static long[][] MergeIntervalList(List<long[]> intervals)
+        {
+            if (intervals.Count == 0) return [];
+            intervals.Sort((a, b) => a[0].CompareTo(b[0]));
+            var merged = new List<long[]> { [intervals[0][0], intervals[0][1]] };
+            for (int i = 1; i < intervals.Count; i++)
+            {
+                long[] last = merged[^1];
+                if (intervals[i][0] <= last[1]) { if (intervals[i][1] > last[1]) last[1] = intervals[i][1]; }
+                else merged.Add([intervals[i][0], intervals[i][1]]);
+            }
+            return [.. merged];
+        }
+
+        /// <summary>
+        /// Triggers a one-time background pre-warm of the history cache for all
+        /// items. Safe to call on every poll — runs the actual work only once.
+        /// </summary>
+        public void TriggerHistoryPreload(IEnumerable<ThermalCameraItem> items)
+        {
+            lock (lockObj)
+            {
+                if (histPreloadStarted) return;
+                histPreloadStarted = true;
+            }
+
+            var targets = items
+                .Where(i => i.Flood200CnlNum > 0 || i.Flood700CnlNum > 0)
+                .Select(i => (i.Id, i.Flood200CnlNum, i.Flood700CnlNum))
+                .ToList();
+
+            if (targets.Count == 0) return;
+            int year = DateTime.UtcNow.Year;
+
+            Task.Run(async () =>
+            {
+                webContext.Log.WriteInfo(
+                    $"PlgThermalCamera: starting server-side history pre-warm ({targets.Count} items).");
+                int ok = 0;
+                foreach (var (itemId, cnl200, cnl700) in targets)
+                {
+                    try
+                    {
+                        await GetFloodHistory(itemId, year, cnl200, cnl700);
+                        ok++;
+                    }
+                    catch (Exception ex)
+                    {
+                        webContext.Log.WriteError(
+                            $"PlgThermalCamera: history preload failed for item {itemId}: {ex.Message}");
+                    }
+                }
+                webContext.Log.WriteInfo(
+                    $"PlgThermalCamera: history pre-warm complete ({ok}/{targets.Count} cached).");
+            });
+        }
+
         /// <summary>
         /// Returns all acknowledgment records across all items, sorted newest first.
         /// </summary>
@@ -851,6 +1026,16 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         public long OfflineStartMs { get; set; }
         public long Flood200StartMs { get; set; }
         public long Flood700StartMs { get; set; }
+    }
+
+    /// <summary>
+    /// Compact flood-history result: merged non-overlapping intervals per kind.
+    /// Keyed by "200" / "700"; each value is an array of [startMs, endMs] pairs.
+    /// </summary>
+    public class FloodHistoryResult
+    {
+        public Dictionary<string, long[][]> Intervals { get; set; } = [];
+        public long CachedAtMs { get; set; }
     }
 
     /// <summary>
