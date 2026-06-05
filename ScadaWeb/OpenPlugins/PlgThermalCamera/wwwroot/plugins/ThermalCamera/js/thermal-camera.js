@@ -21,6 +21,10 @@ var thermalCamera = (function () {
     var todayBadgeEl = null;
     var todayTooltipEl = null;
 
+    // "Кэш" status badge (top-right corner) — flood-history preload progress.
+    var cacheBadgeEl = null;
+    var cacheTooltipEl = null;
+
     // Chat state
     // chatByItem[itemId] = array of message objects {id, timestampMs, author, text, kind}
     var chatByItem = {};
@@ -104,6 +108,7 @@ var thermalCamera = (function () {
         loadAckHistory();
         initFloodHoverTooltip();
         initTodayBadge();
+        initCacheBadge();
         positionJournal();
         initPhotoModal();
         requestData();
@@ -707,6 +712,113 @@ var thermalCamera = (function () {
         updateTodayBadge();
     }
 
+    // ---- "Кэш" status badge — flood-history preload progress (top-right) ----
+
+    function formatEta(ms) {
+        if (!ms || ms < 0) return "—";
+        var sec = Math.ceil(ms / 1000);
+        if (sec < 60) return sec + " сек";
+        var min = Math.floor(sec / 60);
+        var s = sec % 60;
+        var pad = function (n) { return n < 10 ? "0" + n : "" + n; };
+        if (min < 60) return min + " мин " + pad(s) + " сек";
+        var h = Math.floor(min / 60);
+        return h + " ч " + (min % 60) + " мин";
+    }
+
+    function getCacheProgress() {
+        if (typeof tcFloodHistory === "undefined" || !tcFloodHistory.getPreloadProgress)
+            return null;
+        return tcFloodHistory.getPreloadProgress();
+    }
+
+    function buildCacheTooltipHtml(p) {
+        if (!p || p.total === 0)
+            return '<div class="tc-cache-tt-empty">Кэш истории затоплений ещё не запущен…</div>';
+        var html = '<div class="tc-cache-tt-title">Кэш истории затоплений</div>';
+        html += '<div class="tc-cache-tt-row">Загружено: <b>' + p.done + ' / ' + p.total +
+                '</b> (' + p.pct + '%)</div>';
+        html += '<div class="tc-cache-tt-bar"><div class="tc-cache-tt-bar-fill" style="width:' +
+                p.pct + '%"></div></div>';
+        if (p.active) {
+            html += '<div class="tc-cache-tt-row">Осталось примерно: <b>' + formatEta(p.etaMs) + '</b></div>';
+            if (p.currentName)
+                html += '<div class="tc-cache-tt-row tc-cache-tt-cur">Сейчас: ' + escapeHtml(p.currentName) + '</div>';
+        } else {
+            html += '<div class="tc-cache-tt-row tc-cache-tt-done">' +
+                    '<i class="fa-solid fa-circle-check"></i> Готово — история открывается мгновенно</div>';
+        }
+        return html;
+    }
+
+    function updateCacheBadge() {
+        if (!cacheBadgeEl) return;
+        var p = getCacheProgress();
+        var icon, text, ready = false;
+        if (!p || p.total === 0) {
+            icon = "fa-database"; text = "Кэш —";
+        } else if (p.active) {
+            icon = "fa-database"; text = "Кэш " + p.pct + "%";
+        } else {
+            icon = "fa-database"; text = "Кэш ✓"; ready = true;
+        }
+        // Only rewrite when the visible label changes — avoids needless churn.
+        var label = '<i class="fa-solid ' + icon + '"></i>' +
+                    '<span class="tc-cache-badge-text">' + text + '</span>';
+        if (cacheBadgeEl.getAttribute("data-label") !== label) {
+            cacheBadgeEl.innerHTML = label;
+            cacheBadgeEl.setAttribute("data-label", label);
+        }
+        cacheBadgeEl.classList.toggle("tc-cache-ready", ready);
+        cacheBadgeEl.classList.toggle("tc-cache-loading", !!(p && p.active));
+        // Refresh the open tooltip in place so progress updates live.
+        if (cacheTooltipEl && cacheTooltipEl.style.display === "block") {
+            cacheTooltipEl.innerHTML = buildCacheTooltipHtml(p);
+            positionCacheTooltip();
+        }
+    }
+
+    function positionCacheTooltip() {
+        if (!cacheBadgeEl || !cacheTooltipEl) return;
+        var r = cacheBadgeEl.getBoundingClientRect();
+        cacheTooltipEl.style.top = (r.bottom + 4) + "px";
+        var w = cacheTooltipEl.offsetWidth || 240;
+        var left = r.right - w;
+        if (left < 4) left = 4;
+        cacheTooltipEl.style.left = left + "px";
+    }
+
+    function initCacheBadge() {
+        cacheBadgeEl = document.createElement("div");
+        cacheBadgeEl.id = "tcCacheBadge";
+        cacheBadgeEl.className = "tc-cache-badge";
+        document.body.appendChild(cacheBadgeEl);
+
+        cacheTooltipEl = document.createElement("div");
+        cacheTooltipEl.id = "tcCacheTooltip";
+        cacheTooltipEl.className = "tc-cache-tooltip";
+        cacheTooltipEl.style.display = "none";
+        document.body.appendChild(cacheTooltipEl);
+
+        var hideTimer = null;
+        function cancelHide() { if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } }
+        function showTip() {
+            cancelHide();
+            cacheTooltipEl.innerHTML = buildCacheTooltipHtml(getCacheProgress());
+            cacheTooltipEl.style.display = "block";
+            positionCacheTooltip();
+        }
+        function scheduleHide() {
+            hideTimer = setTimeout(function () { cacheTooltipEl.style.display = "none"; }, 150);
+        }
+        cacheBadgeEl.addEventListener("mouseenter", showTip);
+        cacheBadgeEl.addEventListener("mouseleave", scheduleHide);
+        cacheTooltipEl.addEventListener("mouseenter", cancelHide);
+        cacheTooltipEl.addEventListener("mouseleave", scheduleHide);
+
+        updateCacheBadge();
+    }
+
     function requestData() {
         // Follows the PlgMap / PlgMain pattern: ask the server for current
         // data by viewID — the backend resolves the view's CnlNumList on its
@@ -952,6 +1064,8 @@ var thermalCamera = (function () {
         }
         // Also update journal event elapsed timers
         updateJournalEventTimers();
+        // Refresh the cache-progress badge (and its open tooltip) once a second.
+        updateCacheBadge();
     }
 
     function updateTimers(result) {

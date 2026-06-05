@@ -1676,3 +1676,98 @@ td.tc-col-flooding:hover {
     color: #718096;
     font-style: italic;
 }
+
+/* "Кэш" status badge — top-right corner; flood-history preload progress. */
+.tc-cache-badge {
+    position: fixed;
+    top: 3px;
+    right: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 9px;
+    border-radius: 11px;
+    background: rgba(0, 0, 0, 0.28);
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: help;
+    z-index: 10000;
+    white-space: nowrap;
+    pointer-events: auto;
+}
+
+.tc-cache-badge .fa-database { opacity: 0.85; }
+.tc-cache-badge-text { font-weight: 600; }
+.tc-cache-badge.tc-cache-ready { color: #9ae6b4; }
+.tc-cache-badge.tc-cache-loading { color: #fbd38d; }
+.tc-cache-badge.tc-cache-loading .fa-database {
+    animation: tc-cache-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes tc-cache-pulse {
+    0%, 100% { opacity: 0.35; }
+    50%      { opacity: 1; }
+}
+
+/* Hover tooltip: live preload progress (light theme, matches today tooltip). */
+.tc-cache-tooltip {
+    position: fixed;
+    background: rgba(255, 255, 255, 0.98);
+    color: #2d3748;
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+    font-size: 14px;
+    z-index: 10002;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    min-width: 230px;
+    max-width: 330px;
+    padding: 6px 0 8px;
+}
+
+.tc-cache-tt-title {
+    font-weight: 600;
+    color: #1a202c;
+    padding: 2px 12px 6px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.tc-cache-tt-row {
+    padding: 3px 12px;
+    white-space: nowrap;
+}
+
+.tc-cache-tt-cur {
+    color: #718096;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 306px;
+}
+
+.tc-cache-tt-done {
+    color: #2f855a;
+    white-space: normal;
+}
+
+.tc-cache-tt-done .fa-circle-check { margin-right: 4px; }
+
+.tc-cache-tt-empty {
+    padding: 6px 12px;
+    color: #718096;
+    font-style: italic;
+}
+
+.tc-cache-tt-bar {
+    margin: 5px 12px 3px;
+    height: 8px;
+    border-radius: 4px;
+    background: #e2e8f0;
+    overflow: hidden;
+}
+
+.tc-cache-tt-bar-fill {
+    height: 100%;
+    background: #48bb78;
+    transition: width 0.3s ease;
+}
