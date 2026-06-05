@@ -83,7 +83,9 @@ var tcFloodHistory = (function () {
 
     // Total flood duration per month for a whole year. Single GetHistData
     // request for the entire year range, then integrated client-side.
-    function fetchYearlyCounts(item, year) {
+    // priority=true (default): jumps the queue — used by modal opens.
+    // priority=false: goes to the back — used by background preload.
+    function fetchYearlyCounts(item, year, priority) {
         var def = buildFloodDef(item);
         if (!def) return Promise.resolve(null);
         var key = "y_" + item.id + "_" + year;
@@ -106,7 +108,7 @@ var tcFloodHistory = (function () {
                       new Date(year, 11, 31, 23, 59, 59, 999);
         var cnls = def.channels.map(function (c) { return c.cnlNum; });
 
-        // 3) Priority fetch — jumps the queue so the open modal loads first.
+        var isHighPriority = (priority !== false); // default true for modal opens
         var promise = enqueueFetch(function () {
             return fetchHistData(cnls, yearStart, yearEnd).then(function (histData) {
                 var result = bucketByMonth(histData, def.channels, year, lastMonthIdx);
@@ -117,10 +119,30 @@ var tcFloodHistory = (function () {
                     resultCache[key] = { ts: Date.now(), data: result };
                 return result;
             });
-        }, true);
+        }, isHighPriority);
         promise = promise.finally(function () { delete inFlightPromises[key]; });
         inFlightPromises[key] = promise;
         return promise;
+    }
+
+    // Sequentially pre-populate the result cache for all items so every modal
+    // opens instantly. Runs in the background after the first successful poll;
+    // re-runs automatically on page reload (cache is in-memory only).
+    // Low priority (false) ensures an open modal always jumps ahead in the queue.
+    async function preloadAll(itemsList) {
+        var year = new Date().getFullYear();
+        for (var i = 0; i < itemsList.length; i++) {
+            var item = itemsList[i];
+            if (!buildFloodDef(item)) continue;
+            var key = "y_" + item.id + "_" + year;
+            var cached = resultCache[key];
+            if (cached && Date.now() - cached.ts < CACHE_TTL_CURRENT) continue;
+            try {
+                await fetchYearlyCounts(item, year, false);
+            } catch (e) {
+                // Ignore; modal open will retry on demand.
+            }
+        }
     }
 
     // Integrate total flood duration per month. For each record in the trend
@@ -456,6 +478,7 @@ var tcFloodHistory = (function () {
 
     return {
         openHistoryModal: openHistoryModal,
-        closeHistoryModal: closeHistoryModal
+        closeHistoryModal: closeHistoryModal,
+        preloadAll: preloadAll
     };
 })();

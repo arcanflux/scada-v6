@@ -74,6 +74,7 @@ var thermalCamera = (function () {
     var ackHistory = [];                  // loaded once and updated after each new ack
 
     var floodHoverTooltipEl = null;
+    var historyPreloadStarted = false;
 
     function init() {
         var itemsEl = document.getElementById("tcItems");
@@ -722,6 +723,11 @@ var thermalCamera = (function () {
                     applyChatUpdates(dto.data);
                     updateTimers(dto.data);
                     updatePendingAcks(dto.data);
+                    if (!historyPreloadStarted &&
+                            typeof tcFloodHistory !== "undefined" && tcFloodHistory.preloadAll) {
+                        historyPreloadStarted = true;
+                        tcFloodHistory.preloadAll(items);
+                    }
                 }
             },
             error: function () {
