@@ -82,9 +82,24 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         private readonly SemaphoreSlim histSemaphore = new(2, 2); // max 2 parallel computes
         private bool histPreloadStarted = false;
 
+        // De-dupes concurrent background refreshes of the same key (stale-while-revalidate).
+        private readonly HashSet<string> histRefreshing = [];
+        // Serializes writes to the on-disk cache file.
+        private readonly object histFileLock = new();
+        // The disk cache is read into histCache once, on first access.
+        private bool histLoaded = false;
+
         public string GetUserDataFilePath()
         {
             return Path.Combine(webContext.AppDirs.StorageDir, "PlgThermalCamera", "UserData.xml");
+        }
+
+        /// <summary>
+        /// Path of the persisted server-side flood-history cache (survives restarts).
+        /// </summary>
+        public string GetHistCacheFilePath()
+        {
+            return Path.Combine(webContext.AppDirs.StorageDir, "PlgThermalCamera", "FloodHistoryCache.xml");
         }
 
         /// <summary>
@@ -833,18 +848,34 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         public async Task<FloodHistoryResult> GetFloodHistory(
             int itemId, int year, int cnl200, int cnl700)
         {
+            EnsureHistCacheLoaded();
+
             string key = $"h_{itemId}_{year}";
             long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             long ttl = (year == DateTime.UtcNow.Year) ? HistTtlCurrentMs : HistTtlPastMs;
 
-            // Fast path: fresh cache hit (no lock needed — Dictionary reads are
-            // safe when the only concurrent writer holds histSemaphore).
+            FloodHistoryResult stale = null;
             lock (lockObj)
             {
-                if (histCache.TryGetValue(key, out var hit) && nowMs - hit.ts < ttl)
-                    return hit.data;
+                if (histCache.TryGetValue(key, out var hit))
+                {
+                    if (nowMs - hit.ts < ttl)
+                        return hit.data;        // fresh — serve directly
+                    stale = hit.data;           // stale — serve now, revalidate in background
+                }
             }
 
+            // Stale-while-revalidate: return the (possibly disk-loaded) cached copy
+            // instantly and refresh it in the background. This is what makes the
+            // persisted cache useful after a restart — the first user gets data with
+            // no wait while a background recompute brings it up to date.
+            if (stale != null)
+            {
+                TriggerBackgroundRefresh(itemId, year, cnl200, cnl700);
+                return stale;
+            }
+
+            // Cold miss: compute synchronously.
             await histSemaphore.WaitAsync();
             try
             {
@@ -858,15 +889,140 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                 FloodHistoryResult result = await Task.Run(
                     () => ComputeFloodHistory(year, cnl200, cnl700));
 
-                lock (lockObj)
-                {
-                    histCache[key] = (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), result);
-                }
+                StoreAndPersist(key, result);
                 return result;
             }
             finally
             {
                 histSemaphore.Release();
+            }
+        }
+
+        /// <summary>
+        /// Recomputes one item/year in the background and updates the cache.
+        /// Used by stale-while-revalidate; de-duped per key so concurrent callers
+        /// (e.g. several users opening the same history) trigger only one recompute.
+        /// </summary>
+        private void TriggerBackgroundRefresh(int itemId, int year, int cnl200, int cnl700)
+        {
+            string key = $"h_{itemId}_{year}";
+            lock (lockObj)
+            {
+                if (!histRefreshing.Add(key))
+                    return; // a refresh for this key is already running
+            }
+
+            Task.Run(async () =>
+            {
+                await histSemaphore.WaitAsync();
+                try
+                {
+                    FloodHistoryResult result = await Task.Run(
+                        () => ComputeFloodHistory(year, cnl200, cnl700));
+                    StoreAndPersist(key, result);
+                }
+                catch (Exception ex)
+                {
+                    webContext.Log.WriteError(
+                        $"PlgThermalCamera: background history refresh failed for {key}: {ex.Message}");
+                }
+                finally
+                {
+                    histSemaphore.Release();
+                    lock (lockObj) { histRefreshing.Remove(key); }
+                }
+            });
+        }
+
+        /// <summary>
+        /// Stores a computed result in the in-memory cache and persists the whole
+        /// cache to disk so it survives a ScadaWeb restart.
+        /// </summary>
+        private void StoreAndPersist(string key, FloodHistoryResult result)
+        {
+            lock (lockObj)
+            {
+                histCache[key] = (result.CachedAtMs, result);
+            }
+            PersistHistCache();
+        }
+
+        /// <summary>
+        /// Reads the on-disk cache into <see cref="histCache"/> exactly once, on first
+        /// access. Entries are loaded with their original timestamps, so stale ones are
+        /// served immediately and refreshed in the background (stale-while-revalidate).
+        /// </summary>
+        private void EnsureHistCacheLoaded()
+        {
+            lock (lockObj)
+            {
+                if (histLoaded)
+                    return;
+                histLoaded = true;
+
+                FloodHistoryCacheFile file = new();
+                if (!file.Load(GetHistCacheFilePath(), out string errMsg))
+                {
+                    webContext.Log.WriteError("PlgThermalCamera: failed to load flood-history cache: " + errMsg);
+                    return;
+                }
+
+                foreach (CachedFloodHistory e in file.Entries)
+                {
+                    string key = $"h_{e.ItemId}_{e.Year}";
+                    histCache[key] = (e.CachedAtMs, new FloodHistoryResult
+                    {
+                        Intervals = e.Intervals,
+                        CachedAtMs = e.CachedAtMs
+                    });
+                }
+
+                if (file.Entries.Count > 0)
+                {
+                    webContext.Log.WriteInfo(
+                        $"PlgThermalCamera: loaded {file.Entries.Count} cached flood-history entries from disk.");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Serializes the whole in-memory cache to disk. Writes are serialized by
+        /// <see cref="histFileLock"/> and the file itself is replaced atomically.
+        /// </summary>
+        private void PersistHistCache()
+        {
+            // histFileLock first, then snapshot under lockObj: serializing writers
+            // and building the snapshot at write time means the last writer always
+            // persists the most complete state — no out-of-order overwrite can drop
+            // a just-added entry from disk.
+            lock (histFileLock)
+            {
+                FloodHistoryCacheFile file = new();
+                lock (lockObj)
+                {
+                    foreach (KeyValuePair<string, (long ts, FloodHistoryResult data)> kvp in histCache)
+                    {
+                        // key format: "h_{itemId}_{year}"
+                        string[] parts = kvp.Key.Split('_');
+                        if (parts.Length != 3 ||
+                            !int.TryParse(parts[1], out int itemId) ||
+                            !int.TryParse(parts[2], out int year))
+                        {
+                            continue;
+                        }
+
+                        file.Entries.Add(new CachedFloodHistory
+                        {
+                            ItemId = itemId,
+                            Year = year,
+                            CachedAtMs = kvp.Value.ts,
+                            Intervals = kvp.Value.data.Intervals
+                        });
+                    }
+                }
+
+                if (!file.Save(GetHistCacheFilePath(), out string errMsg))
+                    webContext.Log.WriteError("PlgThermalCamera: failed to persist flood-history cache: " + errMsg);
             }
         }
 
@@ -955,6 +1111,10 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                 if (histPreloadStarted) return;
                 histPreloadStarted = true;
             }
+
+            // Bring any persisted cache into memory first, so freshly-restarted
+            // servers serve disk data instantly and only recompute what is stale.
+            EnsureHistCacheLoaded();
 
             var targets = items
                 .Where(i => i.Flood200CnlNum > 0 || i.Flood700CnlNum > 0)
