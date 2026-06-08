@@ -86,7 +86,10 @@ var tcFloodHistory = (function () {
 
         var promise = enqueueFetch(function () {
             return fetchHistData(cnls, yearStart, yearEnd).then(function (histData) {
-                return bucketByMonth(histData, def.channels, year, lastMonthIdx);
+                return {
+                    intervals: collectIntervals(histData, def.channels, year),
+                    lastMonthIdx: lastMonthIdx
+                };
             });
         });
         promise = promise.finally(function () { delete inFlightPromises[key]; });
@@ -94,24 +97,15 @@ var tcFloodHistory = (function () {
         return promise;
     }
 
-    // Integrate total flood duration per month. For each record in the trend
-    // that is in flooded state (val === 0, stat > 0), the device is treated as
-    // flooded from ts[j].ms until the next record's timestamp (or the end of
-    // the requested period for the trailing record). The span is split across
-    // month boundaries so each calendar month gets only its overlap.
-    function bucketByMonth(histData, floodChannels, year, lastMonthIdx) {
-        var months = [];
-        for (var m = 0; m <= lastMonthIdx; m++) {
-            var daysInMonth = new Date(year, m + 1, 0).getDate();
-            var days = [];
-            for (var d = 0; d < daysInMonth; d++) days.push({ has200: false, has700: false });
-            months.push({ month: m, time200: 0, time700: 0, days: days });
-        }
-        var archiveOngoing = {}; // kind -> true if archive last record is active flood (extrapolated to now)
-        var lastArchiveMs = {};  // kind -> ts (ms) of the last record with data; live-timer fill starts here
-        if (!histData || !histData.cnlNums || !histData.trends || !histData.timestamps) {
-            return { months: months, archiveOngoing: archiveOngoing, lastArchiveMs: lastArchiveMs };
-        }
+    // Extract raw flood intervals [startMs, endMs] per kind from the minute archive.
+    // A record in flooded state (val === 0, stat > 0) means the device is flooded
+    // from ts[j] until the next record's timestamp (or the period end for the
+    // trailing record). Returned intervals are NOT yet merged.
+    function collectIntervals(histData, floodChannels, year) {
+        var byKind = { '200': [], '700': [] };
+        if (!histData || !histData.cnlNums || !histData.trends || !histData.timestamps)
+            return byKind;
+
         var cnlIdx = {};
         histData.cnlNums.forEach(function (n, i) { cnlIdx[n] = i; });
         var ts = histData.timestamps;
@@ -125,30 +119,56 @@ var tcFloodHistory = (function () {
             var idx = cnlIdx[ch.cnlNum];
             if (idx === undefined) continue;
             var trend = histData.trends[idx];
+            var list = byKind[ch.kind] || (byKind[ch.kind] = []);
             for (var j = 0; j < trend.length; j++) {
                 var rec = trend[j];
-                if (!rec || !rec.d || rec.d.stat <= 0) continue;
-                if (rec.d.val !== 0) continue;
+                if (!rec || !rec.d || rec.d.stat <= 0 || rec.d.val !== 0) continue;
                 var startMs = tsMs(ts[j]);
                 if (startMs === null) continue;
                 var endMs = (j + 1 < trend.length) ? tsMs(ts[j + 1]) : null;
                 if (endMs === null) endMs = periodEnd;
-                addOverlapToMonths(months, startMs, endMs, year, ch.kind);
-            }
-            // Determine if archive already covers the ongoing flood up to now
-            // (last valid record is flooded → was extrapolated to periodEnd above),
-            // and remember the last archived timestamp so the live timer only fills
-            // the tail after the archive's coverage (no double-counting).
-            for (var k = trend.length - 1; k >= 0; k--) {
-                var lr = trend[k];
-                if (!lr || !lr.d || lr.d.stat <= 0) continue;
-                archiveOngoing[ch.kind] = (lr.d.val === 0);
-                var lrMs = tsMs(ts[k]);
-                if (lrMs !== null) lastArchiveMs[ch.kind] = lrMs;
-                break;
+                if (endMs > startMs) list.push([startMs, endMs]);
             }
         }
-        return { months: months, archiveOngoing: archiveOngoing, lastArchiveMs: lastArchiveMs };
+        return byKind;
+    }
+
+    // Merge overlapping / touching [start, end] intervals into a non-overlapping
+    // set, sorted by start. Both the duration totals AND the day squares are then
+    // derived from this same merged set, so they can never disagree. The previous
+    // approach summed each record's span additively, which double-counted any
+    // overlap (e.g. the live-timer tail over the archive) in the duration but not
+    // in the squares — the cause of "30д" shown over only 24 coloured days.
+    function mergeIntervals(list) {
+        if (!list || !list.length) return [];
+        var sorted = list.slice().sort(function (a, b) { return a[0] - b[0]; });
+        var merged = [[sorted[0][0], sorted[0][1]]];
+        for (var i = 1; i < sorted.length; i++) {
+            var last = merged[merged.length - 1];
+            if (sorted[i][0] <= last[1]) {
+                if (sorted[i][1] > last[1]) last[1] = sorted[i][1];
+            } else {
+                merged.push([sorted[i][0], sorted[i][1]]);
+            }
+        }
+        return merged;
+    }
+
+    // Build the per-month structure (duration + per-day flags) from merged intervals.
+    function bucketIntervals(intervalsByKind, year, lastMonthIdx) {
+        var months = [];
+        for (var m = 0; m <= lastMonthIdx; m++) {
+            var daysInMonth = new Date(year, m + 1, 0).getDate();
+            var days = [];
+            for (var d = 0; d < daysInMonth; d++) days.push({ has200: false, has700: false });
+            months.push({ month: m, time200: 0, time700: 0, days: days });
+        }
+        ['200', '700'].forEach(function (kind) {
+            var merged = mergeIntervals(intervalsByKind[kind]);
+            for (var i = 0; i < merged.length; i++)
+                addOverlapToMonths(months, merged[i][0], merged[i][1], year, kind);
+        });
+        return months;
     }
 
     function tsMs(rec) {
@@ -247,34 +267,28 @@ var tcFloodHistory = (function () {
         body.innerHTML = '<div class="tc-fh-loading">Загрузка...</div>';
         try {
             var result = await fetchYearlyCounts(currentItem, year);
-            var months = result ? result.months : null;
-            if (!months || !months.length) {
+            if (!result || !result.intervals) {
                 body.innerHTML = '<div class="tc-fh-loading">Нет данных</div>';
                 return;
             }
-            // Inject live timer data for channels not yet captured by the archive.
+            var intervals = result.intervals;
+
+            // Append the live-timer interval for an ongoing flood (current year).
             // This ensures an active flood is visible on the very first open even if
-            // the minute archive hasn't written the current interval yet.
-            //
-            // Only fill the tail AFTER the archive's last record — never from the
-            // flood start — so the ongoing flood already integrated from the archive
-            // is not counted a second time. (The 24h ack debounce keeps the live
-            // start old through sensor blips, while the archive may have logged a
-            // dry blip as its last record; re-adding from the start would double-count.)
+            // the minute archive hasn't written the current interval yet. Because
+            // bucketIntervals merges before integrating, adding [floodStart, now]
+            // can extend the tail up to "now" but can never double-count time the
+            // archive already covers — overlap is absorbed by the merge.
             if (year === new Date().getFullYear()) {
-                var archiveOngoing = result.archiveOngoing || {};
-                var lastArchiveMs = result.lastArchiveMs || {};
                 var nowMs = Date.now();
-                var lt = currentLiveTimers;
-                if (lt.flood700StartMs > 0 && !archiveOngoing['700']) {
-                    var from700 = Math.max(lt.flood700StartMs, lastArchiveMs['700'] || 0);
-                    addOverlapToMonths(months, from700, nowMs, year, '700');
-                }
-                if (lt.flood200StartMs > 0 && !archiveOngoing['200']) {
-                    var from200 = Math.max(lt.flood200StartMs, lastArchiveMs['200'] || 0);
-                    addOverlapToMonths(months, from200, nowMs, year, '200');
-                }
+                var lt = currentLiveTimers || {};
+                if (lt.flood700StartMs > 0)
+                    (intervals['700'] || (intervals['700'] = [])).push([lt.flood700StartMs, nowMs]);
+                if (lt.flood200StartMs > 0)
+                    (intervals['200'] || (intervals['200'] = [])).push([lt.flood200StartMs, nowMs]);
             }
+
+            var months = bucketIntervals(intervals, year, result.lastMonthIdx);
             var ackDayMap = buildAckDayMap(currentAckList, year);
             renderTable(body, months, ackDayMap);
         } catch (err) {
