@@ -98,9 +98,6 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
                 }
                 thermalCameraContext.DetectFloodTransitions(view.Items, floodStates);
 
-                // Kick off the one-time server-side history cache pre-warm (no-op after first call).
-                thermalCameraContext.TriggerHistoryPreload(view.Items);
-
                 // Collect any new chat messages so the client can merge them in.
                 ChatSyncResult chatSync = thermalCameraContext.GetChatUpdates(chatCursor);
 
@@ -367,32 +364,6 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
             {
                 webContext.Log.WriteError(ex.BuildErrorMessage(WebPhrases.ErrorInWebApi, nameof(PostAcknowledgment)));
                 return Dto<AckRecord>.Fail(ex.Message);
-            }
-        }
-
-        /// <summary>
-        /// Returns merged flood intervals for one item + year from the server-side
-        /// cache (shared across users). Computed once from the SCADA minute archive,
-        /// then served instantly to every subsequent caller.
-        /// </summary>
-        [HttpGet]
-        public async Task<Dto<FloodHistoryResult>> GetFloodHistory(
-            int itemId, int year, int cnl200 = 0, int cnl700 = 0)
-        {
-            try
-            {
-                if (itemId <= 0 || year < 2000 || year > 2100)
-                    return Dto<FloodHistoryResult>.Fail("Некорректные параметры");
-
-                FloodHistoryResult result =
-                    await thermalCameraContext.GetFloodHistory(itemId, year, cnl200, cnl700);
-                return Dto<FloodHistoryResult>.Success(result);
-            }
-            catch (Exception ex)
-            {
-                webContext.Log.WriteError(
-                    ex.BuildErrorMessage(WebPhrases.ErrorInWebApi, nameof(GetFloodHistory)));
-                return Dto<FloodHistoryResult>.Fail(ex.Message);
             }
         }
 

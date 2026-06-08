@@ -14,47 +14,18 @@ var tcFloodHistory = (function () {
     }
 
     function apiUrl(path) { return rootPath() + "Api/Main/" + path; }
-    function tcApiUrl(path) { return rootPath() + "Api/ThermalCamera/" + path; }
 
-    // ---- Single-flight queue + per-key dedup + result cache ----
-    // Prevents a wave of parallel GetHistData requests when several TKs are
-    // opened in quick succession (which previously saturated the SCADA server's
-    // network and CPU). Modal requests are enqueued with priority so the open
-    // window never waits behind other queued tasks, while the queue still
-    // serializes everything to avoid parallel load spikes.
+    // ---- Single-flight queue + per-key dedup ----
+    // Prevents a wave of parallel GetHistData requests when the user hovers
+    // over many TKs in quick succession (which previously saturated the
+    // SCADA server's network and CPU).
     var inFlightPromises = {};   // key -> Promise (dedup identical requests)
     var fetchQueue = [];          // queue of { run, resolve, reject }
     var fetchInProgress = false;
 
-    // Per-(item, year) result cache. The modal serves cached data instantly
-    // (stale-while-revalidate): a stale current-year entry is shown immediately
-    // and refreshed in the background, so reopening a TK is always fast. The TTL
-    // only decides when a background refresh is triggered — never whether
-    // something is shown.
-    var resultCache = {};        // key -> { ts, data }
-    // Client-side TTLs: short because the server carries the expensive cache.
-    // When stale the client re-fetches from the server, which usually serves
-    // from its own 10-min / 6-h cache — so the client call is cheap.
-    var CACHE_TTL_CURRENT = 60 * 1000;         // 1 min for current year
-    var CACHE_TTL_PAST    = 30 * 60 * 1000;    // 30 min for past (near-immutable) years
-
-    // Background-preload progress, surfaced by getPreloadProgress() for the
-    // "Кэш" status badge in the header.
-    var preloadState = { total: 0, done: 0, active: false, startedMs: 0, currentName: '' };
-
-    function isCacheStale(key, year) {
-        var c = resultCache[key];
-        if (!c) return true;
-        var ttl = (year === new Date().getFullYear()) ? CACHE_TTL_CURRENT : CACHE_TTL_PAST;
-        return Date.now() - c.ts >= ttl;
-    }
-
-    function enqueueFetch(taskFn, priority) {
+    function enqueueFetch(taskFn) {
         return new Promise(function (resolve, reject) {
-            var task = { run: taskFn, resolve: resolve, reject: reject };
-            // Priority tasks jump to the front so the active modal loads first.
-            if (priority) fetchQueue.unshift(task);
-            else fetchQueue.push(task);
+            fetchQueue.push({ run: taskFn, resolve: resolve, reject: reject });
             processQueue();
         });
     }
@@ -72,17 +43,15 @@ var tcFloodHistory = (function () {
             });
     }
 
-    // GET /Api/ThermalCamera/GetFloodHistory — server-side computed + cached.
-    // Returns { intervals: { "200": [[startMs,endMs],...], "700": [...] }, cachedAtMs }.
-    // The server computes from the SCADA archive once and caches for 10 min (current year)
-    // or 6 h (past years), shared across all users. Much lighter than GetHistData which
-    // returns the full raw minute archive.
-    async function fetchFloodHistory(item, year) {
-        var url = tcApiUrl("GetFloodHistory") +
-            "?itemId=" + item.id +
-            "&year=" + year +
-            (item.flood200CnlNum > 0 ? "&cnl200=" + item.flood200CnlNum : "") +
-            (item.flood700CnlNum > 0 ? "&cnl700=" + item.flood700CnlNum : "");
+    // GET /Api/Main/GetHistData — standard PlgMain endpoint
+    async function fetchHistData(cnlNums, startTime, endTime) {
+        if (!cnlNums || !cnlNums.length) return null;
+        var url = apiUrl("GetHistData") +
+            "?archiveBit=1" +
+            "&startTime=" + encodeURIComponent(startTime.toISOString()) +
+            "&endTime=" + encodeURIComponent(endTime.toISOString()) +
+            "&endInclusive=true" +
+            "&cnlNums=" + encodeURIComponent(cnlNums.join(","));
         try {
             var resp = await fetch(url);
             var dto = await resp.json();
@@ -102,109 +71,35 @@ var tcFloodHistory = (function () {
 
     // Total flood duration per month for a whole year. Single GetHistData
     // request for the entire year range, then integrated client-side.
-    // priority=true (default): jumps the queue — used by modal opens.
-    // priority=false: goes to the back — used by background preload.
-    function fetchYearlyCounts(item, year, priority) {
+    function fetchYearlyCounts(item, year) {
         var def = buildFloodDef(item);
         if (!def) return Promise.resolve(null);
         var key = "y_" + item.id + "_" + year;
-
-        // 1) Fresh cached result → return instantly, no network.
-        var cached = resultCache[key];
-        if (cached) {
-            var ttl = (year === new Date().getFullYear()) ? CACHE_TTL_CURRENT : CACHE_TTL_PAST;
-            if (Date.now() - cached.ts < ttl)
-                return Promise.resolve(cached.data);
-        }
-
-        // 2) An identical request is already running → share it.
         if (inFlightPromises[key]) return inFlightPromises[key];
 
-        var isHighPriority = (priority !== false); // default true for modal opens
+        var now = new Date();
+        var lastMonthIdx = (year === now.getFullYear()) ? now.getMonth() : 11;
+        var yearStart = new Date(year, 0, 1, 0, 0, 0, 0);
+        var yearEnd = (year === now.getFullYear()) ? now :
+                      new Date(year, 11, 31, 23, 59, 59, 999);
+        var cnls = def.channels.map(function (c) { return c.cnlNum; });
+
         var promise = enqueueFetch(function () {
-            // fetchFloodHistory hits the ThermalCamera server endpoint which returns
-            // pre-computed, merged intervals (tiny JSON) instead of the full raw
-            // minute archive. Server caches result for all users for 10 min.
-            return fetchFloodHistory(item, year).then(function (data) {
-                // Only cache genuine responses. Failed fetches (data == null) must
-                // not be cached so they retry on the next modal open.
-                if (data) resultCache[key] = { ts: Date.now(), data: data };
-                return data;
+            return fetchHistData(cnls, yearStart, yearEnd).then(function (histData) {
+                return bucketByMonth(histData, def.channels, year, lastMonthIdx);
             });
-        }, isHighPriority);
+        });
         promise = promise.finally(function () { delete inFlightPromises[key]; });
         inFlightPromises[key] = promise;
         return promise;
     }
 
-    // Sequentially pre-populate the result cache for all items so every modal
-    // opens instantly. Runs in the background after the first successful poll;
-    // re-runs automatically on page reload (cache is in-memory only).
-    // Low priority (false) ensures an open modal always jumps ahead in the queue.
-    // Progress is exposed via getPreloadProgress() for the "Кэш" status badge.
-    async function preloadAll(itemsList) {
-        var year = new Date().getFullYear();
-        var targets = (itemsList || []).filter(function (it) { return !!buildFloodDef(it); });
-        preloadState = {
-            total: targets.length, done: 0, active: targets.length > 0,
-            startedMs: Date.now(), currentName: ''
-        };
-        for (var i = 0; i < targets.length; i++) {
-            var item = targets[i];
-            preloadState.currentName = item.name || ('ТК ' + item.id);
-            var key = "y_" + item.id + "_" + year;
-            if (!isCacheStale(key, year)) {  // already fresh — count as done
-                preloadState.done++;
-                continue;
-            }
-            try {
-                await fetchYearlyCounts(item, year, false);
-            } catch (e) {
-                // Ignore; modal open will retry on demand.
-            }
-            preloadState.done++;
-        }
-        preloadState.active = false;
-        preloadState.currentName = '';
-    }
-
-    // Snapshot of preload progress for the header badge. percent + rough ETA
-    // (remaining items × average time per finished item).
-    function getPreloadProgress() {
-        var total = preloadState.total, done = preloadState.done;
-        var pct = total > 0 ? Math.round(done / total * 100) : 0;
-        var etaMs = 0;
-        if (preloadState.active && done > 0 && done < total) {
-            var avg = (Date.now() - preloadState.startedMs) / done;
-            etaMs = Math.max(0, (total - done) * avg);
-        }
-        return {
-            total: total, done: done, pct: pct,
-            active: preloadState.active,
-            currentName: preloadState.currentName,
-            etaMs: etaMs
-        };
-    }
-
-    // Merge a list of [start, end] intervals into a sorted, non-overlapping set.
-    // Touching intervals (next.start === prev.end) are joined too.
-    function mergeIntervals(list) {
-        if (!list || !list.length) return [];
-        list.sort(function (a, b) { return a[0] - b[0]; });
-        var out = [[list[0][0], list[0][1]]];
-        for (var i = 1; i < list.length; i++) {
-            var last = out[out.length - 1];
-            if (list[i][0] <= last[1]) {
-                if (list[i][1] > last[1]) last[1] = list[i][1];
-            } else {
-                out.push([list[i][0], list[i][1]]);
-            }
-        }
-        return out;
-    }
-
-    // Build the per-month structure (duration + day flags) from merged intervals.
-    function bucketIntervals(intervalsByKind, year, lastMonthIdx) {
+    // Integrate total flood duration per month. For each record in the trend
+    // that is in flooded state (val === 0, stat > 0), the device is treated as
+    // flooded from ts[j].ms until the next record's timestamp (or the end of
+    // the requested period for the trailing record). The span is split across
+    // month boundaries so each calendar month gets only its overlap.
+    function bucketByMonth(histData, floodChannels, year, lastMonthIdx) {
         var months = [];
         for (var m = 0; m <= lastMonthIdx; m++) {
             var daysInMonth = new Date(year, m + 1, 0).getDate();
@@ -212,13 +107,54 @@ var tcFloodHistory = (function () {
             for (var d = 0; d < daysInMonth; d++) days.push({ has200: false, has700: false });
             months.push({ month: m, time200: 0, time700: 0, days: days });
         }
-        for (var kind in intervalsByKind) {
-            if (!intervalsByKind.hasOwnProperty(kind)) continue;
-            var list = intervalsByKind[kind];
-            for (var i = 0; i < list.length; i++)
-                addOverlapToMonths(months, list[i][0], list[i][1], year, kind);
+        var archiveOngoing = {}; // kind -> true if archive last record is active flood (extrapolated to now)
+        var lastArchiveMs = {};  // kind -> ts (ms) of the last record with data; live-timer fill starts here
+        if (!histData || !histData.cnlNums || !histData.trends || !histData.timestamps) {
+            return { months: months, archiveOngoing: archiveOngoing, lastArchiveMs: lastArchiveMs };
         }
-        return months;
+        var cnlIdx = {};
+        histData.cnlNums.forEach(function (n, i) { cnlIdx[n] = i; });
+        var ts = histData.timestamps;
+        var nowMs = Date.now();
+        var periodEnd = (year === new Date().getFullYear())
+            ? nowMs
+            : new Date(year + 1, 0, 1).getTime();
+
+        for (var c = 0; c < floodChannels.length; c++) {
+            var ch = floodChannels[c];
+            var idx = cnlIdx[ch.cnlNum];
+            if (idx === undefined) continue;
+            var trend = histData.trends[idx];
+            for (var j = 0; j < trend.length; j++) {
+                var rec = trend[j];
+                if (!rec || !rec.d || rec.d.stat <= 0) continue;
+                if (rec.d.val !== 0) continue;
+                var startMs = tsMs(ts[j]);
+                if (startMs === null) continue;
+                var endMs = (j + 1 < trend.length) ? tsMs(ts[j + 1]) : null;
+                if (endMs === null) endMs = periodEnd;
+                addOverlapToMonths(months, startMs, endMs, year, ch.kind);
+            }
+            // Determine if archive already covers the ongoing flood up to now
+            // (last valid record is flooded → was extrapolated to periodEnd above),
+            // and remember the last archived timestamp so the live timer only fills
+            // the tail after the archive's coverage (no double-counting).
+            for (var k = trend.length - 1; k >= 0; k--) {
+                var lr = trend[k];
+                if (!lr || !lr.d || lr.d.stat <= 0) continue;
+                archiveOngoing[ch.kind] = (lr.d.val === 0);
+                var lrMs = tsMs(ts[k]);
+                if (lrMs !== null) lastArchiveMs[ch.kind] = lrMs;
+                break;
+            }
+        }
+        return { months: months, archiveOngoing: archiveOngoing, lastArchiveMs: lastArchiveMs };
+    }
+
+    function tsMs(rec) {
+        if (rec && typeof rec.ms === 'number') return rec.ms;
+        if (typeof rec === 'number') return rec;
+        return null;
     }
 
     function addOverlapToMonths(months, startMs, endMs, year, kind) {
@@ -308,83 +244,43 @@ var tcFloodHistory = (function () {
         if (!currentItem) return;
         var body = document.getElementById("tcFloodHistoryBody");
         if (!body) return;
-        var reqItemId = currentItem.id;
-        var key = "y_" + reqItemId + "_" + year;
-
-        // The modal may have been closed or switched to another TK/year while a
-        // fetch was awaiting — only touch the DOM if it still shows this request.
-        function stillCurrent() {
-            var sel = document.getElementById("tcFloodHistoryYear");
-            var selYear = sel ? parseInt(sel.value, 10) : year;
-            return currentItem && currentItem.id === reqItemId && selYear === year;
-        }
-
-        // Stale-while-revalidate: if anything is cached, show it instantly (even
-        // if stale) so reopening a TK never waits on the network; then refresh
-        // in the background and re-render in place when fresh data arrives.
-        var cached = resultCache[key];
-        if (cached && cached.data) {
-            renderExtract(body, cached.data, year);
-            if (isCacheStale(key, year)) {
-                fetchYearlyCounts(currentItem, year, true).then(function (fresh) {
-                    if (fresh && stillCurrent()) renderExtract(body, fresh, year);
-                }).catch(function () {});
-            }
-            return;
-        }
-
-        // Cold cache → show the loader and fetch with priority.
         body.innerHTML = '<div class="tc-fh-loading">Загрузка...</div>';
         try {
-            var data = await fetchYearlyCounts(currentItem, year, true);
-            if (!stillCurrent()) return;
-            renderExtract(body, data, year);
+            var result = await fetchYearlyCounts(currentItem, year);
+            var months = result ? result.months : null;
+            if (!months || !months.length) {
+                body.innerHTML = '<div class="tc-fh-loading">Нет данных</div>';
+                return;
+            }
+            // Inject live timer data for channels not yet captured by the archive.
+            // This ensures an active flood is visible on the very first open even if
+            // the minute archive hasn't written the current interval yet.
+            //
+            // Only fill the tail AFTER the archive's last record — never from the
+            // flood start — so the ongoing flood already integrated from the archive
+            // is not counted a second time. (The 24h ack debounce keeps the live
+            // start old through sensor blips, while the archive may have logged a
+            // dry blip as its last record; re-adding from the start would double-count.)
+            if (year === new Date().getFullYear()) {
+                var archiveOngoing = result.archiveOngoing || {};
+                var lastArchiveMs = result.lastArchiveMs || {};
+                var nowMs = Date.now();
+                var lt = currentLiveTimers;
+                if (lt.flood700StartMs > 0 && !archiveOngoing['700']) {
+                    var from700 = Math.max(lt.flood700StartMs, lastArchiveMs['700'] || 0);
+                    addOverlapToMonths(months, from700, nowMs, year, '700');
+                }
+                if (lt.flood200StartMs > 0 && !archiveOngoing['200']) {
+                    var from200 = Math.max(lt.flood200StartMs, lastArchiveMs['200'] || 0);
+                    addOverlapToMonths(months, from200, nowMs, year, '200');
+                }
+            }
+            var ackDayMap = buildAckDayMap(currentAckList, year);
+            renderTable(body, months, ackDayMap);
         } catch (err) {
             console.error(err);
-            if (stillCurrent()) body.innerHTML = '<div class="tc-fh-loading">Ошибка загрузки</div>';
+            body.innerHTML = '<div class="tc-fh-loading">Ошибка загрузки</div>';
         }
-    }
-
-    // Build months from a cached extract and render. The live-timer tail for an
-    // ongoing flood is appended and the whole set re-merged, so the duration and
-    // the coloured day squares are always computed from one non-overlapping set
-    // (nothing is ever double-counted, and the two views cannot disagree).
-    function renderExtract(body, extract, year) {
-        if (!extract || !extract.intervals) {
-            body.innerHTML = '<div class="tc-fh-loading">Нет данных</div>';
-            return;
-        }
-        var now = new Date();
-        var lastMonthIdx = (year === now.getFullYear()) ? now.getMonth() : 11;
-
-        // Clone intervals so the cached extract is never mutated.
-        var byKind = {};
-        for (var kind in extract.intervals) {
-            if (!extract.intervals.hasOwnProperty(kind)) continue;
-            byKind[kind] = extract.intervals[kind].map(function (iv) { return [iv[0], iv[1]]; });
-        }
-
-        // Append the live-timer interval for an ongoing flood (current year only).
-        // Merging unions it with the archive coverage, so this can extend the
-        // tail to "now" but never counts overlapping time twice.
-        if (year === now.getFullYear()) {
-            var nowMs = Date.now();
-            var lt = currentLiveTimers || {};
-            if (lt.flood700StartMs > 0) (byKind['700'] = byKind['700'] || []).push([lt.flood700StartMs, nowMs]);
-            if (lt.flood200StartMs > 0) (byKind['200'] = byKind['200'] || []).push([lt.flood200StartMs, nowMs]);
-        }
-
-        for (var k in byKind) {
-            if (byKind.hasOwnProperty(k)) byKind[k] = mergeIntervals(byKind[k]);
-        }
-
-        var months = bucketIntervals(byKind, year, lastMonthIdx);
-        if (!months.length) {
-            body.innerHTML = '<div class="tc-fh-loading">Нет данных</div>';
-            return;
-        }
-        var ackDayMap = buildAckDayMap(currentAckList, year);
-        renderTable(body, months, ackDayMap);
     }
 
     var SHORT_MONTHS = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
@@ -513,8 +409,6 @@ var tcFloodHistory = (function () {
 
     return {
         openHistoryModal: openHistoryModal,
-        closeHistoryModal: closeHistoryModal,
-        preloadAll: preloadAll,
-        getPreloadProgress: getPreloadProgress
+        closeHistoryModal: closeHistoryModal
     };
 })();
