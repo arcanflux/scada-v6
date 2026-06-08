@@ -47,7 +47,7 @@ var tcFloodHistory = (function () {
     async function fetchHistData(cnlNums, startTime, endTime) {
         if (!cnlNums || !cnlNums.length) return null;
         var url = apiUrl("GetHistData") +
-            "?archiveBit=1" +
+            "?archiveBit=3" +
             "&startTime=" + encodeURIComponent(startTime.toISOString()) +
             "&endTime=" + encodeURIComponent(endTime.toISOString()) +
             "&endInclusive=true" +
@@ -97,10 +97,10 @@ var tcFloodHistory = (function () {
         return promise;
     }
 
-    // Extract raw flood intervals [startMs, endMs] per kind from the minute archive.
-    // A record in flooded state (val === 0, stat > 0) means the device is flooded
-    // from ts[j] until the next record's timestamp (or the period end for the
-    // trailing record). Returned intervals are NOT yet merged.
+    // Extract raw flood intervals [startMs, endMs] per kind from the daily archive.
+    // A record in flooded state (val === 0, stat > 0) means the device was flooded
+    // during the period from ts[j] until the next record's timestamp (or the period
+    // end for the trailing record). Returned intervals are NOT yet merged.
     function collectIntervals(histData, floodChannels, year) {
         var byKind = { '200': [], '700': [] };
         if (!histData || !histData.cnlNums || !histData.trends || !histData.timestamps)
@@ -154,19 +154,23 @@ var tcFloodHistory = (function () {
         return merged;
     }
 
-    // Build the per-month structure (duration + per-day flags) from merged intervals.
+    // Build the per-month structure (flooded-day counts + per-day flags) from merged intervals.
     function bucketIntervals(intervalsByKind, year, lastMonthIdx) {
         var months = [];
         for (var m = 0; m <= lastMonthIdx; m++) {
             var daysInMonth = new Date(year, m + 1, 0).getDate();
             var days = [];
             for (var d = 0; d < daysInMonth; d++) days.push({ has200: false, has700: false });
-            months.push({ month: m, time200: 0, time700: 0, days: days });
+            months.push({ month: m, days: days });
         }
         ['200', '700'].forEach(function (kind) {
             var merged = mergeIntervals(intervalsByKind[kind]);
             for (var i = 0; i < merged.length; i++)
                 addOverlapToMonths(months, merged[i][0], merged[i][1], year, kind);
+        });
+        months.forEach(function (mo) {
+            mo.days200 = mo.days.filter(function (d) { return d.has200; }).length;
+            mo.days700 = mo.days.filter(function (d) { return d.has700; }).length;
         });
         return months;
     }
@@ -185,7 +189,6 @@ var tcFloodHistory = (function () {
             var s = Math.max(startMs, ms0);
             var e = Math.min(endMs, ms1);
             if (e > s) {
-                months[m]['time' + kind] += (e - s);
                 var days = months[m].days;
                 for (var d = 0; d < days.length; d++) {
                     var ds = ms0 + d * 86400000;
@@ -196,19 +199,9 @@ var tcFloodHistory = (function () {
         }
     }
 
-    // Same Nд HH:MM:SS / HH:MM:SS shape as the live timer in thermal-camera.js
-    function formatDuration(ms) {
-        if (!ms || ms < 0) return "—";
-        var sec = Math.floor(ms / 1000);
-        var h = Math.floor(sec / 3600);
-        var m = Math.floor((sec % 3600) / 60);
-        var s = sec % 60;
-        var pad = function (n) { return n < 10 ? "0" + n : "" + n; };
-        if (h >= 24) {
-            var days = Math.floor(h / 24);
-            return days + "д " + pad(h % 24) + ":" + pad(m) + ":" + pad(s);
-        }
-        return pad(h) + ":" + pad(m) + ":" + pad(s);
+    function formatDays(count) {
+        if (!count || count <= 0) return "—";
+        return count + "д";
     }
 
     // ---- Modal UI ----
@@ -275,10 +268,9 @@ var tcFloodHistory = (function () {
 
             // Append the live-timer interval for an ongoing flood (current year).
             // This ensures an active flood is visible on the very first open even if
-            // the minute archive hasn't written the current interval yet. Because
-            // bucketIntervals merges before integrating, adding [floodStart, now]
-            // can extend the tail up to "now" but can never double-count time the
-            // archive already covers — overlap is absorbed by the merge.
+            // the daily archive hasn't recorded today yet. Because bucketIntervals
+            // merges before integrating, adding [floodStart, now] can extend to the
+            // current day but can never double-count days the archive already covers.
             if (year === new Date().getFullYear()) {
                 var nowMs = Date.now();
                 var lt = currentLiveTimers || {};
@@ -347,15 +339,15 @@ var tcFloodHistory = (function () {
         var rows = '';
         for (var i = 0; i < months.length; i++) {
             var m = months[i];
-            total200 += m.time200;
-            total700 += m.time700;
-            var hasEvents = m.time200 > 0 || m.time700 > 0;
+            total200 += m.days200;
+            total700 += m.days700;
+            var hasEvents = m.days200 > 0 || m.days700 > 0;
             var rowCls = 'tc-fh-month-row' + (hasEvents ? ' tc-fh-has-events' : '');
             rows +=
                 '<tr class="' + rowCls + '">' +
                     '<td class="tc-fh-month"><span class="tc-fh-expand-icon"><i class="fa-solid fa-chevron-right"></i></span>' + MONTH_NAMES[m.month] + '</td>' +
-                    '<td class="tc-fh-c200">' + formatDuration(m.time200) + '</td>' +
-                    '<td class="tc-fh-c700">' + formatDuration(m.time700) + '</td>' +
+                    '<td class="tc-fh-c200">' + formatDays(m.days200) + '</td>' +
+                    '<td class="tc-fh-c700">' + formatDays(m.days700) + '</td>' +
                 '</tr>' +
                 '<tr class="tc-fh-day-row"><td colspan="3">' + buildDayGrid(m, ackDayMap) + '</td></tr>';
         }
@@ -372,8 +364,8 @@ var tcFloodHistory = (function () {
                 '<tfoot>' +
                     '<tr class="tc-fh-total-row">' +
                         '<td>Итого</td>' +
-                        '<td>' + formatDuration(total200) + '</td>' +
-                        '<td>' + formatDuration(total700) + '</td>' +
+                        '<td>' + formatDays(total200) + '</td>' +
+                        '<td>' + formatDays(total700) + '</td>' +
                     '</tr>' +
                 '</tfoot>' +
             '</table>';
