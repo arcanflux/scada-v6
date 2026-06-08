@@ -87,7 +87,7 @@ var tcFloodHistory = (function () {
         var promise = enqueueFetch(function () {
             return fetchHistData(cnls, yearStart, yearEnd).then(function (histData) {
                 return {
-                    intervals: collectIntervals(histData, def.channels, year),
+                    intervals: collectIntervals(histData, def.channels),
                     lastMonthIdx: lastMonthIdx
                 };
             });
@@ -97,11 +97,13 @@ var tcFloodHistory = (function () {
         return promise;
     }
 
-    // Extract raw flood intervals [startMs, endMs] per kind from the daily archive.
-    // A record in flooded state (val === 0, stat > 0) means the device was flooded
-    // during the period from ts[j] until the next record's timestamp (or the period
-    // end for the trailing record). Returned intervals are NOT yet merged.
-    function collectIntervals(histData, floodChannels, year) {
+    // Extract flooded-day intervals [dayStart, dayStart+1day] per kind from the daily
+    // archive. Each daily record is one sample for one calendar day; a flooded sample
+    // (val === 0, stat > 0) marks that whole local day, regardless of the time of day
+    // the archive happened to write the sample (start/noon/end). Snapping to the local
+    // day boundary keeps a single flooded sample from bleeding into the next square.
+    // Returned intervals are NOT yet merged.
+    function collectIntervals(histData, floodChannels) {
         var byKind = { '200': [], '700': [] };
         if (!histData || !histData.cnlNums || !histData.trends || !histData.timestamps)
             return byKind;
@@ -109,10 +111,6 @@ var tcFloodHistory = (function () {
         var cnlIdx = {};
         histData.cnlNums.forEach(function (n, i) { cnlIdx[n] = i; });
         var ts = histData.timestamps;
-        var nowMs = Date.now();
-        var periodEnd = (year === new Date().getFullYear())
-            ? nowMs
-            : new Date(year + 1, 0, 1).getTime();
 
         for (var c = 0; c < floodChannels.length; c++) {
             var ch = floodChannels[c];
@@ -123,11 +121,11 @@ var tcFloodHistory = (function () {
             for (var j = 0; j < trend.length; j++) {
                 var rec = trend[j];
                 if (!rec || !rec.d || rec.d.stat <= 0 || rec.d.val !== 0) continue;
-                var startMs = tsMs(ts[j]);
-                if (startMs === null) continue;
-                var endMs = (j + 1 < trend.length) ? tsMs(ts[j + 1]) : null;
-                if (endMs === null) endMs = periodEnd;
-                if (endMs > startMs) list.push([startMs, endMs]);
+                var recMs = tsMs(ts[j]);
+                if (recMs === null) continue;
+                var dt = new Date(recMs);
+                var dayStart = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime();
+                list.push([dayStart, dayStart + 86400000]);
             }
         }
         return byKind;
