@@ -746,7 +746,7 @@ var thermalCamera = (function () {
                 html += '<div class="tc-cache-tt-row tc-cache-tt-cur">Сейчас: ' + escapeHtml(p.currentName) + '</div>';
         } else {
             html += '<div class="tc-cache-tt-row tc-cache-tt-done">' +
-                    '<i class="fa-solid fa-circle-check"></i> Готово — история мгновенна для всех</div>';
+                    '<i class="fa-solid fa-circle-check"></i> Готово — кэш загружен</div>';
             html += '<div class="tc-cache-tt-row" style="color:#718096;font-size:12px;">' +
                     '<i class="fa-solid fa-server"></i> Серверный кэш · обновляется каждые 10 мин</div>';
         }
