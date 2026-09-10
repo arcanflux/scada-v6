@@ -5,6 +5,16 @@
 }
 
 @section Styles {
+    @* Anti-FOUC: the actual hide is an inline style="visibility:hidden" attribute ON
+       each top-level element below (.tc-container and the two modals) — an attribute
+       travels with the element through any ScadaWeb navigation/injection path, unlike
+       a <style> block here which depends on where this section is rendered. The
+       external CSS reveals them with `visibility: visible !important` (needed to beat
+       the inline attribute) once it is applied, so the content only appears already
+       styled. Hiding via visibility (not display) leaves the modals' opacity-based
+       .show open logic untouched. NOTE: this lives in the .cshtml → it is compiled
+       into the plugin DLL, so it only takes effect after a full rebuild + redeploy,
+       not a wwwroot-only copy. *@
     <link href="~/plugins/ThermalCamera/css/thermal-camera.css" rel="stylesheet" asp-append-version="true" />
     <link href="~/plugins/ThermalCamera/css/tc-flood-history.css" rel="stylesheet" asp-append-version="true" />
 }
@@ -24,7 +34,7 @@
 }
 else
 {
-    <div class="tc-container"
+    <div class="tc-container" style="visibility:hidden"
          data-view-id="@Model.ViewID"
          data-is-admin="@(Model.IsAdmin ? "1" : "0")"
          data-main-view-id="@Model.MainViewID"
@@ -54,30 +64,42 @@ else
                         <span id="tcDistrictLabel">Районы 6/6</span>
                     </button>
                     <ul class="dropdown-menu tc-district-menu">
-                        <li><label class="dropdown-item tc-district-option">
-                            <input type="checkbox" class="form-check-input tc-district-cb" value="1" checked>
-                            <span>Район 1</span><span class="tc-district-count" data-district="1"></span>
-                        </label></li>
-                        <li><label class="dropdown-item tc-district-option">
-                            <input type="checkbox" class="form-check-input tc-district-cb" value="2" checked>
-                            <span>Район 2</span><span class="tc-district-count" data-district="2"></span>
-                        </label></li>
-                        <li><label class="dropdown-item tc-district-option">
-                            <input type="checkbox" class="form-check-input tc-district-cb" value="3" checked>
-                            <span>Район 3</span><span class="tc-district-count" data-district="3"></span>
-                        </label></li>
-                        <li><label class="dropdown-item tc-district-option">
-                            <input type="checkbox" class="form-check-input tc-district-cb" value="4" checked>
-                            <span>Район 4</span><span class="tc-district-count" data-district="4"></span>
-                        </label></li>
-                        <li><label class="dropdown-item tc-district-option">
-                            <input type="checkbox" class="form-check-input tc-district-cb" value="5" checked>
-                            <span>Район 5</span><span class="tc-district-count" data-district="5"></span>
-                        </label></li>
-                        <li><label class="dropdown-item tc-district-option">
-                            <input type="checkbox" class="form-check-input tc-district-cb" value="6" checked>
-                            <span>Район 6</span><span class="tc-district-count" data-district="6"></span>
-                        </label></li>
+                        <li>
+                            <label class="dropdown-item tc-district-option">
+                                <input type="checkbox" class="form-check-input tc-district-cb" value="1" checked>
+                                <span>Район 1</span><span class="tc-district-count" data-district="1"></span>
+                            </label>
+                        </li>
+                        <li>
+                            <label class="dropdown-item tc-district-option">
+                                <input type="checkbox" class="form-check-input tc-district-cb" value="2" checked>
+                                <span>Район 2</span><span class="tc-district-count" data-district="2"></span>
+                            </label>
+                        </li>
+                        <li>
+                            <label class="dropdown-item tc-district-option">
+                                <input type="checkbox" class="form-check-input tc-district-cb" value="3" checked>
+                                <span>Район 3</span><span class="tc-district-count" data-district="3"></span>
+                            </label>
+                        </li>
+                        <li>
+                            <label class="dropdown-item tc-district-option">
+                                <input type="checkbox" class="form-check-input tc-district-cb" value="4" checked>
+                                <span>Район 4</span><span class="tc-district-count" data-district="4"></span>
+                            </label>
+                        </li>
+                        <li>
+                            <label class="dropdown-item tc-district-option">
+                                <input type="checkbox" class="form-check-input tc-district-cb" value="5" checked>
+                                <span>Район 5</span><span class="tc-district-count" data-district="5"></span>
+                            </label>
+                        </li>
+                        <li>
+                            <label class="dropdown-item tc-district-option">
+                                <input type="checkbox" class="form-check-input tc-district-cb" value="6" checked>
+                                <span>Район 6</span><span class="tc-district-count" data-district="6"></span>
+                            </label>
+                        </li>
                     </ul>
                 </div>
                 <div class="tc-search-wrapper">
@@ -105,9 +127,14 @@ else
             </div>
         </div>
 
+        <div id="tcConnBanner" class="tc-conn-banner" hidden>
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>Нет связи с сервером — данные не обновляются</span>
+        </div>
+
         <div class="tc-table-wrapper">
-            <table class="table table-bordered table-hover tc-table" id="tblThermalCameras">
-                <thead class="table-dark">
+            <table class="table tc-table" id="tblThermalCameras">
+                <thead>
                     <tr>
                         <th class="tc-col-status">
                             <i class="fa-solid fa-circle-check"></i> В работе
@@ -157,7 +184,7 @@ else
     </div>
 
     <!-- Photo Modal -->
-    <div id="tcPhotoModal" class="tc-photo-overlay">
+    <div id="tcPhotoModal" class="tc-photo-overlay" style="visibility:hidden">
         <div class="tc-photo-panel">
             <div class="tc-fh-header">
                 <span id="tcPhotoTitle" class="tc-fh-header-title">Фото объекта</span>
@@ -173,7 +200,7 @@ else
     </div>
 
     <!-- Flood History Modal -->
-    <div id="tcFloodHistoryModal" class="tc-flood-history-overlay">
+    <div id="tcFloodHistoryModal" class="tc-flood-history-overlay" style="visibility:hidden">
         <div class="tc-fh-panel">
             <div class="tc-fh-header">
                 <span id="tcFloodHistoryTitle" class="tc-fh-header-title">История затоплений</span>
