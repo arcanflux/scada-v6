@@ -86,6 +86,11 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
 
                 ItemsJson = JsonSerializer.Serialize(sortedItems, JsonOpts);
 
+                // Миграция user data на стабильные ID должна пройти до сериализации,
+                // иначе первая загрузка страницы после обновления покажет тумблеры
+                // по старым (уже не совпадающим) ключам.
+                thermalCameraContext.MigrateUserData(view.Items);
+
                 ThermalCameraUserData userData = thermalCameraContext.LoadUserData();
                 UserDataJson = JsonSerializer.Serialize(userData.Entries, JsonOpts);
             }
