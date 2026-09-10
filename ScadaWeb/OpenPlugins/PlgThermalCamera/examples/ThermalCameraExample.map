@@ -13,7 +13,10 @@
     содержит "200" (не затопление)     - температура трубы 200мм (напр. "Температура 200мм")
     содержит "700" (не затопление)     - температура трубы 700мм (напр. "Температура 700мм")
 
-  Photo — относительный путь к фото в папке Views, например "Photo/1.png"
+  Photo  — относительный путь к фото в папке Views, например "Photo/1.png".
+  Scheme — относительный путь к изображению схемы в папке Views, например
+           "Documents/Schemes/1.png". Если Scheme указан, имя ТК в таблице
+           становится кнопкой просмотра схемы.
 -->
 <MapView>
   <InitialView>
@@ -40,6 +43,7 @@
       <Type>Triangle</Type>
       <District>1</District>
       <Photo>Photo/tk-1152a.png</Photo>
+      <Scheme>Documents/Schemes/tk-1152a.png</Scheme>
       <StatusCnlNum>0</StatusCnlNum>
       <Data>
         <DataItem cnlNum="500101">Температура 200мм</DataItem>
