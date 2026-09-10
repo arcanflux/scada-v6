@@ -5,7 +5,7 @@
 
 var tcFloodHistory = (function () {
     var MONTH_NAMES = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-                       'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+        'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
     var DATA_BASELINE_YEAR = 2026;
 
     function rootPath() {
@@ -81,7 +81,7 @@ var tcFloodHistory = (function () {
         var lastMonthIdx = (year === now.getFullYear()) ? now.getMonth() : 11;
         var yearStart = new Date(year, 0, 1, 0, 0, 0, 0);
         var yearEnd = (year === now.getFullYear()) ? now :
-                      new Date(year, 11, 31, 23, 59, 59, 999);
+            new Date(year, 11, 31, 23, 59, 59, 999);
         var cnls = def.channels.map(function (c) { return c.cnlNum; });
 
         var promise = enqueueFetch(function () {
@@ -287,7 +287,7 @@ var tcFloodHistory = (function () {
         }
     }
 
-    var SHORT_MONTHS = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+    var SHORT_MONTHS = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
 
     // Build map: ackDayMap[monthIdx][dayIdx(0-based)] = [{ackedAtMs, ackedBy, comment}, ...]
     function buildAckDayMap(ackList, year) {
@@ -318,7 +318,7 @@ var tcFloodHistory = (function () {
                 var r = dayAcks[0];
                 var dt = new Date(r.ackedAtMs);
                 var dateStr = pad(dt.getDate()) + '.' + pad(dt.getMonth() + 1) + '.' + dt.getFullYear() +
-                              ' ' + pad(dt.getHours()) + ':' + pad(dt.getMinutes());
+                    ' ' + pad(dt.getHours()) + ':' + pad(dt.getMinutes());
                 var comment = (r.comment || '').replace(/"/g, '&quot;').replace(/\n/g, ' ');
                 ackAttr = ' data-tc-hint="Квитировал: ' + (r.ackedBy || '—') + '&#10;' + dateStr + '&#10;' + comment + '"';
             }
@@ -328,7 +328,7 @@ var tcFloodHistory = (function () {
         return '<div class="tc-fh-day-grid">' +
             '<div class="tc-fh-day-strip"><span class="tc-fh-dot tc-fh-dot-200"></span><div class="tc-fh-days-wrap">' + days200 + '</div></div>' +
             '<div class="tc-fh-day-strip"><span class="tc-fh-dot tc-fh-dot-700"></span><div class="tc-fh-days-wrap">' + days700 + '</div></div>' +
-        '</div>';
+            '</div>';
     }
 
     function renderTable(body, months, ackDayMap) {
@@ -343,29 +343,29 @@ var tcFloodHistory = (function () {
             var rowCls = 'tc-fh-month-row' + (hasEvents ? ' tc-fh-has-events' : '');
             rows +=
                 '<tr class="' + rowCls + '">' +
-                    '<td class="tc-fh-month"><span class="tc-fh-expand-icon"><i class="fa-solid fa-chevron-right"></i></span>' + MONTH_NAMES[m.month] + '</td>' +
-                    '<td class="tc-fh-c200">' + formatDays(m.days200) + '</td>' +
-                    '<td class="tc-fh-c700">' + formatDays(m.days700) + '</td>' +
+                '<td class="tc-fh-month"><span class="tc-fh-expand-icon"><i class="fa-solid fa-chevron-right"></i></span>' + MONTH_NAMES[m.month] + '</td>' +
+                '<td class="tc-fh-c200">' + formatDays(m.days200) + '</td>' +
+                '<td class="tc-fh-c700">' + formatDays(m.days700) + '</td>' +
                 '</tr>' +
                 '<tr class="tc-fh-day-row"><td colspan="3">' + buildDayGrid(m, ackDayMap) + '</td></tr>';
         }
         body.innerHTML =
             '<table class="tc-fh-table">' +
-                '<thead>' +
-                    '<tr>' +
-                        '<th>Месяц</th>' +
-                        '<th><span class="tc-fh-dot tc-fh-dot-200"></span>200мм</th>' +
-                        '<th><span class="tc-fh-dot tc-fh-dot-700"></span>700мм</th>' +
-                    '</tr>' +
-                '</thead>' +
-                '<tbody>' + rows + '</tbody>' +
-                '<tfoot>' +
-                    '<tr class="tc-fh-total-row">' +
-                        '<td>Итого</td>' +
-                        '<td>' + formatDays(total200) + '</td>' +
-                        '<td>' + formatDays(total700) + '</td>' +
-                    '</tr>' +
-                '</tfoot>' +
+            '<thead>' +
+            '<tr>' +
+            '<th>Месяц</th>' +
+            '<th><span class="tc-fh-dot tc-fh-dot-200"></span>200мм</th>' +
+            '<th><span class="tc-fh-dot tc-fh-dot-700"></span>700мм</th>' +
+            '</tr>' +
+            '</thead>' +
+            '<tbody>' + rows + '</tbody>' +
+            '<tfoot>' +
+            '<tr class="tc-fh-total-row">' +
+            '<td>Итого</td>' +
+            '<td>' + formatDays(total200) + '</td>' +
+            '<td>' + formatDays(total700) + '</td>' +
+            '</tr>' +
+            '</tfoot>' +
             '</table>';
 
         body.querySelector('tbody').addEventListener('click', function (e) {
