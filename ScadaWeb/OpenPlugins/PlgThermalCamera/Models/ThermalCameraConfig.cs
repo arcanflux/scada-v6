@@ -11,17 +11,43 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
     /// </summary>
     public class ThermalCameraItem
     {
-        private static int idCounter = 0;
-
-        public ThermalCameraItem()
-        {
-            Id = Interlocked.Increment(ref idCounter);
-        }
+        // Стабильные ID начинаются с этого значения, поэтому никогда не пересекаются
+        // со старыми порядковыми ID (1..N — счётчик парсинга в прежних версиях).
+        // На этом построена миграция user data со старого формата.
+        public const int StableIdFloor = 100000;
 
         /// <summary>
-        /// Gets the auto-generated unique identifier.
+        /// Gets or sets the stable identifier derived from the item name and address.
+        /// <para>Стабильный идентификатор, вычисляемый из имени и адреса ТК: не зависит
+        /// от порядка в .map, перезапусков ScadaWeb и перечиток представления из кэша.
+        /// Адрес входит в ключ, потому что имена ТК бывают неуникальны (например,
+        /// «ТК 1404» в разных районах) — различает их именно адрес.
+        /// К идентификатору привязаны user data (тумблер «В работе», чат, квитирования).</para>
         /// </summary>
-        public int Id { get; }
+        public int Id { get; set; }
+
+        /// <summary>
+        /// Вычисляет стабильный идентификатор из имени и адреса ТК (FNV-1a 32 бит,
+        /// старший бит сброшен). Результат всегда не меньше <see cref="StableIdFloor"/>.
+        /// Переименование ТК или правка адреса в .map меняет идентификатор —
+        /// состояние этой ТК отвяжется (начнёт с чистого листа).
+        /// </summary>
+        public static int GetStableId(string name, string descr)
+        {
+            const uint offsetBasis = 2166136261;
+            const uint prime = 16777619;
+            uint hash = offsetBasis;
+
+            string key = (name ?? "").Trim() + "\n" + (descr ?? "").Trim();
+            foreach (byte b in System.Text.Encoding.UTF8.GetBytes(key))
+            {
+                hash ^= b;
+                hash *= prime;
+            }
+
+            int id = (int)(hash & 0x7FFFFFFF);
+            return id < StableIdFloor ? id + StableIdFloor : id;
+        }
 
         /// <summary>
         /// Gets or sets the district number for sorting.
@@ -105,6 +131,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
                 StatusCnlNum = GetChildInt(locationNode, "StatusCnlNum"),
                 DistrictNumber = GetChildInt(locationNode, "District")
             };
+            item.Id = GetStableId(item.Name, item.Descr);
 
             // Parse DataItem elements — classify purely by label text.
             // DataTypeID is unreliable because OPC UA drivers may store both numeric
