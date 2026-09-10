@@ -28,11 +28,23 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
             if (locationNodes == null)
                 return;
 
+            // Стабильные ID вычисляются из имён ТК. Дубликаты имён (или крайне
+            // маловероятная коллизия хэша) детерминированно разводятся инкрементом
+            // в порядке следования по файлу .map.
+            HashSet<int> usedIds = [];
+
             foreach (XmlNode locationNode in locationNodes)
             {
                 ThermalCameraItem item = ThermalCameraItem.ParseFromMapLocation(locationNode);
                 if (item != null)
                 {
+                    while (!usedIds.Add(item.Id))
+                    {
+                        item.Id = item.Id >= int.MaxValue
+                            ? ThermalCameraItem.StableIdFloor
+                            : item.Id + 1;
+                    }
+
                     Items.Add(item);
 
                     foreach (int cnlNum in item.GetAllCnlNums())
