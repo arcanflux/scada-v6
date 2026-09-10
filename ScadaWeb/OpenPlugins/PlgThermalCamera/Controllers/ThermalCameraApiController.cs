@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Scada.Data.Const;
 using Scada.Data.Models;
 using Scada.Protocol;
+using Scada.Storages;
 using Scada.Web.Api;
 using Scada.Web.Lang;
 using Scada.Web.Plugins.PlgThermalCamera.Code;
@@ -42,6 +43,36 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
                 if (!viewLoader.GetView(viewID, out ThermalCameraTableView view, out string errMsg))
                     return Dto<CurDataResult>.Fail(errMsg);
 
+                // Одноразовый (на процесс) перевод user data на стабильные ID из имён ТК.
+                thermalCameraContext.MigrateUserData(view.Items);
+
+                // Тумблер «В работе» определяет активность ТК. Спящие ТК (тумблер
+                // выключен или запись отсутствует) полностью исключаются из ответа:
+                // их каналы не передаются клиенту, переходы затопления не фиксируются,
+                // таймеры не считаются и квитирование по ним не формируется.
+                // Карта состояний также отдаётся клиентам в каждом ответе, чтобы все
+                // сессии видели одно и то же и подхватывали чужие переключения.
+                Dictionary<int, bool> commissionedMap = thermalCameraContext.GetCommissionedMap(view.Items);
+                List<ThermalCameraItem> activeItems = [];
+                HashSet<int> sleepingCnlNums = [];
+                HashSet<int> activeCnlNums = [];
+
+                foreach (ThermalCameraItem item in view.Items)
+                {
+                    if (commissionedMap.TryGetValue(item.Id, out bool commissioned) && commissioned)
+                    {
+                        activeItems.Add(item);
+                        activeCnlNums.UnionWith(item.GetAllCnlNums());
+                    }
+                    else
+                    {
+                        sleepingCnlNums.UnionWith(item.GetAllCnlNums());
+                    }
+                }
+
+                // Канал, используемый хотя бы одной активной ТК, передаётся всегда.
+                sleepingCnlNums.ExceptWith(activeCnlNums);
+
                 List<int> cnlNumList = view.CnlNumList ?? [];
                 int cnlCnt = cnlNumList.Count;
 
@@ -60,6 +91,10 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
                         CnlData cnlData = i < cnlDataArr.Length ? cnlDataArr[i] : CnlData.Empty;
                         rawByCnl[cnlNum] = cnlData;
 
+                        // Каналы спящих ТК не попадают в ответ.
+                        if (sleepingCnlNums.Contains(cnlNum))
+                            continue;
+
                         CnlDataFormatted formatted = formatter.FormatCnlData(cnlData, cnlNum, true);
 
                         dataItems[cnlNum] = new CnlDataItem
@@ -75,8 +110,9 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
 
                 // Build a per-item flood snapshot and let the context emit transition messages.
                 // Flood semantics mirror the JS: val == 0 && stat > 0 → flooded.
+                // Only commissioned (active) items take part.
                 Dictionary<int, FloodStateSnapshot> floodStates = [];
-                foreach (ThermalCameraItem item in view.Items)
+                foreach (ThermalCameraItem item in activeItems)
                 {
                     FloodStateSnapshot snap = new();
                     if (item.Flood200CnlNum > 0 && rawByCnl.TryGetValue(item.Flood200CnlNum, out CnlData d200))
@@ -96,22 +132,21 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
                     }
                     floodStates[item.Id] = snap;
                 }
-                thermalCameraContext.DetectFloodTransitions(view.Items, floodStates);
+                thermalCameraContext.DetectFloodTransitions(activeItems, floodStates);
 
                 // Collect any new chat messages so the client can merge them in.
                 ChatSyncResult chatSync = thermalCameraContext.GetChatUpdates(chatCursor);
 
                 // Timer start timestamps (UTC ms) — persisted server-side so they survive restart.
                 Dictionary<int, ItemTimers> timers = thermalCameraContext.GetTimers(
-                    view.Items.Select(i => i.Id));
+                    activeItems.Select(i => i.Id));
 
                 // Build pending acks (700mm active, not yet acknowledged) and
                 // acked items (700mm active, already acknowledged for this episode).
-                ThermalCameraUserData userData = thermalCameraContext.LoadUserData();
                 List<PendingAckItem> pendingAcks = [];
                 List<AckedItem> ackedItems = [];
 
-                foreach (ThermalCameraItem item in view.Items)
+                foreach (ThermalCameraItem item in activeItems)
                 {
                     if (!floodStates.TryGetValue(item.Id, out FloodStateSnapshot s) || !s.Flood700)
                         continue;
@@ -125,9 +160,9 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
                     if (flood700StartMs <= 0 && flood700StartMs != -2)
                         continue;
 
-                    AckRecord existingAck = null;
-                    if (flood700StartMs > 0 && userData.Entries.TryGetValue(item.Id, out UserDataEntry entry))
-                        existingAck = entry.AckHistory.FirstOrDefault(a => a.FloodStartMs == flood700StartMs);
+                    AckRecord existingAck = flood700StartMs > 0
+                        ? thermalCameraContext.FindAck(item.Id, flood700StartMs)
+                        : null;
 
                     if (existingAck == null)
                     {
@@ -159,7 +194,8 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
                     ChatUpdates = chatSync.Messages,
                     Timers = timers,
                     PendingAcks = pendingAcks,
-                    AckedItems = ackedItems
+                    AckedItems = ackedItems,
+                    Commissioned = commissionedMap
                 });
             }
             catch (Exception ex)
@@ -263,23 +299,42 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
         {
             try
             {
-                ThermalCameraUserData userData = thermalCameraContext.LoadUserData();
+                if (request == null || request.ItemId <= 0)
+                    return Dto.Fail("Некорректный запрос");
 
-                if (!userData.Entries.TryGetValue(request.ItemId, out UserDataEntry entry))
-                {
-                    entry = new UserDataEntry();
-                    userData.Entries[request.ItemId] = entry;
-                }
-
-                entry.IsCommissioned = request.IsCommissioned;
-
-                return thermalCameraContext.SaveUserData(userData, out string errMsg)
+                return thermalCameraContext.SetCommissioned(
+                    [request.ItemId], request.IsCommissioned, out string errMsg)
                     ? Dto.Success()
                     : Dto.Fail(errMsg);
             }
             catch (Exception ex)
             {
                 webContext.Log.WriteError(ex.BuildErrorMessage(WebPhrases.ErrorInWebApi, nameof(SaveCommissioned)));
+                return Dto.Fail(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Массовое переключение тумблера «В работе»: все ТК или ТК одного района
+        /// одним запросом (меню в заголовке столбца). Состояние сохраняется в общий
+        /// файл user data и разойдётся всем клиентам через опрос GetCurData.
+        /// </summary>
+        [HttpPost]
+        public Dto SaveCommissionedBulk([FromBody] SaveCommissionedBulkRequest request)
+        {
+            try
+            {
+                if (request == null || request.ItemIds == null || request.ItemIds.Count == 0)
+                    return Dto.Fail("Некорректный запрос");
+
+                return thermalCameraContext.SetCommissioned(
+                    request.ItemIds, request.IsCommissioned, out string errMsg)
+                    ? Dto.Success()
+                    : Dto.Fail(errMsg);
+            }
+            catch (Exception ex)
+            {
+                webContext.Log.WriteError(ex.BuildErrorMessage(WebPhrases.ErrorInWebApi, nameof(SaveCommissionedBulk)));
                 return Dto.Fail(ex.Message);
             }
         }
@@ -391,6 +446,12 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
         public Dictionary<int, ItemTimers> Timers { get; set; } = [];
         public List<PendingAckItem> PendingAcks { get; set; } = [];
         public List<AckedItem> AckedItems { get; set; } = [];
+
+        /// <summary>
+        /// Актуальное состояние тумблера «В работе» по каждой ТК представления —
+        /// общее для всех пользователей, применяется клиентами на каждом опросе.
+        /// </summary>
+        public Dictionary<int, bool> Commissioned { get; set; } = [];
     }
 
     public class PendingAckItem
@@ -439,6 +500,12 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
     public class SaveCommissionedRequest
     {
         public int ItemId { get; set; }
+        public bool IsCommissioned { get; set; }
+    }
+
+    public class SaveCommissionedBulkRequest
+    {
+        public List<int> ItemIds { get; set; } = [];
         public bool IsCommissioned { get; set; }
     }
 
