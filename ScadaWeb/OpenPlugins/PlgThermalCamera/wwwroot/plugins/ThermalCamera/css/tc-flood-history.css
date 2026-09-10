@@ -1,39 +1,50 @@
-/* Flood history modal styles */
+/* Flood history modal styles — light design system shared with PlgMap
+   (tokens --tc-* are defined in thermal-camera.css) */
 
 .tc-flood-history-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(10, 22, 47, 0.72);
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 10000;
+    visibility: visible !important; /* clear the anti-FOUC guard attribute; opacity:0 still keeps it hidden when closed */
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s;
 }
 
-.tc-flood-history-overlay.show {
-    opacity: 1;
-    pointer-events: auto;
-}
+    .tc-flood-history-overlay.show {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+        .tc-flood-history-overlay.show .tc-fh-panel {
+            animation: tcScaleIn 0.22s ease both;
+        }
 
 .tc-fh-panel {
-    background: #ffffff;
-    color: #1a202c;
+    background: var(--tc-surface);
+    color: var(--tc-text);
     width: 1005px;
     max-width: 98vw;
     max-height: 90vh;
-    border-radius: 10px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    border-radius: var(--tc-radius-lg);
+    box-shadow: var(--tc-shadow-lg);
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    font-family: var(--tc-font);
 }
 
+/* Shared modal header (flood history + photo viewer) — light */
 .tc-fh-header {
-    background: #1e3a5f;
-    color: #fff;
+    background: var(--tc-surface-soft);
+    color: var(--tc-text);
+    border-bottom: 1px solid var(--tc-border);
     padding: 12px 16px;
     display: flex;
     align-items: center;
@@ -54,27 +65,36 @@
 
 .tc-fh-toolbar {
     padding: 10px 16px;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--tc-border);
     display: flex;
     align-items: center;
     gap: 10px;
-    background: #f7fafc;
+    background: var(--tc-surface);
 }
 
-.tc-fh-toolbar label {
-    font-size: 13px;
-    color: #4a5568;
-    font-weight: 500;
-}
+    .tc-fh-toolbar label {
+        font-size: 13px;
+        color: var(--tc-text-soft);
+        font-weight: 500;
+    }
 
-.tc-fh-toolbar select {
-    padding: 4px 10px;
-    border: 1px solid #cbd5e0;
-    border-radius: 6px;
-    font-size: 13px;
-    background: #fff;
-    cursor: pointer;
-}
+    .tc-fh-toolbar select {
+        padding: 4px 10px;
+        border: 1px solid var(--tc-border);
+        border-radius: var(--tc-radius-sm);
+        font-size: 13px;
+        font-family: var(--tc-font);
+        color: var(--tc-text);
+        background: var(--tc-surface);
+        cursor: pointer;
+        outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+        .tc-fh-toolbar select:focus {
+            border-color: var(--tc-accent);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
 
 .tc-fh-body {
     flex: 1;
@@ -85,7 +105,7 @@
 .tc-fh-loading {
     padding: 40px 16px;
     text-align: center;
-    color: #718096;
+    color: var(--tc-text-soft);
     font-size: 14px;
 }
 
@@ -95,47 +115,48 @@
     font-size: 13px;
 }
 
-.tc-fh-table thead th {
-    background: #edf2f7;
-    color: #2d3748;
-    font-weight: 600;
-    padding: 8px 12px;
-    text-align: center;
-    border-bottom: 2px solid #cbd5e0;
-    position: sticky;
-    top: 0;
-}
+    .tc-fh-table thead th {
+        background: var(--tc-surface-soft);
+        color: #475569;
+        font-weight: 600;
+        padding: 8px 12px;
+        text-align: center;
+        border-bottom: 2px solid var(--tc-border-strong);
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
 
-.tc-fh-table thead th:first-child {
-    text-align: left;
-}
+        .tc-fh-table thead th:first-child {
+            text-align: left;
+        }
 
-.tc-fh-table tbody td {
-    padding: 6px 12px;
-    text-align: center;
-    border-bottom: 1px solid #edf2f7;
-    font-variant-numeric: tabular-nums;
-}
+    .tc-fh-table tbody td {
+        padding: 6px 12px;
+        text-align: center;
+        border-bottom: 1px solid var(--tc-border);
+        font-variant-numeric: tabular-nums;
+    }
 
-.tc-fh-table .tc-fh-month {
-    text-align: left;
-    color: #4a5568;
-    font-weight: 500;
-}
+    .tc-fh-table .tc-fh-month {
+        text-align: left;
+        color: var(--tc-text-soft);
+        font-weight: 500;
+    }
 
 .tc-fh-has-events .tc-fh-month {
-    color: #1a202c;
+    color: var(--tc-text);
     font-weight: 600;
 }
 
 .tc-fh-table .tc-fh-c200 {
-    color: #b7791f;
+    color: var(--tc-warn-text);
     min-width: 110px;
     white-space: nowrap;
 }
 
 .tc-fh-table .tc-fh-c700 {
-    color: #c53030;
+    color: var(--tc-alarm-text);
     min-width: 110px;
     white-space: nowrap;
 }
@@ -147,21 +168,21 @@
 }
 
 .tc-fh-has-events {
-    background: #fffaf0;
+    background: var(--tc-warn-soft);
 }
 
 .tc-fh-table tfoot .tc-fh-total-row td {
     padding: 8px 12px;
-    background: #1e3a5f;
-    color: #fff;
+    background: var(--tc-surface-soft);
+    color: var(--tc-text);
     font-weight: 700;
     text-align: center;
-    border-top: 2px solid #2d3748;
+    border-top: 2px solid var(--tc-border-strong);
 }
 
-.tc-fh-table tfoot .tc-fh-total-row td:first-child {
-    text-align: left;
-}
+    .tc-fh-table tfoot .tc-fh-total-row td:first-child {
+        text-align: left;
+    }
 
 .tc-fh-dot {
     display: inline-block;
@@ -173,22 +194,23 @@
 }
 
 .tc-fh-dot-200 {
-    background: #f0ad4e;
+    background: var(--tc-warn);
 }
 
 .tc-fh-dot-700 {
-    background: #d32f2f;
+    background: var(--tc-alarm);
 }
 
 /* Expandable month rows */
 .tc-fh-month-row {
     cursor: pointer;
     user-select: none;
+    transition: background-color 0.12s;
 }
 
-.tc-fh-month-row:hover {
-    background: #edf2f7 !important;
-}
+    .tc-fh-month-row:hover {
+        background: var(--tc-accent-soft) !important;
+    }
 
 .tc-fh-expand-icon {
     display: inline-flex;
@@ -196,14 +218,14 @@
     justify-content: center;
     width: 14px;
     margin-right: 6px;
-    color: #a0aec0;
+    color: var(--tc-muted);
     font-size: 0.65rem;
     transition: color 0.15s;
     vertical-align: middle;
 }
 
 .tc-fh-month-row:hover .tc-fh-expand-icon {
-    color: #4a5568;
+    color: var(--tc-accent);
 }
 
 /* Day grid row — hidden by default */
@@ -211,17 +233,18 @@
     display: none;
 }
 
-.tc-fh-day-row td {
-    padding: 6px 12px 10px;
-    background: #f7fafc;
-    border-bottom: 1px solid #edf2f7;
-    overflow-x: auto;
-}
+    .tc-fh-day-row td {
+        padding: 6px 12px 10px;
+        background: var(--tc-surface-soft);
+        border-bottom: 1px solid var(--tc-border);
+        overflow-x: auto;
+    }
 
 .tc-fh-day-grid {
     display: flex;
     flex-direction: column;
     gap: 5px;
+    animation: tcFadeIn 0.2s ease both;
 }
 
 .tc-fh-day-strip {
@@ -239,7 +262,7 @@
 .tc-fh-day {
     width: 28px;
     height: 28px;
-    border-radius: 5px;
+    border-radius: 6px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -247,17 +270,30 @@
     font-size: 0.72rem;
     font-weight: 600;
     line-height: 1;
-    color: rgba(0, 0, 0, 0.45);
+    color: var(--tc-text-soft);
+    transition: transform 0.12s;
 }
 
-.tc-fh-day-200 { color: rgba(0, 0, 0, 0.75); }
-.tc-fh-day-700 { color: rgba(255, 255, 255, 0.95); }
+    .tc-fh-day:hover {
+        transform: scale(1.12);
+    }
 
-.tc-fh-day-empty { background: #e2e8f0; }
-.tc-fh-day-200   { background: #f0ad4e; }
-.tc-fh-day-700   { background: #e53e3e; }
+.tc-fh-day-empty {
+    background: var(--tc-muted-soft);
+    color: #94a3b8;
+}
+
+.tc-fh-day-200 {
+    background: var(--tc-warn);
+    color: #78350f;
+}
+
+.tc-fh-day-700 {
+    background: var(--tc-alarm);
+    color: rgba(255, 255, 255, 0.95);
+}
 
 .tc-fh-day-acked {
-    outline: 2px solid #38a169;
+    outline: 2px solid var(--tc-ok);
     outline-offset: -2px;
 }
