@@ -70,6 +70,11 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
         public string PhotoUrl { get; set; } = "";
 
         /// <summary>
+        /// Gets or sets the scheme image URL.
+        /// </summary>
+        public string SchemeUrl { get; set; } = "";
+
+        /// <summary>
         /// Gets or sets the channel number for online status.
         /// </summary>
         public int OnlineCnlNum { get; set; }
@@ -128,6 +133,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
                 Name = GetChildText(locationNode, "Name"),
                 Descr = GetChildText(locationNode, "Descr"),
                 PhotoUrl = GetChildText(locationNode, "Photo"),
+                SchemeUrl = GetChildText(locationNode, "Scheme"),
                 StatusCnlNum = GetChildInt(locationNode, "StatusCnlNum"),
                 DistrictNumber = GetChildInt(locationNode, "District")
             };

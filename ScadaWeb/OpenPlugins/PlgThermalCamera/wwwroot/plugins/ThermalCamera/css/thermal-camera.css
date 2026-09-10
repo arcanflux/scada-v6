@@ -607,11 +607,18 @@ body.tc-ready {
     font-variant-numeric: tabular-nums;
 }
 
-/* Object name cell — flex row: name text + chat icon button */
+/*
+ * Object name cell — a fixed two-column grid keeps every name on the same
+ * baseline and every chat button at the same horizontal position. The scheme
+ * badge is allowed to extend into the left cell padding, while its text stays
+ * aligned with names that do not have a scheme.
+ */
 .tc-name-cell {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 36px;
     align-items: center;
-    gap: 6px;
+    column-gap: 8px;
+    min-width: 0;
 }
 
 .tc-name-text {
@@ -622,6 +629,62 @@ body.tc-ready {
     white-space: nowrap;
     font-size: 1.15rem;
     font-weight: 500;
+}
+
+/* A TK with a configured scheme becomes a compact, name-width action pill. */
+.tc-scheme-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    justify-self: start;
+    min-width: 0;
+    max-width: calc(100% + 32px);
+    margin-left: -32px;
+    padding: 7px 10px;
+    color: var(--tc-text);
+    background: var(--tc-accent-soft);
+    border: 1px solid var(--tc-accent-border);
+    border-radius: var(--tc-radius-sm);
+    font: inherit;
+    font-weight: 500;
+    line-height: 1.15;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s,
+        box-shadow 0.15s, transform 0.15s;
+}
+
+.tc-scheme-trigger span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tc-scheme-trigger i {
+    flex: 0 0 15px;
+    width: 15px;
+    color: var(--tc-accent);
+    text-align: center;
+}
+
+.tc-scheme-trigger:hover,
+.tc-scheme-trigger:focus {
+    color: #fff;
+    background: var(--tc-accent);
+    border-color: var(--tc-accent);
+    box-shadow: var(--tc-shadow-sm);
+    transform: translateY(-1px);
+    outline: none;
+}
+
+.tc-scheme-trigger:hover i,
+.tc-scheme-trigger:focus i {
+    color: #fff;
+}
+
+.tc-name-chat-btn {
+    grid-column: 2;
+    justify-self: end;
 }
 
 .tc-table tbody td.tc-col-name {
@@ -1195,6 +1258,10 @@ th.tc-col-status {
     max-height: 92vh;
     min-width: 420px;
     font-family: var(--tc-font);
+}
+
+.tc-scheme-panel {
+    width: min(1100px, 90vw);
 }
 
 .tc-photo-body {
