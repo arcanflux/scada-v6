@@ -61,6 +61,8 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
 
                         UserDataEntry entry = new()
                         {
+                            Name = GetAttrStr(node, "name"),
+                            Descr = GetAttrStr(node, "descr"),
                             Comment = GetAttrStr(node, "comment"),
                             IsCommissioned = GetAttrBool(node, "isCommissioned"),
                             OfflineArchiveStartMs = GetAttrLong(node, "offlineArchiveStartMs"),
@@ -141,6 +143,8 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
                 {
                     XmlElement entryElem = xmlDoc.CreateElement("Entry");
                     entryElem.SetAttribute("id", kvp.Key.ToString());
+                    entryElem.SetAttribute("name", kvp.Value.Name ?? "");
+                    entryElem.SetAttribute("descr", kvp.Value.Descr ?? "");
                     entryElem.SetAttribute("comment", kvp.Value.Comment ?? "");
                     entryElem.SetAttribute("isCommissioned",
                         kvp.Value.IsCommissioned.ToString().ToLowerInvariant());
@@ -222,6 +226,19 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
     /// </summary>
     public class UserDataEntry
     {
+        /// <summary>
+        /// Имя ТК на момент сохранения. Служит признаком нового формата записи
+        /// (пустое имя + маленький ID = запись старого формата, подлежит миграции)
+        /// и делает файл читаемым для человека. Ключом является стабильный ID.
+        /// </summary>
+        public string Name { get; set; } = "";
+
+        /// <summary>
+        /// Адрес ТК на момент сохранения. Вместе с именем образует стабильный ключ
+        /// (имена ТК бывают неуникальны); хранится для читаемости файла и миграций.
+        /// </summary>
+        public string Descr { get; set; } = "";
+
         /// <summary>
         /// Legacy single-comment field (still stored for backward compatibility).
         /// </summary>
