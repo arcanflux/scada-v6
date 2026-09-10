@@ -17,8 +17,11 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         /// <summary>
         /// Hard upper limit on how many chat messages are kept per TK when
         /// <see cref="EnableMessageLimit"/> is enabled.
+        /// Лимит ограничивает размер UserData.xml: файл целиком перезаписывается
+        /// при каждом сохранении, и его рост напрямую увеличивает время записи
+        /// (и длительность блокировки, в которой ждут опросы GetCurData).
         /// </summary>
-        public const int MaxMessagesPerItem = 1000;
+        public const int MaxMessagesPerItem = 200;
 
         /// <summary>
         /// Set to <c>false</c> to retain the entire chat history without trimming.
@@ -40,10 +43,23 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         // it is evicted from scansInProgress so DetectFloodTransitions can retry.
         private const long ScanTimeoutMs = 5 * 60 * 1000; // 5 minutes
 
-        // Flood-clear debounce window: ArchiveStartMs is only reset after the sensor has
-        // reported "not flooded" continuously for this long.  Shorter gaps are treated as
-        // sensor glitches and the existing flood episode (and its acknowledgment) is kept.
-        private const long OneDayMs = 24L * 60 * 60 * 1000;
+        // Flood-clear debounce: ArchiveStartMs is only reset after the sensor has reported
+        // "not flooded" continuously for an ADAPTIVE delay — a quarter of the episode
+        // duration clamped to [1h, 24h]. Short (likely phantom) episodes release quickly,
+        // long real floods keep a strong debounce against self-toggling sensors.
+        private const long ClearDelayMinMs = 60L * 60 * 1000;       // 1 hour
+        private const long ClearDelayMaxMs = 24L * 60 * 60 * 1000;  // 24 hours
+        private const int ClearDelayFraction = 4;                   // delay = episode / 4
+
+        // Dry readings are not trusted for the clear debounce until the device has been
+        // online continuously this long. Right after a TK reboot sensors often report a
+        // brief false "dry" — it must not start or advance the clear countdown.
+        private const long StableOnlineMs = 15L * 60 * 1000;        // 15 minutes
+
+        // Minimum interval between full transition-detection passes. Several browsers
+        // polling at 1 Hz each would otherwise repeat identical work on every request;
+        // with the throttle only the first request per window pays the cost.
+        private const long DetectThrottleMs = 900;
 
         // Confirmation delay: a flood must be continuously active in the archive for at
         // least this long before it is recorded. Suppresses brief phantom floods (e.g. a
@@ -70,6 +86,11 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
         // Keyed by (itemId, kind). Committed by DetectFloodTransitions once they age past
         // the delay; discarded if the flood clears or the device goes offline first.
         private readonly Dictionary<(int itemId, string kind), long> floodPendingStartMs = [];
+        // itemId -> UTC ms of the last offline→online transition (or first time the item
+        // was seen online this session). Used by the stable-online reboot guard.
+        private readonly Dictionary<int, long> onlineSinceMs = [];
+        // UTC ms when DetectFloodTransitions last did a full pass (throttle).
+        private long lastDetectRunMs;
 
         public string GetUserDataFilePath()
         {
@@ -92,6 +113,12 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                 if (!userData.Load(fileName, out string errMsg))
                     webContext.Log.WriteError("PlgThermalCamera: " + errMsg);
 
+                // Применяем актуальный лимит сообщений сразу при загрузке, чтобы
+                // файлы, накопленные при прежнем (большем) лимите, ужались при
+                // первом же сохранении.
+                foreach (UserDataEntry entry in userData.Entries.Values)
+                    TrimMessages(entry);
+
                 cache = userData;
                 return cache;
             }
@@ -107,6 +134,198 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                 cache = userData;
                 string fileName = GetUserDataFilePath();
                 return userData.Save(fileName, out errMsg);
+            }
+        }
+
+        // true после проверки/миграции формата user data в этом процессе.
+        private volatile bool migrationChecked;
+
+        /// <summary>
+        /// Переводит user data со старых порядковых ID (счётчик парсинга .map в прежних
+        /// версиях плагина) на стабильные ID из имени ТК. Старый ID k соответствует k-му
+        /// элементу Location файла .map, поэтому позиционное сопоставление корректно,
+        /// пока состав и порядок ТК не менялись с момента последнего сохранения старого
+        /// файла. Также дозаполняет имена в записях нового формата, созданных без имени.
+        /// Записи, не сопоставимые ни с одной ТК, не удаляются (остаются как есть).
+        /// Выполняется один раз за время жизни процесса; повторные вызовы бесплатны.
+        /// </summary>
+        public void MigrateUserData(List<ThermalCameraItem> itemsInDocOrder)
+        {
+            if (migrationChecked || itemsInDocOrder == null || itemsInDocOrder.Count == 0)
+                return;
+
+            lock (lockObj)
+            {
+                if (migrationChecked)
+                    return;
+
+                ThermalCameraUserData userData = LoadUserData();
+                MigrateEntriesCore(userData, itemsInDocOrder, out int migrated, out int named);
+
+                if (migrated > 0 || named > 0)
+                {
+                    if (userData.Save(GetUserDataFilePath(), out string errMsg))
+                    {
+                        webContext.Log.WriteAction(
+                            $"PlgThermalCamera: миграция user data — перенесено записей: {migrated}, дозаполнено имён: {named}");
+                    }
+                    else
+                    {
+                        webContext.Log.WriteError("PlgThermalCamera: ошибка сохранения при миграции user data: " + errMsg);
+                    }
+                }
+
+                migrationChecked = true;
+            }
+        }
+
+        /// <summary>
+        /// Ядро миграции (без блокировок и файловых операций — для тестируемости):
+        /// 1) записи старого формата (порядковый ID, без имени) позиционно переносятся
+        ///    на стабильные ID (хэш имени + адреса);
+        /// 2) безымянные записи нового формата получают имя и адрес ТК;
+        /// 3) записи, чей ключ не совпадает ни с одной ТК, но чьё имя однозначно
+        ///    указывает на единственную ТК, перепривязываются к её ключу —
+        ///    самовосстановление после смены схемы ключа (например, имя → имя+адрес).
+        /// </summary>
+        public static void MigrateEntriesCore(ThermalCameraUserData userData,
+            List<ThermalCameraItem> itemsInDocOrder, out int migrated, out int named)
+        {
+            migrated = 0;
+            named = 0;
+
+            Dictionary<int, ThermalCameraItem> itemById = [];
+            Dictionary<string, List<ThermalCameraItem>> itemsByName = [];
+
+            foreach (ThermalCameraItem item in itemsInDocOrder)
+            {
+                itemById[item.Id] = item;
+                string nameKey = (item.Name ?? "").Trim();
+                if (nameKey.Length > 0)
+                {
+                    if (!itemsByName.TryGetValue(nameKey, out List<ThermalCameraItem> list))
+                        itemsByName[nameKey] = list = [];
+                    list.Add(item);
+                }
+            }
+
+            // Переносит запись на ключ целевой ТК, обновляя метаданные и квитирования.
+            // При совпадении ключей истории объединяются, существующая запись не затирается.
+            void MoveEntry(int oldId, UserDataEntry entry, ThermalCameraItem target)
+            {
+                userData.Entries.Remove(oldId);
+                entry.Name = target.Name ?? "";
+                entry.Descr = target.Descr ?? "";
+
+                foreach (AckRecord ack in entry.AckHistory)
+                    ack.ItemId = target.Id;
+
+                if (userData.Entries.TryGetValue(target.Id, out UserDataEntry existing))
+                {
+                    existing.Messages.AddRange(entry.Messages);
+                    existing.Messages.Sort((a, b) => a.Id.CompareTo(b.Id));
+                    existing.AckHistory.AddRange(entry.AckHistory);
+                    TrimMessages(existing);
+                }
+                else
+                {
+                    userData.Entries[target.Id] = entry;
+                }
+            }
+
+            List<int> keys = [.. userData.Entries.Keys];
+
+            foreach (int oldId in keys)
+            {
+                UserDataEntry entry = userData.Entries[oldId];
+
+                if (string.IsNullOrEmpty(entry.Name) &&
+                    oldId >= 1 && oldId <= itemsInDocOrder.Count &&
+                    oldId < ThermalCameraItem.StableIdFloor)
+                {
+                    // Запись старого формата: позиционное сопоставление.
+                    MoveEntry(oldId, entry, itemsInDocOrder[oldId - 1]);
+                    migrated++;
+                }
+                else if (itemById.TryGetValue(oldId, out ThermalCameraItem match))
+                {
+                    // Ключ актуален — при необходимости дозаполняем имя и адрес
+                    // (запись могла быть создана по ходу работы без метаданных).
+                    if (string.IsNullOrEmpty(entry.Name))
+                    {
+                        entry.Name = match.Name ?? "";
+                        entry.Descr = match.Descr ?? "";
+                        named++;
+                    }
+                }
+                else if (!string.IsNullOrEmpty(entry.Name) &&
+                    itemsByName.TryGetValue(entry.Name.Trim(), out List<ThermalCameraItem> candidates) &&
+                    candidates.Count == 1)
+                {
+                    // Ключ устарел (сменилась схема или адрес), но имя однозначно
+                    // указывает на единственную ТК — перепривязываем.
+                    // Неоднозначные имена (дубликаты) не трогаем.
+                    MoveEntry(oldId, entry, candidates[0]);
+                    migrated++;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Возвращает состояние тумблера «В работе» для перечисленных ТК.
+        /// Читает записи под общей блокировкой (потокобезопасно).
+        /// </summary>
+        public Dictionary<int, bool> GetCommissionedMap(IEnumerable<ThermalCameraItem> items)
+        {
+            lock (lockObj)
+            {
+                ThermalCameraUserData userData = LoadUserData();
+                Dictionary<int, bool> map = [];
+
+                foreach (ThermalCameraItem item in items)
+                {
+                    map[item.Id] = userData.Entries.TryGetValue(item.Id, out UserDataEntry entry) &&
+                        entry.IsCommissioned;
+                }
+
+                return map;
+            }
+        }
+
+        /// <summary>
+        /// Устанавливает тумблер «В работе» для набора ТК одним сохранением.
+        /// Мутация и запись файла выполняются под общей блокировкой (потокобезопасно).
+        /// </summary>
+        public bool SetCommissioned(IEnumerable<int> itemIds, bool isCommissioned, out string errMsg)
+        {
+            lock (lockObj)
+            {
+                ThermalCameraUserData userData = LoadUserData();
+
+                foreach (int itemId in itemIds)
+                {
+                    if (itemId <= 0)
+                        continue;
+
+                    UserDataEntry entry = GetOrCreateEntry(userData, itemId);
+                    entry.IsCommissioned = isCommissioned;
+                }
+
+                return SaveUserData(userData, out errMsg);
+            }
+        }
+
+        /// <summary>
+        /// Ищет квитирование указанного эпизода затопления (потокобезопасно).
+        /// </summary>
+        public AckRecord FindAck(int itemId, long floodStartMs)
+        {
+            lock (lockObj)
+            {
+                ThermalCameraUserData userData = LoadUserData();
+                return userData.Entries.TryGetValue(itemId, out UserDataEntry entry)
+                    ? entry.AckHistory.FirstOrDefault(a => a.FloodStartMs == floodStartMs)
+                    : null;
             }
         }
 
@@ -279,6 +498,11 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
 
             lock (lockObj)
             {
+                long detectNowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                if (detectNowMs - lastDetectRunMs < DetectThrottleMs)
+                    return;
+                lastDetectRunMs = detectNowMs;
+
                 ThermalCameraUserData userData = LoadUserData();
                 bool dirty = false;
 
@@ -294,6 +518,8 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                     {
                         if (!cur.IsOnline)
                         {
+                            onlineSinceMs.Remove(item.Id);
+
                             // Device offline — drop any unconfirmed flood so a stale pending
                             // start cannot be committed when the device returns.
                             floodPendingStartMs.Remove((item.Id, "flood200"));
@@ -302,16 +528,22 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                             if (entry.OfflineArchiveStartMs == 0 && item.OnlineCnlNum > 0)
                                 TriggerArchiveScan(item.Id, item.OnlineCnlNum, "offline");
                         }
-                        else if (entry.OfflineArchiveStartMs != 0)
+                        else
                         {
-                            entry.OfflineArchiveStartMs = 0;
-                            dirty = true;
+                            if (!onlineSinceMs.ContainsKey(item.Id))
+                                onlineSinceMs[item.Id] = detectNowMs;
+
+                            if (entry.OfflineArchiveStartMs != 0)
+                            {
+                                entry.OfflineArchiveStartMs = 0;
+                                dirty = true;
+                            }
                         }
                     }
 
-                    // 200mm flood — 24-hour debounce before resetting start timestamp.
-                    // Brief sensor glitches (< 24h clear) keep the original flood start and
-                    // any existing acknowledgment intact. Only a genuine 24h+ gap resets everything.
+                    // 200mm flood — adaptive debounce before resetting start timestamp.
+                    // Brief sensor glitches keep the original flood start and any existing
+                    // acknowledgment intact. Only a genuine long dry gap resets everything.
                     if (cur.Flood200HasValue)
                     {
                         bool prevKnown = lastFlood200State.TryGetValue(item.Id, out bool prev);
@@ -369,21 +601,26 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
 
                             if (entry.Flood200ArchiveStartMs != 0)
                             {
-                                long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                                if (entry.Flood200LastClearMs == 0)
+                                if (!IsOnlineStable(item.Id, detectNowMs, cur))
                                 {
-                                    // First poll with no flood — start the 24h grace timer.
-                                    entry.Flood200LastClearMs = nowMs;
+                                    // Dry reading while offline or right after a reboot —
+                                    // not trusted; freeze the clear countdown as-is.
+                                }
+                                else if (entry.Flood200LastClearMs == 0)
+                                {
+                                    // First trusted poll with no flood — start the grace timer.
+                                    entry.Flood200LastClearMs = detectNowMs;
                                     dirty = true;
                                 }
-                                else if (nowMs - entry.Flood200LastClearMs >= OneDayMs)
+                                else if (detectNowMs - entry.Flood200LastClearMs >=
+                                    GetClearDelayMs(entry.Flood200ArchiveStartMs, entry.Flood200LastClearMs))
                                 {
-                                    // Genuinely clear for 24h+ — reset flood episode.
+                                    // Genuinely dry past the adaptive delay — reset flood episode.
                                     entry.Flood200ArchiveStartMs = 0;
                                     entry.Flood200LastClearMs = 0;
                                     dirty = true;
                                 }
-                                // else: within 24h grace — keep waiting
+                                // else: within grace — keep waiting
                             }
                             else if (entry.Flood200LastClearMs != 0)
                             {
@@ -396,7 +633,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                         }
                     }
 
-                    // 700mm flood — same 24-hour debounce logic as 200mm.
+                    // 700mm flood — same adaptive debounce logic as 200mm.
                     if (cur.Flood700HasValue)
                     {
                         bool prevKnown = lastFlood700State.TryGetValue(item.Id, out bool prev);
@@ -447,13 +684,18 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
 
                             if (entry.Flood700ArchiveStartMs != 0)
                             {
-                                long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                                if (entry.Flood700LastClearMs == 0)
+                                if (!IsOnlineStable(item.Id, detectNowMs, cur))
                                 {
-                                    entry.Flood700LastClearMs = nowMs;
+                                    // Dry reading while offline or right after a reboot —
+                                    // not trusted; freeze the clear countdown as-is.
+                                }
+                                else if (entry.Flood700LastClearMs == 0)
+                                {
+                                    entry.Flood700LastClearMs = detectNowMs;
                                     dirty = true;
                                 }
-                                else if (nowMs - entry.Flood700LastClearMs >= OneDayMs)
+                                else if (detectNowMs - entry.Flood700LastClearMs >=
+                                    GetClearDelayMs(entry.Flood700ArchiveStartMs, entry.Flood700LastClearMs))
                                 {
                                     entry.Flood700ArchiveStartMs = 0;
                                     entry.Flood700LastClearMs = 0;
@@ -477,6 +719,37 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                         webContext.Log.WriteError("PlgThermalCamera: " + errMsg);
                 }
             }
+        }
+
+        // True when dry readings can be trusted for the clear debounce: the device is not
+        // explicitly offline and has been online continuously for StableOnlineMs. Items
+        // without an online channel are always trusted. Must be called inside lockObj.
+        private bool IsOnlineStable(int itemId, long nowMs, FloodStateSnapshot cur)
+        {
+            if (cur.OnlineHasValue && !cur.IsOnline)
+                return false;
+            return !onlineSinceMs.TryGetValue(itemId, out long since)
+                || nowMs - since >= StableOnlineMs;
+        }
+
+        // Adaptive clear delay: a quarter of the episode duration, clamped to [1h, 24h].
+        // For the ">30 days" sentinel the episode length is unknown — be conservative.
+        private static long GetClearDelayMs(long episodeStartMs, long clearStartMs)
+        {
+            if (episodeStartMs <= MoreThan30DaysSentinel)
+                return ClearDelayMaxMs;
+            return Math.Clamp(
+                (clearStartMs - episodeStartMs) / ClearDelayFraction,
+                ClearDelayMinMs, ClearDelayMaxMs);
+        }
+
+        // UTC ms when the active episode will reset if the sensor stays dry, or 0 when
+        // the episode is not in its clear-grace period.
+        private static long GetClearDeadlineMs(long episodeStartMs, long clearStartMs)
+        {
+            return episodeStartMs != 0 && clearStartMs != 0
+                ? clearStartMs + GetClearDelayMs(episodeStartMs, clearStartMs)
+                : 0;
         }
 
         // Must be called inside lockObj.
@@ -725,7 +998,9 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
                         {
                             OfflineStartMs = MapTimerValue(e.OfflineArchiveStartMs, id, "offline"),
                             Flood200StartMs = MapTimerValue(e.Flood200ArchiveStartMs, id, "flood200"),
-                            Flood700StartMs = MapTimerValue(e.Flood700ArchiveStartMs, id, "flood700")
+                            Flood700StartMs = MapTimerValue(e.Flood700ArchiveStartMs, id, "flood700"),
+                            Flood200ClearDeadlineMs = GetClearDeadlineMs(e.Flood200ArchiveStartMs, e.Flood200LastClearMs),
+                            Flood700ClearDeadlineMs = GetClearDeadlineMs(e.Flood700ArchiveStartMs, e.Flood700LastClearMs)
                         };
                     }
                     else
@@ -845,12 +1120,16 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Code
     /// <summary>
     /// Per-item timer start timestamps returned to the client on every poll.
     /// 0 = not active; -1 = scan in progress; -2 = active more than 30 days.
+    /// ClearDeadline values: UTC ms when the episode resets if the sensor stays dry
+    /// (0 when the sensor is currently flooded or no episode is active).
     /// </summary>
     public class ItemTimers
     {
         public long OfflineStartMs { get; set; }
         public long Flood200StartMs { get; set; }
         public long Flood700StartMs { get; set; }
+        public long Flood200ClearDeadlineMs { get; set; }
+        public long Flood700ClearDeadlineMs { get; set; }
     }
 
     /// <summary>
