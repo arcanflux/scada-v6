@@ -1,31 +1,193 @@
-/* Thermal Camera Plugin Styles */
-/* Стили плагина тепловых камер */
+/* Thermal Camera Plugin Styles — light design system shared with PlgMap */
+/* Стили плагина тепловых камер — светлая дизайн-система, единая с PlgMap */
+
+/* ============================== Design tokens ============================== */
+
+:root {
+    --tc-font: 'Segoe UI Variable Text', 'Segoe UI', Inter, Roboto, 'Helvetica Neue', Arial, sans-serif;
+    /* Accent — same as PlgMap (--mv-accent) */
+    --tc-accent: #2563eb;
+    --tc-accent-hover: #1d4ed8;
+    --tc-accent-soft: #eff6ff;
+    --tc-accent-border: #bfdbfe;
+    /* Text & surfaces */
+    --tc-text: #1e293b;
+    --tc-text-soft: #64748b;
+    --tc-border: #e2e8f0;
+    --tc-border-strong: #cbd5e1;
+    --tc-surface: #ffffff;
+    --tc-surface-soft: #f8fafc;
+    --tc-surface-glass: rgba(255, 255, 255, 0.92);
+    /* Depth — shadows disabled across the plugin (flat, shadow-free look) */
+    --tc-shadow-sm: none;
+    --tc-shadow-md: none;
+    --tc-shadow-lg: none;
+    --tc-radius-sm: 8px;
+    --tc-radius: 12px;
+    --tc-radius-lg: 16px;
+    /* Semantic states — unified PlgMap scale */
+    --tc-ok: #16a34a;          /* норма / связь / квитировано */
+    --tc-ok-soft: #f0fdf4;
+    --tc-ok-border: #bbf7d0;
+    --tc-ok-text: #166534;
+    --tc-warn: #f59e0b;        /* затопление 200мм */
+    --tc-warn-soft: #fffbeb;
+    --tc-warn-border: #fde68a;
+    --tc-warn-text: #92400e;
+    --tc-alarm: #dc2626;       /* затопление 700мм / нет связи */
+    --tc-alarm-soft: #fef2f2;
+    --tc-alarm-border: #fecaca;
+    --tc-alarm-text: #991b1b;
+    --tc-muted: #9ca3af;       /* нет данных */
+    --tc-muted-soft: #f1f5f9;
+}
+
+/* ============================== Animations ============================== */
+
+/* tcPanelIn removed — its only user (the journal panel) no longer animates on its
+   own; the whole plugin fades in together via the body.tc-booting → .tc-ready reveal. */
+
+@keyframes tcScaleIn {
+    from { opacity: 0; transform: scale(0.97); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes tcFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes tcPopupIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Variant for the centered connection banner — keeps its translateX(-50%) */
+@keyframes tcBannerIn {
+    from { opacity: 0; transform: translate(-50%, 4px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* tcAlarmPulse removed — it animated box-shadow (now disabled) and was unused. */
+
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Thin scrollbars for inner panels */
+.tc-table-wrapper::-webkit-scrollbar,
+.tc-journal-events::-webkit-scrollbar,
+.tc-journal-ack-list::-webkit-scrollbar,
+.tc-journal-ack-history::-webkit-scrollbar,
+.tc-chat-messages::-webkit-scrollbar,
+.tc-today-tooltip::-webkit-scrollbar,
+.tc-fh-body::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.tc-table-wrapper::-webkit-scrollbar-thumb,
+.tc-journal-events::-webkit-scrollbar-thumb,
+.tc-journal-ack-list::-webkit-scrollbar-thumb,
+.tc-journal-ack-history::-webkit-scrollbar-thumb,
+.tc-chat-messages::-webkit-scrollbar-thumb,
+.tc-today-tooltip::-webkit-scrollbar-thumb,
+.tc-fh-body::-webkit-scrollbar-thumb {
+    background: var(--tc-border-strong);
+    border-radius: 8px;
+}
+
+.tc-table-wrapper::-webkit-scrollbar-track,
+.tc-journal-events::-webkit-scrollbar-track,
+.tc-journal-ack-list::-webkit-scrollbar-track,
+.tc-journal-ack-history::-webkit-scrollbar-track,
+.tc-chat-messages::-webkit-scrollbar-track,
+.tc-today-tooltip::-webkit-scrollbar-track,
+.tc-fh-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* ============================== Layout ============================== */
 
 .tc-container {
+    /* NOTE: the container is revealed by thermal-camera.js AFTER positionJournal()
+       has placed the absolutely-positioned header stat blocks — revealing it here
+       via CSS (the moment the stylesheet loads) showed those blocks at their
+       default top-right spot for a frame. It starts hidden via the inline
+       style="visibility:hidden" attribute in ThermalCameraTable.cshtml. */
     padding: 10px;
     height: 100vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    font-family: var(--tc-font);
+    color: var(--tc-text);
+    background: var(--tc-surface-soft);
+    /* Safety net: if init() ever throws before its JS reveal, never leave the
+       container stuck hidden — force it visible after 2s. The normal path reveals
+       it in JS within ~50ms, long before this fires. */
+    animation: tcContainerRevealFallback 0s linear 2s forwards;
 }
 
+@keyframes tcContainerRevealFallback {
+    to { visibility: visible; }
+}
+
+/* Unified plugin reveal. thermal-camera.js adds .tc-booting at the very start of
+   init() (hiding the whole plugin — container PLUS the journal/badge/etc. it appends
+   to <body>) and swaps it for .tc-ready once everything is built and positioned, so
+   the entire UI fades in together instead of appearing piece by piece. The fallback
+   animation forces it visible after 2s if init() ever throws before the swap. */
+body.tc-booting {
+    opacity: 0;
+    animation: tcBootRevealFallback 0s linear 2s forwards;
+}
+
+/* Quick fade-in via a KEYFRAME (not a transition): init() adds .tc-booting and
+   swaps to .tc-ready in the same synchronous pass, so the opacity:0 state is never
+   painted and a CSS transition would not fire (the plugin would just pop in). A
+   keyframe animation always plays when the class is applied → a reliable, fast fade. */
+body.tc-ready {
+    animation: tcPluginIn 0.2s ease both;
+}
+
+@keyframes tcPluginIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes tcBootRevealFallback {
+    to { opacity: 1; }
+}
+
+/* Header — light glass toolbar (was a dark blue gradient) */
 .tc-header {
     flex: 0 0 auto;
     position: relative;
+    z-index: 20; /* must be > sticky thead z-index:10 so dropdown renders above it */
     display: block;
     margin-bottom: 10px;
     padding: 8px 0;
-    background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
-    border-radius: 6px;
-    color: #fff;
+    background: var(--tc-surface);
+    border: 1px solid var(--tc-border);
+    border-radius: var(--tc-radius);
+    box-shadow: var(--tc-shadow-sm);
+    color: var(--tc-text);
     overflow: visible;
+    /* No per-element entry animation: the whole plugin now fades in together via the
+       body.tc-booting → .tc-ready reveal, so the header must not fade on its own
+       (that would double-fade and break the "everything appears at once" behaviour). */
 }
 
 .tc-header-controls {
     display: flex;
     align-items: stretch;
     gap: 12px;
-    padding: 0 6px;
+    padding: 0 8px;
     max-width: 100%;
     height: 36px;
 }
@@ -46,46 +208,66 @@
 .tc-hdr-stat-row {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     font-size: 0.75rem;
-    font-weight: 600;
-    color: #fff;
+    font-weight: 700;
+    color: var(--tc-text);
     white-space: nowrap;
     line-height: 1;
+    font-variant-numeric: tabular-nums;
 }
 
 .tc-hdr-stat-label {
     font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.65);
+    color: var(--tc-text-soft);
     font-weight: 500;
 }
 
 .tc-hdr-dot {
-    width: 11px;
-    height: 11px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
     flex-shrink: 0;
+    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
 }
 
-.tc-hdr-dot-total  { background: #e2e8f0; border: 1px solid rgba(0,0,0,0.2); }
-.tc-hdr-dot-online { background: #38a169; }
-.tc-hdr-dot-offline{ background: #e53e3e; }
-.tc-hdr-dot-normal { background: #48bb78; }
-.tc-hdr-dot-flood200 { background: #d69e2e; }
-.tc-hdr-dot-flood700 { background: #e53e3e; }
+.tc-hdr-dot-total {
+    background: #ffffff;
+    border: 1px solid var(--tc-border-strong);
+}
+
+.tc-hdr-dot-online {
+    background: var(--tc-ok);
+}
+
+.tc-hdr-dot-offline {
+    background: var(--tc-alarm);
+}
+
+.tc-hdr-dot-normal {
+    background: var(--tc-ok);
+}
+
+.tc-hdr-dot-flood200 {
+    background: var(--tc-warn);
+}
+
+.tc-hdr-dot-flood700 {
+    background: var(--tc-alarm);
+}
 
 .tc-district-filter {
     position: relative;
     flex: 0 0 160px;
 }
 
-.tc-district-btn {
-    width: 100%;
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    background: rgba(255, 255, 255, 0.12);
+/* Shared look for toolbar buttons: glass surface, hover lift */
+.tc-district-btn,
+.tc-nav-btn {
+    color: var(--tc-text);
+    border: 1px solid var(--tc-border);
+    background: var(--tc-surface-glass);
     font-size: 0.9rem;
-    padding: 0 14px;
     border-radius: 18px;
     display: inline-flex;
     align-items: center;
@@ -93,22 +275,49 @@
     gap: 6px;
     height: 100%;
     white-space: nowrap;
+    box-shadow: var(--tc-shadow-sm);
+    transition: background 0.15s, border-color 0.15s, color 0.15s,
+        box-shadow 0.15s, transform 0.15s;
 }
 
-.tc-district-btn:hover,
-.tc-district-btn:focus {
-    background: rgba(255, 255, 255, 0.22);
-    color: #fff;
-    border-color: rgba(255, 255, 255, 0.7);
-    box-shadow: none;
+.tc-district-btn {
+    width: 100%;
+    padding: 0 14px;
 }
+
+.tc-nav-btn {
+    padding: 0 14px;
+}
+
+    .tc-district-btn:hover,
+    .tc-district-btn:focus,
+    .tc-nav-btn:hover,
+    .tc-nav-btn:focus {
+        background: var(--tc-accent-soft);
+        color: var(--tc-accent);
+        border-color: var(--tc-accent-border);
+        box-shadow: var(--tc-shadow-md);
+        transform: translateY(-1px);
+        outline: none;
+    }
+
+    .tc-nav-btn i,
+    .tc-district-btn i {
+        color: var(--tc-accent);
+    }
 
 .tc-district-menu {
     min-width: 0;
     width: 100%;
     box-sizing: border-box;
-    padding: 6px 0;
+    padding: 6px;
     z-index: 1050;
+    border: 1px solid var(--tc-border);
+    border-radius: var(--tc-radius);
+    box-shadow: var(--tc-shadow-md);
+    /* Opacity-only: Popper positions the menu with an inline transform,
+       a transform-based animation would override it. */
+    animation: tcFadeIn 0.18s ease;
 }
 
 .tc-district-option {
@@ -116,21 +325,24 @@
     align-items: center;
     gap: 8px;
     cursor: pointer;
-    padding: 6px 14px;
+    padding: 6px 10px;
     font-size: 0.9rem;
     margin: 0;
+    border-radius: var(--tc-radius-sm);
+    transition: background 0.12s;
 }
 
 .tc-district-count {
     margin-left: auto;
     font-size: 0.75rem;
     font-weight: 600;
-    color: #4a5568;
+    color: var(--tc-text-soft);
     flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
 }
 
 .tc-district-option:hover {
-    background-color: #edf2f7;
+    background-color: var(--tc-accent-soft);
 }
 
 .tc-district-option input {
@@ -138,6 +350,7 @@
     width: 1.1em;
     height: 1.1em;
     cursor: pointer;
+    accent-color: var(--tc-accent);
 }
 
 .tc-search-wrapper {
@@ -151,9 +364,14 @@
     left: 12px;
     top: 50%;
     transform: translateY(-50%);
-    color: #cbd5e0;
+    color: var(--tc-text-soft);
     font-size: 0.85rem;
     pointer-events: none;
+    transition: color 0.15s;
+}
+
+.tc-search-wrapper:focus-within .tc-search-icon {
+    color: var(--tc-accent);
 }
 
 .tc-search-input {
@@ -162,22 +380,24 @@
     padding: 0 12px 0 32px;
     font-size: 0.9rem;
     border-radius: 18px;
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    background: rgba(255, 255, 255, 0.12);
-    color: #fff;
+    border: 1px solid var(--tc-border);
+    background: var(--tc-surface-glass);
+    color: var(--tc-text);
     outline: none;
-    transition: background 0.2s, border-color 0.2s;
+    box-shadow: var(--tc-shadow-sm);
+    transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 
-.tc-search-input:focus {
-    background: rgba(255, 255, 255, 0.22);
-    border-color: rgba(255, 255, 255, 0.7);
-}
+    .tc-search-input:focus {
+        background: var(--tc-surface);
+        border-color: var(--tc-accent);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
 
-.tc-search-input::placeholder {
-    color: #cbd5e0;
-    opacity: 0.9;
-}
+    .tc-search-input::placeholder {
+        color: var(--tc-text-soft);
+        opacity: 0.8;
+    }
 
 .tc-server-time {
     position: absolute;
@@ -186,81 +406,92 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0 10px;
+    padding: 0 12px;
     height: 36px;
     box-sizing: border-box;
     font-size: 1.05rem;
     font-weight: 700;
-    color: #fff;
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.35);
+    font-variant-numeric: tabular-nums;
+    color: var(--tc-text);
+    background: var(--tc-surface-soft);
+    border: 1px solid var(--tc-border);
     border-radius: 18px;
     white-space: nowrap;
     pointer-events: none;
     z-index: 1;
 }
 
-.tc-nav-btn {
-    display: inline-flex;
+/* Connection-lost banner — shown after several failed polls in a row */
+.tc-conn-banner {
+    position: fixed;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 6px;
-    height: 100%;
-    padding: 0 14px;
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    background: rgba(255, 255, 255, 0.12);
+    gap: 8px;
+    padding: 8px 16px;
+    font-family: var(--tc-font);
     font-size: 0.9rem;
-    border-radius: 18px;
-    white-space: nowrap;
-    transition: background 0.2s, border-color 0.2s;
+    font-weight: 600;
+    color: var(--tc-alarm-text);
+    background: var(--tc-alarm-soft);
+    border: 1px solid var(--tc-alarm-border);
+    border-radius: var(--tc-radius);
+    box-shadow: var(--tc-shadow-md);
+    z-index: 10005;
+    animation: tcBannerIn 0.25s ease both;
 }
 
-.tc-nav-btn:hover,
-.tc-nav-btn:focus {
-    background: rgba(255, 255, 255, 0.22);
-    color: #fff;
-    border-color: rgba(255, 255, 255, 0.7);
-    box-shadow: none;
-    outline: none;
-}
+    .tc-conn-banner i {
+        color: var(--tc-alarm);
+    }
 
-/* Table wrapper */
+    .tc-conn-banner[hidden] {
+        display: none;
+    }
+
+/* ============================== Table ============================== */
+
 .tc-table-wrapper {
     flex: 1;
     min-height: 0;
     overflow: auto;
+    background: var(--tc-surface);
+    border: 1px solid var(--tc-border);
+    border-radius: var(--tc-radius);
+    box-shadow: var(--tc-shadow-sm);
 }
 
-/* Table */
 .tc-table {
     font-size: 0.85rem;
     margin-bottom: 0;
     table-layout: fixed;
     border-collapse: separate;
     border-spacing: 0;
+    color: var(--tc-text);
 }
 
-.tc-table thead {
-    background-color: #212529;
-}
+    .tc-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background-color: var(--tc-surface-soft);
+        box-shadow: 0 1px 0 0 var(--tc-border-strong);
+        border-bottom: none;
+        color: #475569;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-align: center;
+        vertical-align: middle;
+        white-space: nowrap;
+        padding: 8px;
+    }
 
-.tc-table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    background-color: #212529;
-    box-shadow: 0 -4px 0 0 #212529, 0 1px 0 0 #212529;
-    font-size: 0.8rem;
-    text-align: center;
-    vertical-align: middle;
-    white-space: nowrap;
-    padding: 6px 8px;
-}
-
-.tc-table thead th i {
-    margin-right: 4px;
-}
+        .tc-table thead th i {
+            margin-right: 4px;
+            color: var(--tc-text-soft);
+        }
 
 .tc-tbl-sort-btn {
     display: inline-flex;
@@ -269,52 +500,111 @@
     padding: 2px 7px;
     font-size: 0.72rem;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.75);
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: var(--tc-text-soft);
+    background: var(--tc-surface);
+    border: 1px solid var(--tc-border);
     border-radius: 10px;
     cursor: pointer;
     white-space: nowrap;
     margin-left: 4px;
     vertical-align: middle;
-    transition: background 0.15s;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.tc-tbl-sort-btn:hover {
-    background: rgba(255, 255, 255, 0.22);
-    color: #fff;
-}
+
+    .tc-tbl-sort-btn:hover {
+        background: var(--tc-accent-soft);
+        color: var(--tc-accent);
+        border-color: var(--tc-accent-border);
+    }
+
+    .tc-tbl-sort-btn i {
+        margin-right: 0 !important;
+        color: inherit !important;
+    }
 
 .tc-table tbody td {
     vertical-align: middle;
-    padding: 4px 6px;
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--tc-border);
+    background: transparent;
 }
 
-/* Column widths — percentage-based so the table scales with any screen width */
-.tc-col-status   { width: 7%;   min-width: 80px; }
-.tc-col-district { width: 7%;   min-width: 90px; }
-.tc-col-name     { width: 16%;  min-width: 150px; }
-.tc-col-address  { width: 16%;  min-width: 180px; }
-.tc-col-online   { width: 7%;   min-width: 80px; }
-.tc-col-flooding { width: 18%;  min-width: 220px; }
-.tc-col-battery  { width: 7%;   min-width: 90px; }
-.tc-col-journal  { width: auto; min-width: 150px; }
+.tc-table tbody tr {
+    animation: tcFadeIn 0.25s ease both;
+    transition: background-color 0.15s;
+}
 
-/* District badge */
+/* Row hover + striping */
+.tc-table tbody tr:hover {
+    background-color: var(--tc-accent-soft);
+}
+
+.tc-table tbody tr:nth-child(even) {
+    background-color: var(--tc-surface-soft);
+}
+
+    .tc-table tbody tr:nth-child(even):hover {
+        background-color: var(--tc-accent-soft);
+    }
+
+/* Column widths — percentage-based so the table scales with any screen width */
+.tc-col-status {
+    width: 7%;
+    min-width: 80px;
+}
+
+.tc-col-district {
+    width: 7%;
+    min-width: 90px;
+}
+
+.tc-col-name {
+    width: 16%;
+    min-width: 150px;
+}
+
+.tc-col-address {
+    width: 16%;
+    min-width: 180px;
+}
+
+.tc-col-online {
+    width: 7%;
+    min-width: 80px;
+}
+
+.tc-col-flooding {
+    width: 18%;
+    min-width: 220px;
+}
+
+.tc-col-battery {
+    width: 7%;
+    min-width: 90px;
+}
+
+.tc-col-journal {
+    width: auto;
+    min-width: 150px;
+}
+
+/* District badge — accent pill */
 .tc-district-badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: 36px;
+    height: 34px;
     box-sizing: border-box;
-    font-size: 1.15rem;
+    font-size: 1.05rem;
     font-weight: 700;
     padding: 0 14px;
     min-width: 36px;
     text-align: center;
-    color: #1e3a5f;
-    background: #ebf4ff;
-    border: 2px solid #2c5282;
-    border-radius: 8px;
+    color: var(--tc-accent);
+    background: var(--tc-accent-soft);
+    border: 1px solid var(--tc-accent-border);
+    border-radius: 10px;
+    font-variant-numeric: tabular-nums;
 }
 
 /* Object name cell — flex row: name text + chat icon button */
@@ -330,24 +620,46 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 1.2rem;
-    font-weight: 400;
+    font-size: 1.15rem;
+    font-weight: 500;
 }
 
 .tc-table tbody td.tc-col-name {
-    font-size: 1.2rem;
-    font-weight: 400;
+    font-size: 1.15rem;
+    font-weight: 500;
 }
 
 /* Address and photo */
 .tc-col-address {
     position: relative;
-    padding-right: 40px !important;
+    padding-right: 44px !important;
 }
 
 .tc-address-text {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     font-weight: 400;
+    color: var(--tc-text);
+}
+
+/* Icon action buttons (photo / chat) — accent ghost, hover fill + lift */
+.tc-photo-btn,
+.tc-chat-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    box-sizing: border-box;
+    padding: 0;
+    font-size: 1rem;
+    color: var(--tc-accent);
+    background: var(--tc-accent-soft);
+    border: 1px solid var(--tc-accent-border);
+    border-radius: var(--tc-radius-sm);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s,
+        box-shadow 0.15s, transform 0.15s;
 }
 
 .tc-photo-btn {
@@ -355,28 +667,33 @@
     right: 8px;
     top: 50%;
     transform: translateY(-50%);
-    width: 36px;
-    height: 36px;
-    box-sizing: border-box;
-    padding: 0;
-    font-size: 1.05rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: #2c5282;
-    background: #ebf4ff;
-    border: 1px solid #bee3f8;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
-.tc-photo-btn:hover,
-.tc-photo-btn:focus {
-    background: #d6eaff;
-    border-color: #63b3ed;
-    box-shadow: 0 0 0 2px rgba(99, 179, 237, 0.25);
+    .tc-photo-btn:hover,
+    .tc-photo-btn:focus {
+        background: var(--tc-accent);
+        border-color: var(--tc-accent);
+        color: #fff;
+        box-shadow: var(--tc-shadow-sm);
+        outline: none;
+    }
+
+.tc-chat-trigger:hover,
+.tc-chat-trigger:focus {
+    background: var(--tc-accent);
+    border-color: var(--tc-accent);
+    color: #fff;
+    box-shadow: var(--tc-shadow-sm);
+    transform: translateY(-1px);
     outline: none;
+}
+
+/* Row trigger for the chat panel that currently has focus — static accent fill */
+.tc-chat-trigger.tc-chat-trigger-active {
+    background: linear-gradient(135deg, var(--tc-accent) 0%, var(--tc-accent-hover) 100%);
+    border-color: var(--tc-accent);
+    color: #fff;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
 }
 
 .tc-photo-img {
@@ -391,147 +708,82 @@
     width: 32px;
     height: 32px;
     border-radius: 50%;
+    transition: background-color 0.3s, color 0.3s;
 }
 
-.tc-online-indicator i {
-    font-size: 1rem;
-}
+    .tc-online-indicator i {
+        font-size: 0.95rem;
+        transition: color 0.3s;
+    }
 
 .tc-status-online {
-    background-color: #c6f6d5;
-    color: #22543d;
+    background-color: var(--tc-ok-soft);
+    box-shadow: inset 0 0 0 1px var(--tc-ok-border);
 }
 
-.tc-status-online i {
-    color: #38a169;
-}
+    .tc-status-online i {
+        color: var(--tc-ok);
+    }
 
 .tc-status-offline {
-    background-color: #fed7d7;
-    color: #9b2c2c;
+    background-color: var(--tc-alarm-soft);
+    box-shadow: inset 0 0 0 1px var(--tc-alarm-border);
 }
 
-.tc-status-offline i {
-    color: #e53e3e;
-}
+    .tc-status-offline i {
+        color: var(--tc-alarm);
+    }
 
 .tc-status-unknown {
-    background-color: #e2e8f0;
-    color: #718096;
+    background-color: var(--tc-muted-soft);
+    box-shadow: inset 0 0 0 1px var(--tc-border);
 }
 
-.tc-status-unknown i {
-    color: #a0aec0;
-}
+    .tc-status-unknown i {
+        color: var(--tc-muted);
+    }
 
 /* Flooding cell — clickable, opens flood history modal on click */
 td.tc-col-flooding {
     cursor: pointer;
 }
 
-td.tc-col-flooding:hover {
-    box-shadow: inset 0 0 0 2px #3182ce;
-}
-
-/* ---- Unified close button for all popup menus ---- */
-.tc-menu-close {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    border-radius: 50%;
-    color: #fff;
-    font-size: 16px;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
-    flex-shrink: 0;
-    padding: 0;
-}
-.tc-menu-close:hover {
-    background: rgba(255, 255, 255, 0.25);
-    border-color: rgba(255, 255, 255, 0.7);
-}
-
-/* ---- Photo modal overlay ---- */
-.tc-photo-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(10, 22, 47, 0.72);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s;
-}
-.tc-photo-overlay.show {
-    opacity: 1;
-    pointer-events: auto;
-}
-.tc-photo-panel {
-    background: #fff;
-    border-radius: 10px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    max-width: 90vw;
-    max-height: 92vh;
-    min-width: 420px;
-}
-.tc-photo-body {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    background: #1a202c;
-    flex: 1;
-}
-.tc-photo-img-full {
-    max-width: 100%;
-    max-height: 78vh;
-    border-radius: 4px;
-    display: block;
-}
-.tc-photo-error {
-    color: #fc8181;
-    font-size: 14px;
-    text-align: center;
-}
+    td.tc-col-flooding:hover {
+        box-shadow: inset 0 0 0 2px var(--tc-accent);
+    }
 
 /* Flooding signals container */
 .tc-flooding-container {
     display: flex;
     flex-wrap: nowrap;
-    gap: 4px;
+    gap: 6px;
     width: 100%;
 }
 
-/* Individual flooding signal */
+/* Individual flooding signal — state card with smooth color transitions */
 .tc-flooding-signal {
     display: flex;
     flex-direction: column;
     align-items: center;
-    border: 1px solid #e2e8f0;
-    border-radius: 4px;
+    border: 1px solid var(--tc-border);
+    border-radius: var(--tc-radius-sm);
     flex: 1 1 0;
     min-width: 0;
     overflow: hidden;
+    transition: background-color 0.3s, border-color 0.3s;
 }
 
 .tc-signal-label {
-    font-size: 0.95rem;
+    font-size: 0.78rem;
     font-weight: 700;
+    letter-spacing: 0.03em;
     text-align: center;
-    padding: 5px 8px;
-    background: #edf2f7;
+    padding: 4px 8px;
+    background: var(--tc-muted-soft);
     width: 100%;
-    color: #4a5568;
+    color: var(--tc-text-soft);
     white-space: nowrap;
+    transition: background-color 0.3s, color 0.3s;
 }
 
 .tc-signal-body {
@@ -539,78 +791,68 @@ td.tc-col-flooding:hover {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 8px 10px;
+    padding: 6px 10px 7px;
     width: 100%;
 }
 
 .tc-signal-temp {
-    font-size: 1.2rem;
+    font-size: 1.15rem;
     font-weight: 700;
-    color: #2d3748;
+    color: var(--tc-text);
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    transition: color 0.3s;
 }
 
-/* Normal state (no flooding) - green */
+/* Normal state (no flooding) — green */
 .tc-flood-normal {
-    border-color: #48bb78;
-    background-color: #f0fff4;
+    border-color: var(--tc-ok-border);
+    background-color: var(--tc-ok-soft);
 }
 
-.tc-flood-normal .tc-signal-status {
-    color: #38a169;
-}
+    .tc-flood-normal .tc-signal-label {
+        background: #dcfce7;
+        color: var(--tc-ok-text);
+    }
 
-.tc-flood-normal .tc-signal-label {
-    background: #c6f6d5;
-    color: #22543d;
-}
-
-/* 200mm flooding - yellow */
+/* 200mm flooding — amber */
 .tc-flood-warning {
-    border-color: #d69e2e;
-    background-color: #fefcbf;
+    border-color: var(--tc-warn);
+    background-color: var(--tc-warn-soft);
 }
 
-.tc-flood-warning .tc-signal-status {
-    color: #d69e2e;
-}
+    .tc-flood-warning .tc-signal-label {
+        background: var(--tc-warn-border);
+        color: var(--tc-warn-text);
+    }
 
-.tc-flood-warning .tc-signal-label {
-    background: #faf089;
-    color: #744210;
-}
+    .tc-flood-warning .tc-signal-temp {
+        color: var(--tc-warn-text);
+    }
 
-.tc-flood-warning .tc-signal-temp {
-    color: #744210;
-}
+    .tc-flood-warning .tc-state-timer {
+        color: var(--tc-warn-text);
+    }
 
-/* 700mm flooding - red */
+/* 700mm flooding — red, static (same visual style as 200mm) */
 .tc-flood-alarm {
-    border-color: #e53e3e;
-    background-color: #fff5f5;
+    border-color: var(--tc-alarm);
+    background-color: var(--tc-alarm-soft);
 }
 
-.tc-flood-alarm .tc-signal-status {
-    color: #e53e3e;
-}
+    .tc-flood-alarm .tc-signal-label {
+        background: var(--tc-alarm-border);
+        color: var(--tc-alarm-text);
+    }
 
-.tc-flood-alarm .tc-signal-label {
-    background: #fed7d7;
-    color: #9b2c2c;
-}
-
-.tc-flood-alarm .tc-signal-temp {
-    color: #9b2c2c;
-}
+    .tc-flood-alarm .tc-signal-temp {
+        color: var(--tc-alarm-text);
+    }
 
 /* Unknown state */
 .tc-flood-unknown {
-    border-color: #e2e8f0;
-    background-color: #f7fafc;
-}
-
-.tc-flood-unknown .tc-signal-status {
-    color: #a0aec0;
+    border-color: var(--tc-border);
+    background-color: var(--tc-surface-soft);
 }
 
 /* Elapsed state timer shown below Online/Flood indicators */
@@ -619,76 +861,60 @@ td.tc-col-flooding:hover {
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.02em;
-    color: #9b2c2c;
+    color: var(--tc-alarm-text);
     margin-top: 2px;
     text-align: center;
 }
+
+/* "Episode resets in X" badge — shown while a dry sensor waits out the
+   adaptive clear delay, so the still-active journal timer is explainable. */
+.tc-clear-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 3px;
+    padding: 1px 7px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--tc-text-soft);
+    background: var(--tc-surface);
+    border: 1px dashed var(--tc-border-strong);
+    border-radius: 8px;
+    white-space: nowrap;
+    animation: tcFadeIn 0.3s ease both;
+}
+
+    .tc-clear-badge i {
+        font-size: 0.65rem;
+        color: var(--tc-muted);
+    }
 
 /* Battery indicator */
 .tc-battery-value {
     font-size: 1.15rem;
     font-weight: 700;
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
 
 .tc-battery-good {
-    color: #4caf50;
+    color: var(--tc-ok);
 }
 
 .tc-battery-low {
-    color: #f0ad4e;
+    color: var(--tc-warn);
 }
 
 .tc-battery-critical {
-    color: #d32f2f;
+    color: var(--tc-alarm);
 }
 
 .tc-battery-unknown {
-    color: #a0aec0;
+    color: var(--tc-muted);
 }
 
-/* Chat trigger button — compact icon in the name column */
-.tc-chat-trigger {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 36px;
-    height: 36px;
-    box-sizing: border-box;
-    padding: 0;
-    font-size: 1.05rem;
-    color: #2c5282;
-    background: #ebf4ff;
-    border: 1px solid #bee3f8;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
-}
-
-.tc-chat-trigger:hover,
-.tc-chat-trigger:focus {
-    background: #d6eaff;
-    border-color: #63b3ed;
-    box-shadow: 0 0 0 2px rgba(99, 179, 237, 0.25);
-    outline: none;
-}
-
-/* Row trigger for the chat panel that currently has focus — reuses the
-   same pulse as the active chat tab so both indicators blink together. */
-.tc-chat-trigger.tc-chat-trigger-active {
-    background: linear-gradient(135deg, #2c5282 0%, #3182ce 100%);
-    border-color: #2c5282;
-    color: #fff;
-    animation: tcChatActivePulse 1.2s ease-in-out infinite;
-}
-
-.tc-chat-trigger.tc-chat-trigger-active .tc-chat-trigger-icon,
-.tc-chat-trigger.tc-chat-trigger-active .tc-chat-trigger-text {
-    color: #fff;
-}
-
-/* Commissioned custom toggle (hidden real checkbox + styled span) */
+/* Commissioned toggle — modern switch (hidden real checkbox + styled track) */
 .tc-commissioned-toggle {
     display: inline-flex;
     align-items: center;
@@ -697,65 +923,300 @@ td.tc-col-flooding:hover {
     margin: 0;
 }
 
-.tc-commissioned-toggle .tc-commissioned-cb {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-    pointer-events: none;
-}
+    .tc-commissioned-toggle .tc-commissioned-cb {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+        pointer-events: none;
+    }
 
 .tc-commissioned-visual {
-    width: 36px;
-    height: 36px;
+    position: relative;
+    width: 46px;
+    height: 26px;
     box-sizing: border-box;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 2px solid #2c5282;
-    border-radius: 6px;
-    background: #fff;
-    color: #a0aec0;
-    font-size: 1.15rem;
-    font-weight: 700;
-    transition: border-color 0.15s, background 0.15s, color 0.15s;
-    line-height: 1;
+    display: inline-block;
+    border: 1px solid var(--tc-border-strong);
+    border-radius: 13px;
+    background: var(--tc-muted-soft);
+    transition: background 0.2s, border-color 0.2s;
     user-select: none;
 }
 
-/* Unchecked — gray X */
-.tc-commissioned-visual::before {
-    content: '\2715'; /* ✕ */
-}
+    /* Knob */
+    .tc-commissioned-visual::before {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #fff;
+        transition: transform 0.2s ease;
+    }
 
-/* Checked — green checkmark */
+/* Checked — green track, knob slides right */
 .tc-commissioned-toggle input:checked ~ .tc-commissioned-visual {
-    border-color: #38a169;
-    background: #f0fff4;
-    color: #38a169;
+    border-color: var(--tc-ok);
+    background: var(--tc-ok);
 }
 
-.tc-commissioned-toggle input:checked ~ .tc-commissioned-visual::before {
-    content: '\2713'; /* ✓ */
-}
+    .tc-commissioned-toggle input:checked ~ .tc-commissioned-visual::before {
+        transform: translateX(20px);
+    }
 
 .tc-commissioned-toggle:hover .tc-commissioned-visual {
-    border-color: #3182ce;
-    box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.2);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
-/* Row hover */
-.tc-table tbody tr:hover {
-    background-color: #ebf8ff;
+/* ===================== Sleeping row (тумблер «В работе» выключен) =====================
+   ТК остаётся в таблице, но неактивна: содержимое приглушено, ячейка затопления
+   некликабельна и не подсвечивается, чат и фото недоступны. Колонка с тумблером
+   остаётся полностью активной, чтобы ТК можно было вернуть в работу. */
+
+tr.tc-row-sleeping td:not(.tc-col-status) {
+    opacity: 0.45;
+    filter: grayscale(65%);
 }
 
-/* Striped rows */
-.tc-table tbody tr:nth-child(even) {
-    background-color: #f7fafc;
+tr.tc-row-sleeping td.tc-col-flooding {
+    cursor: default;
 }
 
-.tc-table tbody tr:nth-child(even):hover {
-    background-color: #ebf8ff;
+    tr.tc-row-sleeping td.tc-col-flooding:hover {
+        box-shadow: none;
+    }
+
+tr.tc-row-sleeping .tc-chat-trigger,
+tr.tc-row-sleeping .tc-photo-btn {
+    pointer-events: none;
+    color: var(--tc-muted);
+    background: var(--tc-muted-soft);
+    border-color: var(--tc-border);
+    box-shadow: none;
+    transform: none;
+}
+
+tr.tc-row-sleeping .tc-photo-btn {
+    transform: translateY(-50%); /* keep vertical centering from base rule */
+}
+
+.tc-sleep-label {
+    margin-top: 3px;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--tc-muted);
+    white-space: nowrap;
+}
+
+/* ===================== Commission menu (клик по заголовку «В работе») =====================
+   Мини-меню под заголовком столбца: включить/выключить все ТК или ТК одного района. */
+
+th.tc-col-status {
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s;
+}
+
+    th.tc-col-status:hover {
+        background-color: var(--tc-accent-soft);
+    }
+
+.tc-cm-caret {
+    margin-left: 4px;
+    font-size: 0.7rem;
+    color: var(--tc-text-soft);
+}
+
+.tc-commission-menu {
+    position: fixed;
+    z-index: 2200;
+    min-width: 240px;
+    padding: 8px;
+    background: var(--tc-surface);
+    border: 1px solid var(--tc-border-strong);
+    border-radius: var(--tc-radius-sm);
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.18);
+    font-family: var(--tc-font);
+}
+
+.tc-cm-title {
+    padding: 2px 6px 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--tc-text);
+    white-space: nowrap;
+}
+
+    .tc-cm-title i {
+        margin-right: 5px;
+        color: var(--tc-ok);
+    }
+
+.tc-cm-divider {
+    height: 1px;
+    margin: 6px 2px;
+    background: var(--tc-border);
+}
+
+.tc-cm-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 4px 6px;
+    border-radius: 6px;
+}
+
+    .tc-cm-row:hover {
+        background: var(--tc-surface-soft);
+    }
+
+.tc-cm-label {
+    font-size: 0.82rem;
+    color: var(--tc-text);
+    white-space: nowrap;
+}
+
+.tc-cm-count {
+    margin-left: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--tc-text-soft);
+}
+
+.tc-cm-actions {
+    display: inline-flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.tc-cm-btn {
+    padding: 3px 10px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.tc-cm-on {
+    color: var(--tc-ok-text);
+    background: var(--tc-ok-soft);
+    border: 1px solid var(--tc-ok-border);
+}
+
+    .tc-cm-on:hover {
+        color: #fff;
+        background: var(--tc-ok);
+        border-color: var(--tc-ok);
+    }
+
+.tc-cm-off {
+    color: var(--tc-alarm-text);
+    background: var(--tc-alarm-soft);
+    border: 1px solid var(--tc-alarm-border);
+}
+
+    .tc-cm-off:hover {
+        color: #fff;
+        background: var(--tc-alarm);
+        border-color: var(--tc-alarm);
+    }
+
+/* ===================== Unified close button for popups ===================== */
+
+.tc-menu-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: 1px solid var(--tc-border);
+    border-radius: 50%;
+    color: var(--tc-text-soft);
+    font-size: 16px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    flex-shrink: 0;
+    padding: 0;
+}
+
+    .tc-menu-close:hover {
+        background: var(--tc-muted-soft);
+        border-color: var(--tc-border-strong);
+        color: var(--tc-text);
+    }
+
+    .tc-menu-close:focus {
+        outline: none;
+    }
+
+/* ===================== Photo modal overlay ===================== */
+
+.tc-photo-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    visibility: visible !important; /* clear the anti-FOUC guard attribute; opacity:0 still keeps it hidden when closed */
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+    .tc-photo-overlay.show {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+        .tc-photo-overlay.show .tc-photo-panel {
+            animation: tcScaleIn 0.22s ease both;
+        }
+
+.tc-photo-panel {
+    background: var(--tc-surface);
+    border-radius: var(--tc-radius-lg);
+    box-shadow: var(--tc-shadow-lg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    max-width: 90vw;
+    max-height: 92vh;
+    min-width: 420px;
+    font-family: var(--tc-font);
+}
+
+.tc-photo-body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: #0f172a;
+    flex: 1;
+}
+
+.tc-photo-img-full {
+    max-width: 100%;
+    max-height: 78vh;
+    border-radius: var(--tc-radius-sm);
+    display: block;
+}
+
+.tc-photo-error {
+    color: #fca5a5;
+    font-size: 14px;
+    text-align: center;
 }
 
 /* ===================== Chat panel (centered modal) ===================== */
@@ -769,14 +1230,9 @@ td.tc-col-flooding:hover {
     cursor: nw-resize;
     z-index: 10;
     clip-path: polygon(0 0, 100% 0, 0 100%);
-    background:
-        repeating-linear-gradient(
-            -45deg,
-            rgba(255, 255, 255, 0.8) 0px,
-            rgba(255, 255, 255, 0.8) 2px,
-            transparent 2px,
-            transparent 8px
-        );
+    background: repeating-linear-gradient(-45deg,
+        rgba(100, 116, 139, 0.35) 0px, rgba(100, 116, 139, 0.35) 2px,
+        transparent 2px, transparent 8px);
 }
 
 .tc-chat-panel {
@@ -784,28 +1240,31 @@ td.tc-col-flooding:hover {
     z-index: 2000;
     display: flex;
     flex-direction: column;
-    background: #f7fafc;
-    border: 1px solid #cbd5e0;
-    border-radius: 12px;
-    box-shadow: 0 8px 40px rgba(15, 23, 42, 0.28);
+    background: var(--tc-surface);
+    border: 1px solid var(--tc-border);
+    border-radius: var(--tc-radius-lg);
+    box-shadow: var(--tc-shadow-lg);
     overflow: hidden;
+    font-family: var(--tc-font);
     transition: box-shadow 0.15s;
+    animation: tcScaleIn 0.22s ease both;
 }
 
-/* Active panel — the one currently "focused" by the user */
-.tc-chat-panel.tc-chat-active {
-    border-color: #3182ce;
-    box-shadow: 0 12px 48px rgba(15, 23, 42, 0.35),
-                0 0 0 2px rgba(49, 130, 206, 0.3);
-}
+    /* Active panel — the one currently "focused" by the user */
+    .tc-chat-panel.tc-chat-active {
+        border-color: var(--tc-accent);
+        box-shadow: var(--tc-shadow-lg), 0 0 0 2px rgba(37, 99, 235, 0.25);
+    }
 
 .tc-chat-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 10px 14px;
-    background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
-    color: #fff;
+    background: var(--tc-surface-soft);
+    border-bottom: 1px solid var(--tc-border);
+    color: var(--tc-text);
+    cursor: move;
 }
 
 .tc-chat-header-title {
@@ -814,15 +1273,16 @@ td.tc-col-flooding:hover {
     gap: 8px;
     flex: 1 1 auto;
     min-width: 0;
-    font-size: 1.05rem;
+    font-size: 1rem;
     font-weight: 600;
     overflow: hidden;
     white-space: nowrap;
 }
 
-.tc-chat-header-title i {
-    flex: 0 0 auto;
-}
+    .tc-chat-header-title i {
+        flex: 0 0 auto;
+        color: var(--tc-accent);
+    }
 
 /* Район — компактный пилюль-бейдж слева от имени */
 .tc-chat-title-district {
@@ -832,11 +1292,12 @@ td.tc-col-flooding:hover {
     justify-content: center;
     min-width: 28px;
     padding: 2px 8px;
-    background: rgba(255, 255, 255, 0.18);
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    background: var(--tc-accent-soft);
+    border: 1px solid var(--tc-accent-border);
     border-radius: 12px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 700;
+    color: var(--tc-accent);
 }
 
 .tc-chat-title-name {
@@ -846,19 +1307,17 @@ td.tc-col-flooding:hover {
     text-overflow: ellipsis;
 }
 
-/* Адрес — вторичная строка, чуть мельче и со ссыханием */
+/* Адрес — вторичная строка, чуть мельче */
 .tc-chat-title-address {
     flex: 1 1 auto;
     min-width: 0;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     font-weight: 500;
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--tc-text-soft);
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-/* Header action cluster — mirrors .tc-header-controls so the chat window
-   button bar matches the rest of the plugin chrome. */
 .tc-chat-header-actions {
     display: inline-flex;
     align-items: center;
@@ -866,62 +1325,35 @@ td.tc-col-flooding:hover {
     flex: 0 0 auto;
 }
 
-.tc-chat-close:focus {
-    outline: none;
-}
-
 /* Warning strip inserted right below the header when the owning TK row is
-   hidden by the district/search filter — keeps the chat visible while
-   making it explicit that the user will not see the TK in the table. */
+   hidden by the district/search filter. */
 .tc-chat-notice {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 8px 14px;
-    background: #fffaf0;
-    color: #744210;
-    border-bottom: 1px solid #f6ad55;
+    background: var(--tc-warn-soft);
+    color: var(--tc-warn-text);
+    border-bottom: 1px solid var(--tc-warn-border);
     font-size: 0.88rem;
     font-weight: 500;
 }
 
-.tc-chat-notice i {
-    color: #d69e2e;
-}
-
-/* Slow, breathing pulse — cycles the blue glow ring and brightness so
-   the "selected chat" indicator is impossible to miss without being
-   visually aggressive. Used on both the in-chat tab strip and on the
-   corresponding row trigger in the table. */
-@keyframes tcChatActivePulse {
-    0% {
-        box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.25),
-                    0 0 0 0 rgba(49, 130, 206, 0.55);
-        filter: brightness(1);
+    .tc-chat-notice i {
+        color: var(--tc-warn);
     }
-    50% {
-        box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.55),
-                    0 0 12px 4px rgba(49, 130, 206, 0.45);
-        filter: brightness(1.18);
-    }
-    100% {
-        box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.25),
-                    0 0 0 0 rgba(49, 130, 206, 0.55);
-        filter: brightness(1);
-    }
-}
 
 .tc-chat-messages {
     flex: 1 1 auto;
     overflow-y: auto;
     padding: 14px 16px;
-    background: #f7fafc;
+    background: var(--tc-surface-soft);
 }
 
 .tc-chat-empty,
 .tc-chat-loading {
     text-align: center;
-    color: #718096;
+    color: var(--tc-text-soft);
     font-size: 0.95rem;
     padding: 20px;
 }
@@ -939,16 +1371,16 @@ td.tc-col-flooding:hover {
     flex: 1 1 auto;
     max-width: 100%;
     padding: 8px 12px;
-    border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    background: #fff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    border: 1px solid var(--tc-border);
+    border-radius: var(--tc-radius);
+    background: var(--tc-surface);
+    box-shadow: var(--tc-shadow-sm);
     transition: box-shadow 0.15s, border-color 0.15s;
 }
 
 .tc-chat-msg.tc-chat-selected .tc-chat-bubble {
-    border-color: #3182ce;
-    box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.2);
+    border-color: var(--tc-accent);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }
 
 .tc-chat-meta {
@@ -962,19 +1394,19 @@ td.tc-col-flooding:hover {
 
 .tc-chat-author {
     font-weight: 700;
-    color: #2c5282;
+    color: var(--tc-accent);
 }
 
 .tc-chat-time {
-    color: #718096;
-    font-size: 0.92rem;
+    color: var(--tc-text-soft);
+    font-size: 0.88rem;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
 }
 
 .tc-chat-text {
     font-size: 0.95rem;
-    color: #2d3748;
+    color: var(--tc-text);
     white-space: pre-wrap;
     word-wrap: break-word;
 }
@@ -988,7 +1420,7 @@ td.tc-col-flooding:hover {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: #a0aec0;
+    color: var(--tc-muted);
     background: transparent;
     border: 1px solid transparent;
     border-radius: 50%;
@@ -997,60 +1429,60 @@ td.tc-col-flooding:hover {
     transition: color 0.15s, background 0.15s, border-color 0.15s;
 }
 
-.tc-chat-del:hover {
-    color: #e53e3e;
-    background: #fff5f5;
-    border-color: #fed7d7;
-}
+    .tc-chat-del:hover {
+        color: var(--tc-alarm);
+        background: var(--tc-alarm-soft);
+        border-color: var(--tc-alarm-border);
+    }
 
 /* User bubble — neutral white */
 .tc-chat-user .tc-chat-bubble {
-    background: #fff;
-    border-color: #e2e8f0;
+    background: var(--tc-surface);
+    border-color: var(--tc-border);
 }
 
-/* 200мм flood system bubble — yellow */
+/* 200мм flood system bubble — amber */
 .tc-chat-flood200 .tc-chat-bubble {
-    background: #fefcbf;
-    border-color: #d69e2e;
+    background: var(--tc-warn-soft);
+    border-color: var(--tc-warn-border);
 }
 
 .tc-chat-flood200 .tc-chat-author {
-    color: #744210;
+    color: var(--tc-warn-text);
 }
 
 .tc-chat-flood200 .tc-chat-text {
-    color: #744210;
+    color: var(--tc-warn-text);
     font-weight: 600;
 }
 
 /* 700мм flood system bubble — red */
 .tc-chat-flood700 .tc-chat-bubble {
-    background: #fff5f5;
-    border-color: #e53e3e;
+    background: var(--tc-alarm-soft);
+    border-color: var(--tc-alarm-border);
 }
 
 .tc-chat-flood700 .tc-chat-author {
-    color: #9b2c2c;
+    color: var(--tc-alarm-text);
 }
 
 .tc-chat-flood700 .tc-chat-text {
-    color: #9b2c2c;
+    color: var(--tc-alarm-text);
     font-weight: 700;
 }
 
 /* Acknowledgment system bubble — green */
 .tc-chat-ack .tc-chat-bubble {
-    background: #f0fff4;
-    border-color: #38a169;
+    background: var(--tc-ok-soft);
+    border-color: var(--tc-ok-border);
 }
 
 .tc-chat-ack .tc-chat-author {
-    color: #276749;
+    color: var(--tc-ok-text);
 }
 
 .tc-chat-ack .tc-chat-text {
-    color: #276749;
+    color: var(--tc-ok-text);
     font-weight: 600;
 }
 
@@ -1060,8 +1492,8 @@ td.tc-col-flooding:hover {
     align-items: stretch;
     gap: 10px;
     padding: 10px 14px;
-    background: #edf2f7;
-    border-top: 1px solid #cbd5e0;
+    background: var(--tc-surface-soft);
+    border-top: 1px solid var(--tc-border);
 }
 
 .tc-chat-input {
@@ -1069,19 +1501,20 @@ td.tc-col-flooding:hover {
     min-width: 0;
     padding: 8px 12px;
     font-size: 0.95rem;
-    color: #2d3748;
-    background: #fff;
-    border: 1px solid #cbd5e0;
-    border-radius: 14px;
+    font-family: var(--tc-font);
+    color: var(--tc-text);
+    background: var(--tc-surface);
+    border: 1px solid var(--tc-border);
+    border-radius: var(--tc-radius);
     outline: none;
     resize: none;
     transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.tc-chat-input:focus {
-    border-color: #63b3ed;
-    box-shadow: 0 0 0 2px rgba(99, 179, 237, 0.25);
-}
+    .tc-chat-input:focus {
+        border-color: var(--tc-accent);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
 
 .tc-chat-send {
     flex: 0 0 auto;
@@ -1091,27 +1524,29 @@ td.tc-col-flooding:hover {
     gap: 6px;
     padding: 0 18px;
     color: #fff;
-    background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
-    border: 1px solid #2c5282;
-    border-radius: 14px;
+    background: var(--tc-accent);
+    border: 1px solid var(--tc-accent);
+    border-radius: var(--tc-radius);
     font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
-    transition: filter 0.15s, box-shadow 0.15s;
+    transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
     white-space: nowrap;
 }
 
-.tc-chat-send:hover,
-.tc-chat-send:focus {
-    filter: brightness(1.1);
-    box-shadow: 0 2px 6px rgba(44, 82, 130, 0.35);
-    outline: none;
-}
+    .tc-chat-send:hover,
+    .tc-chat-send:focus {
+        background: var(--tc-accent-hover);
+        box-shadow: var(--tc-shadow-sm);
+        transform: translateY(-1px);
+        outline: none;
+    }
 
-.tc-chat-send:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
+    .tc-chat-send:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
 
 /* ===================== Journal panel ===================== */
 
@@ -1120,18 +1555,22 @@ td.tc-col-flooding:hover {
     z-index: 100;
     display: flex;
     flex-direction: column;
-    background: #f7fafc;
-    border-left: 1px solid #cbd5e0;
+    background: var(--tc-surface);
+    border-left: 1px solid var(--tc-border);
     overflow: hidden;
     font-size: 0.85rem;
-    box-shadow: -2px 0 12px rgba(15, 23, 42, 0.08);
+    font-family: var(--tc-font);
+    /* No own entry animation: the journal is visible on load and is appended to
+       <body>, so a separate slide-in made it appear/move on its own. It now fades
+       in together with the whole plugin via the body.tc-booting → .tc-ready reveal. */
 }
 
 .tc-journal-switcher {
     display: flex;
     align-items: center;
-    padding: 0 12px;
-    background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
+    padding: 0 10px;
+    background: var(--tc-surface-soft);
+    border-bottom: 1px solid var(--tc-border);
     flex-shrink: 0;
     min-height: 38px;
 }
@@ -1146,15 +1585,15 @@ td.tc-col-flooding:hover {
     user-select: none;
 }
 
-.tc-journal-sw-item.tc-sw-active {
-    order: 1;
-    cursor: default;
-    flex: 1;
-}
+    .tc-journal-sw-item.tc-sw-active {
+        order: 1;
+        cursor: default;
+        flex: 1;
+    }
 
-.tc-journal-sw-item:not(.tc-sw-active) {
-    padding-left: 14px;
-}
+    .tc-journal-sw-item:not(.tc-sw-active) {
+        padding-left: 14px;
+    }
 
 .tc-journal-sw-label {
     font-size: 0.82rem;
@@ -1163,16 +1602,23 @@ td.tc-col-flooding:hover {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    color: rgba(255, 255, 255, 0.40);
-    transition: color 0.15s;
+    color: var(--tc-text-soft);
+    opacity: 0.65;
+    transition: color 0.15s, opacity 0.15s;
 }
 
 .tc-journal-sw-item.tc-sw-active .tc-journal-sw-label {
-    color: #fff;
+    color: var(--tc-text);
+    opacity: 1;
 }
 
+    .tc-journal-sw-item.tc-sw-active .tc-journal-sw-label i {
+        color: var(--tc-accent);
+    }
+
 .tc-journal-sw-item:not(.tc-sw-active):hover .tc-journal-sw-label {
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--tc-text);
+    opacity: 0.9;
 }
 
 .tc-journal-sw-item:not(.tc-sw-active) .tc-journal-filter,
@@ -1188,7 +1634,7 @@ td.tc-col-flooding:hover {
     padding: 3px 9px;
     font-size: 0.75rem;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.55);
+    color: var(--tc-text-soft);
     background: transparent;
     border: 1px solid transparent;
     border-radius: 12px;
@@ -1197,22 +1643,22 @@ td.tc-col-flooding:hover {
     transition: color 0.15s, background 0.15s, border-color 0.15s;
 }
 
-.tc-journal-hist-btn:hover {
-    color: rgba(255, 255, 255, 0.9);
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.35);
-}
+    .tc-journal-hist-btn:hover {
+        color: var(--tc-accent);
+        background: var(--tc-accent-soft);
+        border-color: var(--tc-accent-border);
+    }
 
-.tc-journal-hist-btn.tc-hist-active {
-    background: rgba(255, 255, 255, 0.9);
-    color: #1e3a5f;
-    border-color: rgba(255, 255, 255, 0.9);
-}
+    .tc-journal-hist-btn.tc-hist-active {
+        background: var(--tc-accent);
+        color: #fff;
+        border-color: var(--tc-accent);
+    }
 
-.tc-journal-hist-btn.tc-hist-active:hover {
-    background: #fff;
-    color: #1e3a5f;
-}
+        .tc-journal-hist-btn.tc-hist-active:hover {
+            background: var(--tc-accent-hover);
+            color: #fff;
+        }
 
 .tc-journal-view {
     flex: 1;
@@ -1234,30 +1680,31 @@ td.tc-col-flooding:hover {
     padding: 0 10px;
     font-size: 0.78rem;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.9);
-    background: rgba(255, 255, 255, 0.18);
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    color: var(--tc-text-soft);
+    background: var(--tc-surface);
+    border: 1px solid var(--tc-border);
     border-radius: 16px;
     cursor: pointer;
     transition: background 0.15s, color 0.15s, border-color 0.15s;
     white-space: nowrap;
 }
 
-.tc-journal-flt-btn.tc-journal-flt-btn-active {
-    background: rgba(255, 255, 255, 0.9);
-    color: #1e3a5f;
-    border-color: rgba(255, 255, 255, 0.9);
+    .tc-journal-flt-btn:hover {
+        border-color: var(--tc-border-strong);
+        color: var(--tc-text);
+    }
+
+/* Active filters keep their semantic colors: amber for 200мм, red for 700мм */
+#jflt200.tc-journal-flt-btn-active {
+    background: var(--tc-warn-soft);
+    color: var(--tc-warn-text);
+    border-color: var(--tc-warn);
 }
 
-.tc-journal-flt-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
-    color: #fff;
-    border-color: rgba(255, 255, 255, 0.8);
-}
-
-.tc-journal-flt-btn.tc-journal-flt-btn-active:hover {
-    background: #fff;
-    color: #1e3a5f;
+#jflt700.tc-journal-flt-btn-active {
+    background: var(--tc-alarm-soft);
+    color: var(--tc-alarm-text);
+    border-color: var(--tc-alarm);
 }
 
 .tc-journal-sort-btn {
@@ -1268,18 +1715,20 @@ td.tc-col-flooding:hover {
     padding: 0 8px;
     font-size: 0.78rem;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.75);
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: var(--tc-text-soft);
+    background: var(--tc-surface);
+    border: 1px solid var(--tc-border);
     border-radius: 16px;
     cursor: pointer;
     white-space: nowrap;
-    transition: background 0.15s;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.tc-journal-sort-btn:hover {
-    background: rgba(255, 255, 255, 0.22);
-    color: #fff;
-}
+
+    .tc-journal-sort-btn:hover {
+        background: var(--tc-accent-soft);
+        color: var(--tc-accent);
+        border-color: var(--tc-accent-border);
+    }
 
 .tc-journal-events {
     flex: 1;
@@ -1287,33 +1736,39 @@ td.tc-col-flooding:hover {
     padding: 8px;
     display: flex;
     flex-direction: column;
-    gap: 5px;
-    background: #f7fafc;
+    gap: 6px;
+    background: var(--tc-surface-soft);
 }
 
 .tc-journal-empty {
-    color: #a0aec0;
+    color: var(--tc-muted);
     font-size: 0.82rem;
     text-align: center;
     padding: 14px 8px;
     font-style: italic;
 }
 
-/* Active event card — matches flood signal colors */
+/* Active event card — colored left bar + soft background.
+   No entry animation: the list is rebuilt on every poll, an animation
+   here would replay each second. */
 .tc-je {
-    border-radius: 6px;
+    border-radius: var(--tc-radius-sm);
     padding: 7px 10px;
     border: 1px solid;
+    border-left-width: 4px;
+    box-shadow: var(--tc-shadow-sm);
 }
 
 .tc-je-200 {
-    background: #fefcbf;
-    border-color: #d69e2e;
+    background: var(--tc-warn-soft);
+    border-color: var(--tc-warn-border);
+    border-left-color: var(--tc-warn);
 }
 
 .tc-je-700 {
-    background: #fff5f5;
-    border-color: #e53e3e;
+    background: var(--tc-alarm-soft);
+    border-color: var(--tc-alarm-border);
+    border-left-color: var(--tc-alarm);
 }
 
 .tc-je-top {
@@ -1329,12 +1784,17 @@ td.tc-col-flooding:hover {
     flex-shrink: 0;
 }
 
-.tc-je-200 .tc-je-kind { color: #744210; }
-.tc-je-700 .tc-je-kind { color: #9b2c2c; }
+.tc-je-200 .tc-je-kind {
+    color: var(--tc-warn-text);
+}
+
+.tc-je-700 .tc-je-kind {
+    color: var(--tc-alarm-text);
+}
 
 .tc-je-name {
     font-weight: 600;
-    color: #2d3748;
+    color: var(--tc-text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1347,14 +1807,34 @@ td.tc-col-flooding:hover {
     align-items: center;
     justify-content: space-between;
     font-size: 0.85rem;
-    color: #718096;
+    color: var(--tc-text-soft);
 }
 
 .tc-je-elapsed {
     font-variant-numeric: tabular-nums;
     font-weight: 700;
-    color: #2d3748;
+    color: var(--tc-text);
 }
+
+/* "Sensor dry — episode resets in X" line inside an event card */
+.tc-je-clear {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 4px;
+    padding: 3px 6px;
+    background: var(--tc-surface);
+    border: 1px dashed var(--tc-border-strong);
+    border-radius: 6px;
+    font-size: 0.72rem;
+    color: var(--tc-text-soft);
+    font-variant-numeric: tabular-nums;
+}
+
+    .tc-je-clear i {
+        color: var(--tc-muted);
+        flex-shrink: 0;
+    }
 
 /* Acknowledgment banner inside an active event card */
 .tc-je-ack {
@@ -1363,20 +1843,22 @@ td.tc-col-flooding:hover {
     gap: 5px;
     margin-top: 4px;
     padding: 3px 6px;
-    background: #f0fff4;
-    border: 1px solid #68d391;
-    border-radius: 4px;
+    background: var(--tc-ok-soft);
+    border: 1px solid var(--tc-ok-border);
+    border-radius: 6px;
     font-size: 0.72rem;
-    color: #276749;
+    color: var(--tc-ok-text);
     word-break: break-word;
 }
 
-.tc-je-ack i {
-    color: #38a169;
-    flex-shrink: 0;
-}
+    .tc-je-ack i {
+        color: var(--tc-ok);
+        flex-shrink: 0;
+    }
 
-.tc-je-ack span { flex: 1; }
+    .tc-je-ack span {
+        flex: 1;
+    }
 
 /* Ack checkmark badge inside 700mm flooding signal cell */
 .tc-flood-ack-badge {
@@ -1385,14 +1867,14 @@ td.tc-col-flooding:hover {
     gap: 3px;
     font-size: 0.72rem;
     font-weight: 700;
-    color: #276749;
+    color: var(--tc-ok-text);
     margin-top: 3px;
 }
 
-.tc-flood-ack-badge i {
-    color: #38a169;
-    font-size: 0.8rem;
-}
+    .tc-flood-ack-badge i {
+        color: var(--tc-ok);
+        font-size: 0.8rem;
+    }
 
 /* Acknowledgment pending list */
 .tc-journal-ack-list {
@@ -1403,7 +1885,7 @@ td.tc-col-flooding:hover {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    background: #f7fafc;
+    background: var(--tc-surface-soft);
 }
 
 .tc-journal-ack-history {
@@ -1413,18 +1895,20 @@ td.tc-col-flooding:hover {
     display: flex;
     flex-direction: column;
     gap: 5px;
-    background: #f7fafc;
+    background: var(--tc-surface-soft);
     min-height: 0;
 }
 
 .tc-ack-item {
-    background: #fff5f5;
-    border: 1px solid #e53e3e;
-    border-radius: 6px;
+    background: var(--tc-alarm-soft);
+    border: 1px solid var(--tc-alarm-border);
+    border-left: 4px solid var(--tc-alarm);
+    border-radius: var(--tc-radius-sm);
     padding: 8px 10px;
     display: flex;
     flex-direction: column;
     gap: 5px;
+    box-shadow: var(--tc-shadow-sm);
 }
 
 .tc-ack-header {
@@ -1434,16 +1918,16 @@ td.tc-col-flooding:hover {
 }
 
 .tc-ack-kind {
-    font-weight: 400;
-    font-size: 1.0rem;
-    color: #9b2c2c;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--tc-alarm-text);
     flex-shrink: 0;
 }
 
 .tc-ack-name {
-    font-weight: 400;
-    color: #2d3748;
-    font-size: 1.2rem;
+    font-weight: 500;
+    color: var(--tc-text);
+    font-size: 1.1rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1451,15 +1935,15 @@ td.tc-col-flooding:hover {
 }
 
 .tc-ack-info {
-    font-size: 0.9rem;
-    color: #4a5568;
+    font-size: 0.88rem;
+    color: var(--tc-text-soft);
 }
 
 .tc-ack-elapsed {
     font-variant-numeric: tabular-nums;
     font-weight: 700;
-    font-size: 1.0rem;
-    color: #9b2c2c;
+    font-size: 0.95rem;
+    color: var(--tc-alarm-text);
 }
 
 /* Predefined reason pill buttons */
@@ -1468,20 +1952,21 @@ td.tc-col-flooding:hover {
     flex-wrap: wrap;
     gap: 4px;
     padding: 2px;
-    border-radius: 6px;
+    border-radius: var(--tc-radius-sm);
+    transition: outline-color 0.15s;
 }
 
-.tc-ack-reasons.tc-ack-reasons-error {
-    outline: 2px solid #e53e3e;
-}
+    .tc-ack-reasons.tc-ack-reasons-error {
+        outline: 2px solid var(--tc-alarm);
+    }
 
 .tc-ack-reason-btn {
     padding: 3px 9px;
     font-size: 0.78rem;
     font-weight: 600;
-    color: #4a5568;
-    background: #edf2f7;
-    border: 1px solid #cbd5e0;
+    color: var(--tc-text-soft);
+    background: var(--tc-surface);
+    border: 1px solid var(--tc-border);
     border-radius: 12px;
     cursor: pointer;
     transition: background 0.12s, color 0.12s, border-color 0.12s;
@@ -1489,16 +1974,17 @@ td.tc-col-flooding:hover {
     line-height: 1.4;
 }
 
-.tc-ack-reason-btn:hover {
-    background: #e2e8f0;
-    border-color: #a0aec0;
-}
+    .tc-ack-reason-btn:hover {
+        background: var(--tc-accent-soft);
+        color: var(--tc-accent);
+        border-color: var(--tc-accent-border);
+    }
 
-.tc-ack-reason-btn.tc-ack-reason-btn-active {
-    background: #2c5282;
-    color: #fff;
-    border-color: #2c5282;
-}
+    .tc-ack-reason-btn.tc-ack-reason-btn-active {
+        background: var(--tc-accent);
+        color: #fff;
+        border-color: var(--tc-accent);
+    }
 
 .tc-ack-comment-row {
     display: flex;
@@ -1512,21 +1998,22 @@ td.tc-col-flooding:hover {
     min-width: 0;
     padding: 7px 12px;
     font-size: 0.9rem;
-    border-radius: 14px;
-    border: 1px solid #cbd5e0;
-    background: #fff;
-    color: #2d3748;
+    font-family: var(--tc-font);
+    border-radius: var(--tc-radius);
+    border: 1px solid var(--tc-border);
+    background: var(--tc-surface);
+    color: var(--tc-text);
     outline: none;
     transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.tc-ack-comment:focus {
-    border-color: #63b3ed;
-    box-shadow: 0 0 0 2px rgba(99,179,237,0.2);
-}
+    .tc-ack-comment:focus {
+        border-color: var(--tc-accent);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
 
 .tc-ack-comment-error {
-    border-color: #e53e3e !important;
+    border-color: var(--tc-alarm) !important;
 }
 
 .tc-ack-submit {
@@ -1535,31 +2022,43 @@ td.tc-col-flooding:hover {
     font-size: 0.88rem;
     font-weight: 700;
     color: #fff;
-    background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
-    border: 1px solid #2c5282;
-    border-radius: 14px;
+    background: var(--tc-accent);
+    border: 1px solid var(--tc-accent);
+    border-radius: var(--tc-radius);
     cursor: pointer;
     white-space: nowrap;
-    transition: filter 0.15s, box-shadow 0.15s;
+    transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
-.tc-ack-submit:hover {
-    filter: brightness(1.1);
-    box-shadow: 0 2px 6px rgba(44, 82, 130, 0.35);
-}
-.tc-ack-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .tc-ack-submit:hover {
+        background: var(--tc-accent-hover);
+        box-shadow: var(--tc-shadow-sm);
+        transform: translateY(-1px);
+    }
+
+    .tc-ack-submit:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
 
 /* Acknowledgment history */
 .tc-ack-hist-item {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-left: 3px solid #a0aec0;
-    border-radius: 4px;
+    background: var(--tc-surface);
+    border: 1px solid var(--tc-border);
+    border-left: 3px solid var(--tc-border-strong);
+    border-radius: var(--tc-radius-sm);
     padding: 6px 8px;
     display: flex;
     flex-direction: column;
     gap: 2px;
+    transition: box-shadow 0.15s, border-color 0.15s;
 }
+
+    .tc-ack-hist-item:hover {
+        box-shadow: var(--tc-shadow-sm);
+        border-left-color: var(--tc-accent);
+    }
 
 .tc-ack-hist-header {
     display: flex;
@@ -1569,55 +2068,61 @@ td.tc-col-flooding:hover {
 
 .tc-ack-hist-time {
     margin-left: auto;
-    color: #a0aec0;
+    color: var(--tc-muted);
     font-size: 0.72rem;
     font-variant-numeric: tabular-nums;
 }
 
 .tc-ack-hist-flood {
     font-size: 0.72rem;
-    color: #a0aec0;
+    color: var(--tc-muted);
 }
 
 .tc-ack-hist-by {
     font-size: 0.75rem;
-    color: #2c5282;
+    color: var(--tc-accent);
     font-weight: 700;
 }
 
 .tc-ack-hist-comment {
     font-size: 0.8rem;
-    color: #2d3748;
+    color: var(--tc-text);
     white-space: pre-wrap;
     word-break: break-word;
 }
 
-/* Flood cell hover tooltip — monthly flood count */
+/* ===================== Tooltips & badges ===================== */
+
+/* Flood cell hover tooltip / generic [data-tc-hint] tooltip */
 .tc-flood-count-tooltip {
     position: fixed;
-    background: rgba(255, 255, 255, 0.98);
-    color: #2d3748;
-    border: 1px solid #cbd5e0;
+    background: var(--tc-surface-glass);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    color: var(--tc-text);
+    border: 1px solid var(--tc-border);
     padding: 8px 12px;
-    border-radius: 6px;
+    border-radius: var(--tc-radius-sm);
     font-size: 13px;
+    font-family: var(--tc-font);
     pointer-events: none;
     z-index: 10001;
     white-space: pre-line;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--tc-shadow-md);
     line-height: 1.6;
+    animation: tcPopupIn 0.15s ease both;
 }
 
-/* "Сработало за 24ч." — badge in the blue header, left edge of journal column.
-   Transparent so it blends with the neighbouring header stat blocks. */
+/* "Сработало за 24ч." — badge in the header, left edge of journal column. */
 .tc-today-badge {
     position: fixed;
     display: flex;
     align-items: center;
     gap: 6px;
-    color: rgba(255, 255, 255, 0.65);
-    font-size: 1.0rem;
+    color: var(--tc-text-soft);
+    font-size: 0.95rem;
     font-weight: 500;
+    font-family: var(--tc-font);
     pointer-events: auto;
     cursor: help;
     z-index: 9999;
@@ -1625,35 +2130,40 @@ td.tc-col-flooding:hover {
 }
 
 .tc-today-badge-count {
-    font-size: 1.13rem;
+    font-size: 1.1rem;
     font-weight: 700;
-    color: #f6ad55;
+    color: #d97706;
     min-width: 20px;
     text-align: right;
+    font-variant-numeric: tabular-nums;
 }
 
-/* Hover tooltip: scrollable list of TKs flooded in the last 24h (light theme). */
+/* Hover tooltip: scrollable list of TKs flooded in the last 24h */
 .tc-today-tooltip {
     position: fixed;
-    background: rgba(255, 255, 255, 0.98);
-    color: #2d3748;
-    border: 1px solid #cbd5e0;
-    border-radius: 6px;
-    font-size: 17px;
+    background: var(--tc-surface-glass);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    color: var(--tc-text);
+    border: 1px solid var(--tc-border);
+    border-radius: var(--tc-radius-sm);
+    font-size: 15px;
+    font-family: var(--tc-font);
     z-index: 10002;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--tc-shadow-md);
     max-height: 60vh;
     overflow-y: auto;
     min-width: 150px;
     padding: 6px 0;
+    animation: tcPopupIn 0.15s ease both;
 }
 
 .tc-today-tt-title {
     font-weight: 600;
-    color: #1a202c;
+    color: var(--tc-text);
     padding: 2px 12px 6px;
     margin-bottom: 4px;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--tc-border);
 }
 
 .tc-today-tt-item {
@@ -1661,18 +2171,18 @@ td.tc-col-flooding:hover {
     white-space: nowrap;
 }
 
-.tc-today-tt-item:hover {
-    background: #f7fafc;
-}
+    .tc-today-tt-item:hover {
+        background: var(--tc-accent-soft);
+    }
 
 /* TKs that fired in the last 24h but are no longer active in the journal
    (recovered or went offline) — dimmed to show the difference. */
 .tc-today-tt-item-inactive {
-    color: #a0aec0;
+    color: var(--tc-muted);
 }
 
 .tc-today-tt-empty {
     padding: 6px 12px;
-    color: #718096;
+    color: var(--tc-text-soft);
     font-style: italic;
 }
