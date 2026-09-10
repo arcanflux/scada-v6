@@ -3,6 +3,11 @@
 
 var thermalCamera = (function () {
     var UPDATE_INTERVAL = 1000;
+    // Slower poll while the browser tab is hidden — nobody is looking at the
+    // table, so there is no reason to hit the server at 1 Hz.
+    var UPDATE_INTERVAL_HIDDEN = 15000;
+    // Consecutive failed polls before the "no server connection" banner shows.
+    var POLL_FAIL_THRESHOLD = 3;
     var CHAT_PREVIEW_LEN = 60;
     // Events younger than this are hidden from the journal and ack queue to
     // suppress phantom floods triggered by device restarts or brief glitches.
@@ -72,6 +77,14 @@ var thermalCamera = (function () {
     var batterySortAsc = true;           // for table battery sort
     var hasLiveData = false;
     var ackHistory = [];                  // loaded once and updated after each new ack
+    var requestInFlight = false;          // guard against overlapping GetCurData polls
+    var pollFailCount = 0;                // consecutive failed polls
+
+    // itemId -> UTC ms deadline. While a local «В работе» toggle is being saved,
+    // polls may still carry the pre-save state — server updates for this item are
+    // ignored until the deadline so the toggle doesn't flip back for a second.
+    var commissionedPendingByItem = {};
+    var COMMISSIONED_PENDING_MS = 4000;
 
     var floodHoverTooltipEl = null;
 
@@ -79,6 +92,14 @@ var thermalCamera = (function () {
         var itemsEl = document.getElementById("tcItems");
         var userDataEl = document.getElementById("tcUserData");
         if (!itemsEl) return;
+
+        // Boot hidden so the WHOLE plugin appears at once with one smooth fade — not
+        // piece by piece as each part loads. This also covers the journal panel, the
+        // "Сработало за 24ч." badge and other elements that init appends straight to
+        // <body> (outside .tc-container), which otherwise showed before the rest.
+        // Released as .tc-ready right after positionJournal() below. Safe to hide the
+        // whole body: the plugin runs inside its own ScadaWeb view iframe.
+        document.body.classList.add("tc-booting");
 
         items = JSON.parse(itemsEl.textContent) || [];
         userData = userDataEl ? JSON.parse(userDataEl.textContent) || {} : {};
@@ -92,6 +113,7 @@ var thermalCamera = (function () {
         sortItemsByDistrict();
         renderTable();
         updateDistrictCounts();
+        initCommissionMenu();
         bindHeaderSort();
         updateSortIndicator();
         bindFloodSortBtns();
@@ -104,6 +126,13 @@ var thermalCamera = (function () {
         initFloodHoverTooltip();
         initTodayBadge();
         positionJournal();
+        // Unified reveal: everything is built and the absolutely-positioned header
+        // stats/journal/badge are placed, so now show the whole plugin at once. Clear
+        // the container's inline visibility:hidden guard, then swap booting→ready so
+        // the body fades in smoothly (CSS). Nothing appears piecemeal or mis-placed.
+        if (containerEl) containerEl.style.visibility = "visible";
+        document.body.classList.remove("tc-booting");
+        document.body.classList.add("tc-ready");
         initPhotoModal();
         requestData();
         startAutoUpdate();
@@ -196,12 +225,14 @@ var thermalCamera = (function () {
         var total = 0, cntOnline = 0, cntNorm200 = 0, cntFlood200 = 0, cntNorm700 = 0, cntFlood700 = 0;
         for (var i = 0; i < rows.length; i++) {
             if (rows[i].style.display === "none") continue;
-            total++;
             var id = parseInt(rows[i].getAttribute("data-item-id"));
+            // Спящие ТК не участвуют в статистике шапки (всего/связь/затопление).
+            if (isSleeping(id)) continue;
+            total++;
             if (onlineByItem[id]) cntOnline++;
-            if (flood200ByItem[id] === true)  cntFlood200++;
+            if (flood200ByItem[id] === true) cntFlood200++;
             else if (flood200ByItem[id] === false) cntNorm200++;
-            if (flood700ByItem[id] === true)  cntFlood700++;
+            if (flood700ByItem[id] === true) cntFlood700++;
             else if (flood700ByItem[id] === false) cntNorm700++;
         }
         var setText = function (elId, val) {
@@ -210,11 +241,11 @@ var thermalCamera = (function () {
         };
         setText("tcHdrTotal", total);
         if (hasLiveData) {
-            setText("tcHdrOnline",      cntOnline);
-            setText("tcHdrOffline",     total - cntOnline);
-            setText("tcHdrNorm200",     cntNorm200);
+            setText("tcHdrOnline", cntOnline);
+            setText("tcHdrOffline", total - cntOnline);
+            setText("tcHdrNorm200", cntNorm200);
             setText("tcHdrFlood200cnt", cntFlood200);
-            setText("tcHdrNorm700",     cntNorm700);
+            setText("tcHdrNorm700", cntNorm700);
             setText("tcHdrFlood700cnt", cntFlood700);
         }
     }
@@ -228,14 +259,23 @@ var thermalCamera = (function () {
         });
     }
 
+    // ТК «спит», когда тумблер «В работе» выключен: данные не обновляются,
+    // статистика и журнал её не учитывают, чат и история затоплений недоступны.
+    function isSleeping(itemId) {
+        var ud = userData[itemId];
+        return !(ud && ud.isCommissioned);
+    }
+
     function hasFloodColumn(item) {
         return item.flood200CnlNum > 0 || item.flood700CnlNum > 0 ||
-               item.temp200CnlNum  > 0 || item.temp700CnlNum  > 0;
+            item.temp200CnlNum > 0 || item.temp700CnlNum > 0;
     }
 
     function sortByFloodState() {
         var nowMs = Date.now();
         items.sort(function (a, b) {
+            var aS = isSleeping(a.id), bS = isSleeping(b.id);
+            if (aS !== bS) return aS ? 1 : -1;         // sleeping items always last
             var aHas = hasFloodColumn(a), bHas = hasFloodColumn(b);
             if (aHas !== bHas) return aHas ? -1 : 1;   // no-data items always last
             var ta = timersByItem[a.id] || {}, tb = timersByItem[b.id] || {};
@@ -261,6 +301,8 @@ var thermalCamera = (function () {
 
     function sortByTemperature() {
         items.sort(function (a, b) {
+            var aS = isSleeping(a.id), bS = isSleeping(b.id);
+            if (aS !== bS) return aS ? 1 : -1;   // sleeping items always last
             var ta = getMaxTemp(a.id), tb2 = getMaxTemp(b.id);
             // Items without data always go to the end, regardless of direction
             if (ta === null && tb2 === null) return a.id - b.id;
@@ -277,6 +319,8 @@ var thermalCamera = (function () {
         // Descending: longest offline first.
         var nowMs = Date.now();
         items.sort(function (a, b) {
+            var aS = isSleeping(a.id), bS = isSleeping(b.id);
+            if (aS !== bS) return aS ? 1 : -1;   // sleeping items always last
             var ta = timersByItem[a.id];
             var tb = timersByItem[b.id];
             var da = (ta && ta.offlineStartMs > 0) ? (nowMs - ta.offlineStartMs) : (ta && ta.offlineStartMs < 0) ? Number.MAX_SAFE_INTEGER : 0;
@@ -288,6 +332,8 @@ var thermalCamera = (function () {
 
     function sortByBattery() {
         items.sort(function (a, b) {
+            var aS = isSleeping(a.id), bS = isSleeping(b.id);
+            if (aS !== bS) return aS ? 1 : -1;   // sleeping items always last
             var ba = batteryByItem[a.id];
             var bb = batteryByItem[b.id];
             var aHas = ba != null;
@@ -420,8 +466,10 @@ var thermalCamera = (function () {
         for (var i = 0; i < items.length; i++) {
             var item = items[i];
             var ud = userData[item.id] || { comment: "", isCommissioned: false };
+            var sleeping = !ud.isCommissioned;
 
-            html += '<tr data-item-id="' + item.id + '">';
+            html += '<tr data-item-id="' + item.id + '"' +
+                (sleeping ? ' class="tc-row-sleeping"' : '') + '>';
 
             // 1. Commissioned status (В работе) — first column
             html += '<td class="tc-col-status text-center">' +
@@ -429,7 +477,9 @@ var thermalCamera = (function () {
                 '<input type="checkbox" class="tc-commissioned-cb" data-item-id="' + item.id + '"' +
                 (ud.isCommissioned ? ' checked' : '') + '>' +
                 '<span class="tc-commissioned-visual"></span>' +
-                '</label></td>';
+                '</label>' +
+                (sleeping ? '<div class="tc-sleep-label">не в работе</div>' : '') +
+                '</td>';
 
             // 2. District number
             html += '<td class="tc-col-district text-center">' +
@@ -511,6 +561,7 @@ var thermalCamera = (function () {
             chatTriggers[i].addEventListener("click", function (e) {
                 e.stopPropagation();
                 var itemId = parseInt(this.getAttribute("data-item-id"));
+                if (isSleeping(itemId)) return;
                 if (chatPanels[itemId]) {
                     closeChat(itemId);
                 } else {
@@ -523,7 +574,13 @@ var thermalCamera = (function () {
         for (var i = 0; i < checkboxes.length; i++) {
             checkboxes[i].addEventListener("change", function () {
                 var itemId = parseInt(this.getAttribute("data-item-id"));
-                saveCommissioned(itemId, this.checked);
+                var commissioned = this.checked;
+                if (!userData[itemId]) userData[itemId] = { comment: "", isCommissioned: false };
+                userData[itemId].isCommissioned = commissioned;
+                // Пока идёт сохранение, игнорируем состояние из опросов для этой ТК.
+                commissionedPendingByItem[itemId] = Date.now() + COMMISSIONED_PENDING_MS;
+                applySleepState(itemId, !commissioned);
+                saveCommissioned(itemId, commissioned);
             });
         }
 
@@ -539,6 +596,7 @@ var thermalCamera = (function () {
                 var tr = td.closest("tr");
                 if (!tr) return;
                 var itemId = parseInt(tr.getAttribute("data-item-id"));
+                if (isSleeping(itemId)) return;
                 var item = items.find(function (x) { return x.id === itemId; });
                 if (!item) return;
                 if (typeof tcFloodHistory !== "undefined" && tcFloodHistory) {
@@ -566,7 +624,12 @@ var thermalCamera = (function () {
     function resolveHintTarget(targetEl) {
         if (!targetEl || !targetEl.closest) return null;
         var floodCell = targetEl.closest("td.tc-col-flooding");
-        if (floodCell) return { el: floodCell, text: FLOOD_CELL_HINT };
+        if (floodCell) {
+            // Спящая ТК: ячейка некликабельна, подсказку не показываем.
+            var tr = floodCell.closest("tr");
+            if (tr && tr.classList.contains("tc-row-sleeping")) return null;
+            return { el: floodCell, text: FLOOD_CELL_HINT };
+        }
         var hinted = targetEl.closest("[data-tc-hint]");
         if (hinted) return { el: hinted, text: hinted.getAttribute("data-tc-hint") };
         return null;
@@ -622,11 +685,12 @@ var thermalCamera = (function () {
         var list = [];
         for (var i = 0; i < items.length; i++) {
             var item = items[i];
+            if (isSleeping(item.id)) continue;
             var t = timersByItem[item.id];
             if (!t) continue;
             // Use the highest-severity flood start that is currently active (> 0)
             var startMs = t.flood700StartMs > 0 ? t.flood700StartMs :
-                          t.flood200StartMs > 0 ? t.flood200StartMs : 0;
+                t.flood200StartMs > 0 ? t.flood200StartMs : 0;
             // Only count confirmed events (older than FLOOD_CONFIRM_DELAY_MS) within 24h
             if (startMs > 0 && startMs > cutoff && now - startMs >= FLOOD_CONFIRM_DELAY_MS) {
                 list.push({
@@ -648,7 +712,7 @@ var thermalCamera = (function () {
         if (!list.length)
             return '<div class="tc-today-tt-empty">Нет сработавших ТК за 24ч.</div>';
         var html = '<div class="tc-today-tt-title">Сработало за 24ч. (' + list.length + ')</div>' +
-                   '<div class="tc-today-tt-list">';
+            '<div class="tc-today-tt-list">';
         for (var i = 0; i < list.length; i++) {
             var cls = "tc-today-tt-item" + (list[i].active ? "" : " tc-today-tt-item-inactive");
             html += '<div class="' + cls + '">' + escapeHtml(list[i].name) + '</div>';
@@ -706,17 +770,32 @@ var thermalCamera = (function () {
         updateTodayBadge();
     }
 
+    // Toggles the "no server connection" banner and dims the clock.
+    function setConnLost(lost) {
+        var banner = document.getElementById("tcConnBanner");
+        if (banner) banner.hidden = !lost;
+        var timeEl = document.getElementById("spanServerTime");
+        if (timeEl) timeEl.style.opacity = lost ? "0.45" : "";
+    }
+
     function requestData() {
         // Follows the PlgMap / PlgMain pattern: ask the server for current
         // data by viewID — the backend resolves the view's CnlNumList on its
         // own, just like MapApiController.GetCurData / GetCurDataByView.
         // Also piggy-backs chat delta sync on this 1Hz poll via chatCursor.
+        // The tick is skipped while the previous poll is still in flight, so
+        // requests never pile up behind a slow server (same guard as PlgMap).
+        if (requestInFlight) return;
+        requestInFlight = true;
         $.ajax({
             url: "/Api/ThermalCamera/GetCurData?viewID=" + viewID + "&chatCursor=" + chatCursor,
             type: "GET",
             dataType: "json",
             success: function (dto) {
+                pollFailCount = 0;
+                setConnLost(false);
                 if (dto && dto.ok && dto.data) {
+                    applyCommissionedUpdates(dto.data);
                     updateAckedItems(dto.data);
                     updateTableData(dto.data);
                     applyChatUpdates(dto.data);
@@ -725,7 +804,12 @@ var thermalCamera = (function () {
                 }
             },
             error: function () {
+                pollFailCount++;
+                if (pollFailCount >= POLL_FAIL_THRESHOLD) setConnLost(true);
                 console.error("ThermalCamera: failed to get current data");
+            },
+            complete: function () {
+                requestInFlight = false;
             }
         });
     }
@@ -743,13 +827,24 @@ var thermalCamera = (function () {
 
         // Reset per-item states before this polling cycle.
         for (var i = 0; i < items.length; i++) {
-            onlineByItem[items[i].id] = false;
-            flood200ByItem[items[i].id] = null;
-            flood700ByItem[items[i].id] = null;
+            var iid = items[i].id;
+            if (isSleeping(iid)) {
+                // Спящая ТК: состояние неизвестно, а не «нет связи».
+                onlineByItem[iid] = null;
+                flood200ByItem[iid] = null;
+                flood700ByItem[iid] = null;
+                tempByItem[iid] = {};
+                batteryByItem[iid] = null;
+                continue;
+            }
+            onlineByItem[iid] = false;
+            flood200ByItem[iid] = null;
+            flood700ByItem[iid] = null;
         }
 
         for (var i = 0; i < items.length; i++) {
             var item = items[i];
+            if (isSleeping(item.id)) continue;
 
             // Online status
             updateOnlineStatus(item, data);
@@ -786,11 +881,11 @@ var thermalCamera = (function () {
         var pct = d.val;
         batteryByItem[item.id] = pct;
         var icon = pct > 75 ? "fa-battery-full" :
-                   pct > 50 ? "fa-battery-three-quarters" :
-                   pct > 25 ? "fa-battery-half" :
-                   pct > 10 ? "fa-battery-quarter" : "fa-battery-empty";
+            pct > 50 ? "fa-battery-three-quarters" :
+                pct > 25 ? "fa-battery-half" :
+                    pct > 10 ? "fa-battery-quarter" : "fa-battery-empty";
         var cls = pct > 50 ? "tc-battery-good" :
-                  pct > 20 ? "tc-battery-low" : "tc-battery-critical";
+            pct > 20 ? "tc-battery-low" : "tc-battery-critical";
 
         el.className = "tc-battery-value " + cls;
         el.innerHTML = '<i class="fa-solid ' + icon + '"></i> ' + pct.toFixed(0) + '%';
@@ -886,13 +981,24 @@ var thermalCamera = (function () {
         }
     }
 
-    function startAutoUpdate() {
+    function applyPollInterval() {
         if (updateTimer) clearInterval(updateTimer);
-        updateTimer = setInterval(requestData, UPDATE_INTERVAL);
+        updateTimer = setInterval(requestData,
+            document.hidden ? UPDATE_INTERVAL_HIDDEN : UPDATE_INTERVAL);
+    }
+
+    function startAutoUpdate() {
+        applyPollInterval();
 
         // 1-second tick to update all elapsed timer displays without hitting the server
         if (timerTickInterval) clearInterval(timerTickInterval);
         timerTickInterval = setInterval(timerTick, 1000);
+
+        // Slow the poll down while the tab is hidden, refresh immediately on return.
+        document.addEventListener("visibilitychange", function () {
+            applyPollInterval();
+            if (!document.hidden) requestData();
+        });
     }
 
     function formatDuration(ms) {
@@ -921,6 +1027,31 @@ var thermalCamera = (function () {
         return "";
     }
 
+    // Shows/updates the "сброс через X" badge inside a flood signal block while
+    // the sensor is dry but the episode is still within its adaptive clear delay.
+    // Makes the still-running journal timer explainable to the operator.
+    function updateClearBadge(itemId, size, startMs, deadlineMs, floodedNow, nowMs) {
+        var badgeId = "flood" + size + "Clear-" + itemId;
+        var el = document.getElementById(badgeId);
+        var show = startMs !== 0 && floodedNow === false && deadlineMs > nowMs;
+        if (show) {
+            if (!el) {
+                var signalEl = document.getElementById("flood" + size + "-" + itemId);
+                var body = signalEl ? signalEl.querySelector(".tc-signal-body") : null;
+                if (!body) return;
+                el = document.createElement("div");
+                el.id = badgeId;
+                el.className = "tc-clear-badge";
+                el.innerHTML = '<i class="fa-solid fa-hourglass-half"></i><span></span>';
+                body.appendChild(el);
+            }
+            var span = el.querySelector("span");
+            if (span) span.textContent = "сброс через " + formatDuration(deadlineMs - nowMs);
+        } else if (el) {
+            el.remove();
+        }
+    }
+
     function timerTick() {
         var now = Date.now();
         for (var i = 0; i < items.length; i++) {
@@ -943,6 +1074,12 @@ var thermalCamera = (function () {
                 var el700 = document.getElementById("flood700Timer-" + id);
                 if (el700) el700.textContent = timerDisplay(t.flood700StartMs, now);
             }
+
+            // Clear-grace countdown badges (dry sensor, episode not reset yet)
+            updateClearBadge(id, "200", t.flood200StartMs,
+                t.flood200ClearDeadlineMs || 0, flood200ByItem[id], now);
+            updateClearBadge(id, "700", t.flood700StartMs,
+                t.flood700ClearDeadlineMs || 0, flood700ByItem[id], now);
         }
         // Also update journal event elapsed timers
         updateJournalEventTimers();
@@ -952,7 +1089,9 @@ var thermalCamera = (function () {
         if (!result.timers) return;
         for (var idStr in result.timers) {
             if (!result.timers.hasOwnProperty(idStr)) continue;
-            timersByItem[parseInt(idStr)] = result.timers[idStr];
+            var tid = parseInt(idStr);
+            if (isSleeping(tid)) continue;
+            timersByItem[tid] = result.timers[idStr];
         }
         // Update active flood events from timer data
         updateActiveFloodEvents();
@@ -963,6 +1102,10 @@ var thermalCamera = (function () {
     function updateActiveFloodEvents() {
         for (var i = 0; i < items.length; i++) {
             var item = items[i];
+            if (isSleeping(item.id)) {
+                delete activeFloodEvents[item.id];
+                continue;
+            }
             var t = timersByItem[item.id];
             if (!t) continue;
 
@@ -997,6 +1140,7 @@ var thermalCamera = (function () {
         var newPending = {};
         for (var i = 0; i < result.pendingAcks.length; i++) {
             var pa = result.pendingAcks[i];
+            if (isSleeping(pa.itemId)) continue;
             newPending[pa.itemId] = { itemName: pa.itemName, flood700StartMs: pa.flood700StartMs };
         }
         var newKeys = Object.keys(newPending).sort().join(",");
@@ -1018,6 +1162,295 @@ var thermalCamera = (function () {
         }
     }
 
+    // Returns the item's live indicators to the "no data" look: gray online dot,
+    // gray flood signals, no temperatures, no timers or badges.
+    function resetItemVisuals(itemId) {
+        var onlineEl = document.getElementById("online-" + itemId);
+        if (onlineEl) onlineEl.className = "tc-online-indicator tc-status-unknown";
+        var offlineTimer = document.getElementById("offlineTimer-" + itemId);
+        if (offlineTimer) offlineTimer.remove();
+
+        var sizes = ["200", "700"];
+        for (var i = 0; i < sizes.length; i++) {
+            var size = sizes[i];
+            var signalEl = document.getElementById("flood" + size + "-" + itemId);
+            if (signalEl) signalEl.className = "tc-flooding-signal tc-flood-unknown";
+            var tempEl = document.getElementById("flood" + size + "-temp-" + itemId);
+            if (tempEl) tempEl.textContent = "—";
+            var fTimer = document.getElementById("flood" + size + "Timer-" + itemId);
+            if (fTimer) fTimer.remove();
+            var clearBadge = document.getElementById("flood" + size + "Clear-" + itemId);
+            if (clearBadge) clearBadge.remove();
+        }
+        var ackBadge = document.getElementById("flood700AckBadge-" + itemId);
+        if (ackBadge) ackBadge.remove();
+
+        var batteryEl = document.getElementById("battery-" + itemId);
+        if (batteryEl) {
+            batteryEl.className = "tc-battery-value tc-battery-unknown";
+            batteryEl.innerHTML = '<i class="fa-solid fa-battery-half"></i> —';
+        }
+    }
+
+    // Applies the sleep/wake state to a single row without rebuilding the table:
+    // toggles the row class and label, clears live state, closes the item's chat
+    // and recalculates the header stats and journal panels.
+    // skipRefresh=true — пакетный режим (массовое переключение): пересчёт панелей
+    // и запрос данных выполняется один раз после всей пачки, снаружи.
+    function applySleepState(itemId, sleeping, skipRefresh) {
+        var row = document.querySelector("tr[data-item-id='" + itemId + "']");
+        if (row) {
+            row.classList.toggle("tc-row-sleeping", sleeping);
+            var statusCell = row.querySelector("td.tc-col-status");
+            var label = statusCell ? statusCell.querySelector(".tc-sleep-label") : null;
+            if (sleeping && statusCell && !label) {
+                label = document.createElement("div");
+                label.className = "tc-sleep-label";
+                label.textContent = "не в работе";
+                statusCell.appendChild(label);
+            } else if (!sleeping && label) {
+                label.remove();
+            }
+        }
+
+        if (sleeping) {
+            onlineByItem[itemId] = null;
+            flood200ByItem[itemId] = null;
+            flood700ByItem[itemId] = null;
+            tempByItem[itemId] = {};
+            batteryByItem[itemId] = null;
+            delete timersByItem[itemId];
+            delete activeFloodEvents[itemId];
+            delete pendingAckItems[itemId];
+            resetItemVisuals(itemId);
+            if (activeChatId === itemId) closeChat(itemId);
+        } else if (!skipRefresh) {
+            // Проснулась — сразу запрашиваем свежие данные, не дожидаясь тика.
+            requestData();
+        }
+
+        if (skipRefresh) return;
+        refreshSleepDependentPanels();
+    }
+
+    // Пересчёт всего, что зависит от набора активных ТК: статистика шапки,
+    // журналы и значок «Сработало за 24ч.». Вынесен отдельно, чтобы пакетные
+    // операции вызывали его один раз, а не на каждую ТК.
+    function refreshSleepDependentPanels() {
+        updateHeaderCounters();
+        renderJournalEvents();
+        renderJournalAck();
+        updateTodayBadge();
+    }
+
+    // Синхронизация тумблеров «В работе» между всеми пользователями: сервер
+    // присылает актуальное состояние в каждом ответе GetCurData. Если другой
+    // пользователь переключил ТК, локальное состояние, чекбокс и вид строки
+    // обновляются без перезагрузки страницы. Собственные переключения защищены
+    // от отката коротким окном commissionedPendingByItem, пока идёт сохранение.
+    function applyCommissionedUpdates(result) {
+        if (!result.commissioned) return;
+        var now = Date.now();
+        var changed = false;
+        for (var idStr in result.commissioned) {
+            if (!result.commissioned.hasOwnProperty(idStr)) continue;
+            var id = parseInt(idStr);
+            if ((commissionedPendingByItem[id] || 0) > now) continue;
+            delete commissionedPendingByItem[id];
+
+            var serverOn = result.commissioned[idStr] === true;
+            var localOn = !!(userData[id] && userData[id].isCommissioned);
+            if (localOn === serverOn) continue;
+
+            if (!userData[id]) userData[id] = { comment: "", isCommissioned: false };
+            userData[id].isCommissioned = serverOn;
+
+            var cb = document.querySelector('.tc-commissioned-cb[data-item-id="' + id + '"]');
+            if (cb) cb.checked = serverOn;
+
+            applySleepState(id, !serverOn, true);
+            changed = true;
+        }
+        if (changed) {
+            refreshSleepDependentPanels();
+            refreshCommissionMenu();
+        }
+    }
+
+    // -------- Меню массового включения (заголовок столбца «В работе») --------
+
+    var commissionMenuEl = null;
+
+    // Переключает все ТК ("all") или ТК одного района (number) в состояние
+    // commissioned. Локально применяется сразу (тумблеры, вид строк, панели),
+    // на сервер уходит ОДИН запрос SaveCommissionedBulk.
+    function setCommissionedBulk(district, commissioned) {
+        var ids = [];
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            if (district !== "all" && (item.districtNumber || 0) !== district) continue;
+            var cur = !!(userData[item.id] && userData[item.id].isCommissioned);
+            if (cur === commissioned) continue;  // уже в целевом состоянии
+            ids.push(item.id);
+        }
+        if (!ids.length) return;
+
+        var deadline = Date.now() + COMMISSIONED_PENDING_MS;
+        for (var j = 0; j < ids.length; j++) {
+            var id = ids[j];
+            if (!userData[id]) userData[id] = { comment: "", isCommissioned: false };
+            userData[id].isCommissioned = commissioned;
+            commissionedPendingByItem[id] = deadline;
+            var cb = document.querySelector('.tc-commissioned-cb[data-item-id="' + id + '"]');
+            if (cb) cb.checked = commissioned;
+            applySleepState(id, !commissioned, true);
+        }
+
+        refreshSleepDependentPanels();
+        if (commissioned) requestData();
+        refreshCommissionMenu();
+
+        $.ajax({
+            url: "/Api/ThermalCamera/SaveCommissionedBulk",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ itemIds: ids, isCommissioned: commissioned }),
+            dataType: "json",
+            success: function (dto) {
+                if (!dto || !dto.ok) {
+                    console.error("ThermalCamera: bulk save status failed");
+                    clearCommissionedPending(ids);
+                }
+            },
+            error: function () {
+                console.error("ThermalCamera: bulk save status request failed");
+                clearCommissionedPending(ids);
+            }
+        });
+    }
+
+    // Сохранение не прошло — снимаем защитные окна, ближайший опрос вернёт
+    // тумблеры в фактическое серверное состояние.
+    function clearCommissionedPending(ids) {
+        for (var i = 0; i < ids.length; i++) {
+            delete commissionedPendingByItem[ids[i]];
+        }
+    }
+
+    function buildCommissionMenuHtml() {
+        // Счётчики по районам: сколько всего и сколько включено.
+        var groups = {};
+        var totalAll = 0, onAll = 0;
+        for (var i = 0; i < items.length; i++) {
+            var d = items[i].districtNumber || 0;
+            if (!groups[d]) groups[d] = { total: 0, on: 0 };
+            groups[d].total++;
+            totalAll++;
+            if (userData[items[i].id] && userData[items[i].id].isCommissioned) {
+                groups[d].on++;
+                onAll++;
+            }
+        }
+
+        function rowHtml(key, label, on, total) {
+            return '<div class="tc-cm-row">' +
+                '<span class="tc-cm-label">' + escapeHtml(label) +
+                ' <span class="tc-cm-count">' + on + '/' + total + '</span></span>' +
+                '<span class="tc-cm-actions">' +
+                '<button type="button" class="tc-cm-btn tc-cm-on" data-target="' + key + '">Вкл</button>' +
+                '<button type="button" class="tc-cm-btn tc-cm-off" data-target="' + key + '">Выкл</button>' +
+                '</span></div>';
+        }
+
+        var html = '<div class="tc-cm-title"><i class="fa-solid fa-circle-check"></i> В работе — управление</div>';
+        html += rowHtml("all", "Все ТК", onAll, totalAll);
+        html += '<div class="tc-cm-divider"></div>';
+
+        var keys = [];
+        for (var k in groups) {
+            if (groups.hasOwnProperty(k)) keys.push(parseInt(k));
+        }
+        keys.sort(function (a, b) { return a - b; });
+        for (var n = 0; n < keys.length; n++) {
+            var dk = keys[n];
+            var label = dk > 0 ? "Район " + dk : "Без района";
+            html += rowHtml(dk, label, groups[dk].on, groups[dk].total);
+        }
+        return html;
+    }
+
+    // Обновляет счётчики в уже открытом меню (после действий или чужих переключений).
+    function refreshCommissionMenu() {
+        if (commissionMenuEl && commissionMenuEl.style.display !== "none") {
+            commissionMenuEl.innerHTML = buildCommissionMenuHtml();
+        }
+    }
+
+    function openCommissionMenu(th) {
+        commissionMenuEl.innerHTML = buildCommissionMenuHtml();
+        commissionMenuEl.style.display = "block";
+        var r = th.getBoundingClientRect();
+        var left = Math.max(4, r.left);
+        var menuW = commissionMenuEl.offsetWidth || 240;
+        if (left + menuW > window.innerWidth - 8) {
+            left = Math.max(4, window.innerWidth - menuW - 8);
+        }
+        commissionMenuEl.style.left = left + "px";
+        commissionMenuEl.style.top = (r.bottom + 2) + "px";
+    }
+
+    function closeCommissionMenu() {
+        if (commissionMenuEl) commissionMenuEl.style.display = "none";
+    }
+
+    function initCommissionMenu() {
+        var th = document.querySelector("th.tc-col-status");
+        if (!th) return;
+
+        // Стрелка-индикатор кликабельности заголовка.
+        var caret = document.createElement("i");
+        caret.className = "fa-solid fa-caret-down tc-cm-caret";
+        th.appendChild(caret);
+
+        commissionMenuEl = document.createElement("div");
+        commissionMenuEl.id = "tcCommissionMenu";
+        commissionMenuEl.className = "tc-commission-menu";
+        commissionMenuEl.style.display = "none";
+        document.body.appendChild(commissionMenuEl);
+
+        commissionMenuEl.addEventListener("click", function (e) {
+            var btn = e.target.closest(".tc-cm-btn");
+            if (!btn) return;
+            e.stopPropagation();
+            var t = btn.getAttribute("data-target");
+            setCommissionedBulk(t === "all" ? "all" : parseInt(t), btn.classList.contains("tc-cm-on"));
+        });
+
+        th.addEventListener("click", function (e) {
+            e.stopPropagation();
+            if (commissionMenuEl.style.display === "none") {
+                openCommissionMenu(th);
+            } else {
+                closeCommissionMenu();
+            }
+        });
+
+        document.addEventListener("click", function (e) {
+            if (commissionMenuEl.style.display === "none") return;
+            if (e.target.closest("#tcCommissionMenu") || e.target.closest("th.tc-col-status")) return;
+            closeCommissionMenu();
+        });
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape") closeCommissionMenu();
+        });
+
+        // Позиция фиксированная — при прокрутке/ресайзе проще закрыть меню,
+        // чем таскать его за заголовком.
+        var wrapper = document.querySelector(".tc-table-wrapper");
+        if (wrapper) wrapper.addEventListener("scroll", closeCommissionMenu);
+        window.addEventListener("resize", closeCommissionMenu);
+    }
+
     function saveCommissioned(itemId, isCommissioned) {
         $.ajax({
             url: "/Api/ThermalCamera/SaveCommissioned",
@@ -1026,7 +1459,16 @@ var thermalCamera = (function () {
             data: JSON.stringify({ itemId: itemId, isCommissioned: isCommissioned }),
             dataType: "json",
             success: function (dto) {
-                if (!dto || !dto.ok) console.error("ThermalCamera: save status failed");
+                if (!dto || !dto.ok) {
+                    console.error("ThermalCamera: save status failed");
+                    // Сохранение не прошло — снимаем защитное окно, чтобы ближайший
+                    // опрос вернул тумблер в фактическое серверное состояние.
+                    delete commissionedPendingByItem[itemId];
+                }
+            },
+            error: function () {
+                console.error("ThermalCamera: save status request failed");
+                delete commissionedPendingByItem[itemId];
             }
         });
     }
@@ -1077,44 +1519,44 @@ var thermalCamera = (function () {
         panel.className = "tc-journal-panel";
         panel.innerHTML =
             '<div class="tc-journal-switcher">' +
-                '<div class="tc-journal-sw-item tc-sw-active" id="jswEvents">' +
-                    '<span class="tc-journal-sw-label"><i class="fa-solid fa-bell"></i> Активные события</span>' +
-                    '<div class="tc-journal-filter">' +
-                        '<button id="jflt200" class="tc-journal-flt-btn tc-journal-flt-btn-active" data-kind="200">' +
-                            '<i class="fa-solid fa-water"></i> 200мм' +
-                        '</button>' +
-                        '<button id="jflt700" class="tc-journal-flt-btn tc-journal-flt-btn-active" data-kind="700">' +
-                            '<i class="fa-solid fa-water"></i> 700мм' +
-                        '</button>' +
-                        '<button id="jbtnEventsSort" class="tc-journal-sort-btn" title="Сортировка по времени">' +
-                            '<i class="fa-solid fa-clock"></i>' +
-                            '<span class="tc-sort-indicator"></span>' +
-                        '</button>' +
-                    '</div>' +
-                '</div>' +
-                '<div class="tc-journal-sw-item" id="jswAck">' +
-                    '<span class="tc-journal-sw-label"><i class="fa-solid fa-clipboard-check"></i> Квитирование</span>' +
-                    '<button id="jbtnAckSort" class="tc-journal-sort-btn" title="Сортировка по времени">' +
-                        '<i class="fa-solid fa-clock"></i>' +
-                        '<span class="tc-sort-indicator"></span>' +
-                    '</button>' +
-                    '<button id="jbtnHistSort" class="tc-journal-sort-btn" title="Сортировка по времени" style="display:none;">' +
-                        '<i class="fa-solid fa-clock"></i>' +
-                        '<span class="tc-sort-indicator"></span>' +
-                    '</button>' +
-                    '<button id="jbtnHistory" class="tc-journal-hist-btn">' +
-                        '<i class="fa-solid fa-clock-rotate-left"></i> История' +
-                    '</button>' +
-                '</div>' +
+            '<div class="tc-journal-sw-item tc-sw-active" id="jswEvents">' +
+            '<span class="tc-journal-sw-label"><i class="fa-solid fa-bell"></i> Активные события</span>' +
+            '<div class="tc-journal-filter">' +
+            '<button id="jflt200" class="tc-journal-flt-btn tc-journal-flt-btn-active" data-kind="200">' +
+            '<i class="fa-solid fa-water"></i> 200мм' +
+            '</button>' +
+            '<button id="jflt700" class="tc-journal-flt-btn tc-journal-flt-btn-active" data-kind="700">' +
+            '<i class="fa-solid fa-water"></i> 700мм' +
+            '</button>' +
+            '<button id="jbtnEventsSort" class="tc-journal-sort-btn" title="Сортировка по времени">' +
+            '<i class="fa-solid fa-clock"></i>' +
+            '<span class="tc-sort-indicator"></span>' +
+            '</button>' +
+            '</div>' +
+            '</div>' +
+            '<div class="tc-journal-sw-item" id="jswAck">' +
+            '<span class="tc-journal-sw-label"><i class="fa-solid fa-clipboard-check"></i> Квитирование</span>' +
+            '<button id="jbtnAckSort" class="tc-journal-sort-btn" title="Сортировка по времени">' +
+            '<i class="fa-solid fa-clock"></i>' +
+            '<span class="tc-sort-indicator"></span>' +
+            '</button>' +
+            '<button id="jbtnHistSort" class="tc-journal-sort-btn" title="Сортировка по времени" style="display:none;">' +
+            '<i class="fa-solid fa-clock"></i>' +
+            '<span class="tc-sort-indicator"></span>' +
+            '</button>' +
+            '<button id="jbtnHistory" class="tc-journal-hist-btn">' +
+            '<i class="fa-solid fa-clock-rotate-left"></i> История' +
+            '</button>' +
+            '</div>' +
             '</div>' +
             '<div id="tcJournalEventsWrap" class="tc-journal-view">' +
-                '<div id="tcJournalEvents" class="tc-journal-events"></div>' +
+            '<div id="tcJournalEvents" class="tc-journal-events"></div>' +
             '</div>' +
             '<div id="tcJournalAckWrap" class="tc-journal-view" style="display:none;">' +
-                '<div id="tcJournalAck" class="tc-journal-ack-list"></div>' +
+            '<div id="tcJournalAck" class="tc-journal-ack-list"></div>' +
             '</div>' +
             '<div id="tcJournalHistoryWrap" class="tc-journal-view" style="display:none;">' +
-                '<div id="tcJournalAckHistory" class="tc-journal-ack-history"></div>' +
+            '<div id="tcJournalAckHistory" class="tc-journal-ack-history"></div>' +
             '</div>';
 
         document.body.appendChild(panel);
@@ -1175,16 +1617,16 @@ var thermalCamera = (function () {
     function switchJournalView(view) {
         journalView = view;
         var wraps = {
-            events:  document.getElementById("tcJournalEventsWrap"),
-            ack:     document.getElementById("tcJournalAckWrap"),
+            events: document.getElementById("tcJournalEventsWrap"),
+            ack: document.getElementById("tcJournalAckWrap"),
             history: document.getElementById("tcJournalHistoryWrap")
         };
         for (var key in wraps) {
             if (wraps[key]) wraps[key].style.display = (key === view) ? "" : "none";
         }
-        var evItem  = document.getElementById("jswEvents");
+        var evItem = document.getElementById("jswEvents");
         var ackItem = document.getElementById("jswAck");
-        if (evItem)  evItem.classList.toggle("tc-sw-active",  view === "events");
+        if (evItem) evItem.classList.toggle("tc-sw-active", view === "events");
         if (ackItem) ackItem.classList.toggle("tc-sw-active", view === "ack" || view === "history");
         var histBtn = document.getElementById("jbtnHistory");
         if (histBtn) histBtn.classList.toggle("tc-hist-active", view === "history");
@@ -1202,19 +1644,19 @@ var thermalCamera = (function () {
 
         // Journal panel — anchor to the right inner edge of the table wrapper so
         // horizontal table scroll and varying viewport widths never shift the panel.
-        var thJournal  = document.querySelector("th.tc-col-journal");
-        var wrapperEl  = document.querySelector(".tc-table-wrapper");
+        var thJournal = document.querySelector("th.tc-col-journal");
+        var wrapperEl = document.querySelector(".tc-table-wrapper");
         if (thJournal && wrapperEl) {
-            var jRect      = thJournal.getBoundingClientRect();
-            var wRect      = wrapperEl.getBoundingClientRect();
+            var jRect = thJournal.getBoundingClientRect();
+            var wRect = wrapperEl.getBoundingClientRect();
             // Inner right edge of wrapper (excludes vertical scrollbar width)
             var wInnerRight = wRect.left + wrapperEl.clientWidth;
-            var panelWidth  = Math.max(200, Math.round(jRect.right - jRect.left));
+            var panelWidth = Math.max(200, Math.round(jRect.right - jRect.left));
             var panel = document.getElementById("tcJournal");
             if (panel) {
-                panel.style.left   = (wInnerRight - panelWidth) + "px";
-                panel.style.top    = jRect.bottom + "px";
-                panel.style.width  = panelWidth + "px";
+                panel.style.left = (wInnerRight - panelWidth) + "px";
+                panel.style.top = jRect.bottom + "px";
+                panel.style.width = panelWidth + "px";
                 panel.style.height = Math.max(200, window.innerHeight - jRect.bottom) + "px";
             }
             // Server time centered over journal column
@@ -1226,7 +1668,7 @@ var thermalCamera = (function () {
             // anchored to the left edge of the journal column.
             if (todayBadgeEl) {
                 todayBadgeEl.style.left = (wInnerRight - panelWidth + 2) + "px";
-                todayBadgeEl.style.top  = (headerRect.top + headerRect.height / 2) + "px";
+                todayBadgeEl.style.top = (headerRect.top + headerRect.height / 2) + "px";
                 todayBadgeEl.style.transform = "translateY(-50%)";
                 if (todayTooltipEl && todayTooltipEl.style.display === "block")
                     positionTodayTooltip();
@@ -1239,7 +1681,7 @@ var thermalCamera = (function () {
         if (thAddr && searchWrap) {
             var aRect = thAddr.getBoundingClientRect();
             var wRect = searchWrap.getBoundingClientRect();
-            var w = aRect.right - wRect.left - 8;
+            var w = Math.min(aRect.right - wRect.left - 8, 200);
             if (w > 80) searchWrap.style.width = w + "px";
         }
 
@@ -1301,6 +1743,22 @@ var thermalCamera = (function () {
             var kindLabel = ev2.kind === "flood700" ? "700мм" : "200мм";
             var cls = "tc-je " + (ev2.kind === "flood700" ? "tc-je-700" : "tc-je-200");
 
+            // "Sensor dry — episode resets in X" line while within the clear grace
+            var clearHtml = "";
+            var jt = timersByItem[parseInt(idStr2)] || {};
+            var clearDeadline = ev2.kind === "flood700"
+                ? (jt.flood700ClearDeadlineMs || 0)
+                : (jt.flood200ClearDeadlineMs || 0);
+            var floodedNow = ev2.kind === "flood700"
+                ? flood700ByItem[parseInt(idStr2)]
+                : flood200ByItem[parseInt(idStr2)];
+            if (floodedNow === false && clearDeadline > now) {
+                clearHtml = '<div class="tc-je-clear">' +
+                    '<i class="fa-solid fa-hourglass-half"></i>' +
+                    '<span>Датчик сухой · сброс через ' +
+                    formatDuration(clearDeadline - now) + '</span></div>';
+            }
+
             var ackHtml = "";
             if (ev2.kind === "flood700") {
                 var ack = ackedByItem[parseInt(idStr2)];
@@ -1312,21 +1770,22 @@ var thermalCamera = (function () {
                     ackHtml = '<div class="tc-je-ack">' +
                         '<i class="fa-solid fa-circle-check"></i>' +
                         '<span>' + responseStr + byStr + cmtStr + '</span>' +
-                    '</div>';
+                        '</div>';
                 }
             }
 
             html += '<div class="' + cls + '">' +
                 '<div class="tc-je-top">' +
-                    '<span class="tc-je-kind">' + kindLabel + '</span>' +
-                    '<span class="tc-je-name">' + escapeHtml(ev2.name) + '</span>' +
+                '<span class="tc-je-kind">' + kindLabel + '</span>' +
+                '<span class="tc-je-name">' + escapeHtml(ev2.name) + '</span>' +
                 '</div>' +
                 '<div class="tc-je-bottom">' +
-                    '<span class="tc-je-since">с ' + timeStr + '</span>' +
-                    '<span class="tc-je-elapsed" id="jev-elapsed-' + idStr2 + '">' + elapsed + '</span>' +
+                '<span class="tc-je-since">с ' + timeStr + '</span>' +
+                '<span class="tc-je-elapsed" id="jev-elapsed-' + idStr2 + '">' + elapsed + '</span>' +
                 '</div>' +
+                clearHtml +
                 ackHtml +
-            '</div>';
+                '</div>';
         }
 
         if (!list.length) {
@@ -1418,21 +1877,21 @@ var thermalCamera = (function () {
 
             html += '<div class="tc-ack-item" data-item-id="' + idStr + '">' +
                 '<div class="tc-ack-header">' +
-                    '<span class="tc-ack-kind">700мм</span>' +
-                    '<span class="tc-ack-name">' + escapeHtml(pa.itemName) + '</span>' +
+                '<span class="tc-ack-kind">700мм</span>' +
+                '<span class="tc-ack-name">' + escapeHtml(pa.itemName) + '</span>' +
                 '</div>' +
                 '<div class="tc-ack-info">' +
-                    'Затопление с ' + timeStr +
-                    ' <span class="tc-ack-elapsed" data-start="' + pa.flood700StartMs + '">' + elapsed + '</span>' +
+                'Затопление с ' + timeStr +
+                ' <span class="tc-ack-elapsed" data-start="' + pa.flood700StartMs + '">' + elapsed + '</span>' +
                 '</div>' +
                 reasonBtnsHtml +
                 '<div class="tc-ack-comment-row">' +
-                    '<input type="text" class="tc-ack-comment" placeholder="Дополнительный комментарий..." />' +
-                    '<button class="tc-ack-submit" data-item-id="' + idStr + '" ' +
-                        'data-item-name="' + escapeAttr(pa.itemName) + '" ' +
-                        'data-flood-start="' + pa.flood700StartMs + '">Квитировать</button>' +
+                '<input type="text" class="tc-ack-comment" placeholder="Дополнительный комментарий..." />' +
+                '<button class="tc-ack-submit" data-item-id="' + idStr + '" ' +
+                'data-item-name="' + escapeAttr(pa.itemName) + '" ' +
+                'data-flood-start="' + pa.flood700StartMs + '">Квитировать</button>' +
                 '</div>' +
-            '</div>';
+                '</div>';
         }
 
         if (!ackList.length) {
@@ -1569,14 +2028,14 @@ var thermalCamera = (function () {
             var floodTime = rec.floodStartMs > 0 ? formatChatTime(rec.floodStartMs) : "—";
             html += '<div class="tc-ack-hist-item">' +
                 '<div class="tc-ack-hist-header">' +
-                    '<span class="tc-ack-kind">700мм</span>' +
-                    '<span class="tc-ack-name">' + escapeHtml(rec.itemName || "") + '</span>' +
-                    '<span class="tc-ack-hist-time">' + ackTime + '</span>' +
+                '<span class="tc-ack-kind">700мм</span>' +
+                '<span class="tc-ack-name">' + escapeHtml(rec.itemName || "") + '</span>' +
+                '<span class="tc-ack-hist-time">' + ackTime + '</span>' +
                 '</div>' +
                 '<div class="tc-ack-hist-flood">Затопление с ' + floodTime + '</div>' +
                 '<div class="tc-ack-hist-by">' + escapeHtml(rec.ackedBy || "") + ':</div>' +
                 '<div class="tc-ack-hist-comment">' + escapeHtml(rec.comment || "") + '</div>' +
-            '</div>';
+                '</div>';
         }
         box.innerHTML = html;
     }
@@ -1651,33 +2110,34 @@ var thermalCamera = (function () {
         var name = escapeHtml(item.name || "Объект ТК");
         var address = escapeHtml(item.descr || "");
         var titleParts = '<span class="tc-chat-title-district">' + district + '</span>' +
-                         '<span class="tc-chat-title-name">' + name + '</span>';
+            '<span class="tc-chat-title-name">' + name + '</span>';
         if (address) {
             titleParts += '<span class="tc-chat-title-address">' + address + '</span>';
         }
         return '' +
             '<div class="tc-chat-resize-grip"></div>' +
             '<div class="tc-chat-header">' +
-                '<div class="tc-chat-header-title">' +
-                    '<i class="fa-solid fa-comments"></i> ' + titleParts +
-                '</div>' +
-                '<div class="tc-chat-header-actions">' +
-                    '<button type="button" class="tc-menu-close tc-chat-close" aria-label="Закрыть">' +
-                        '<i class="fa-solid fa-xmark"></i>' +
-                    '</button>' +
-                '</div>' +
+            '<div class="tc-chat-header-title">' +
+            '<i class="fa-solid fa-comments"></i> ' + titleParts +
+            '</div>' +
+            '<div class="tc-chat-header-actions">' +
+            '<button type="button" class="tc-menu-close tc-chat-close" aria-label="Закрыть">' +
+            '<i class="fa-solid fa-xmark"></i>' +
+            '</button>' +
+            '</div>' +
             '</div>' +
             '<div class="tc-chat-messages"></div>' +
             '<div class="tc-chat-input-row">' +
-                '<textarea class="tc-chat-input" rows="2" ' +
-                    'placeholder="Введите сообщение..." maxlength="2000"></textarea>' +
-                '<button type="button" class="tc-chat-send">' +
-                    '<span>Отправить</span>' +
-                '</button>' +
+            '<textarea class="tc-chat-input" rows="2" ' +
+            'placeholder="Введите сообщение..." maxlength="2000"></textarea>' +
+            '<button type="button" class="tc-chat-send">' +
+            '<span>Отправить</span>' +
+            '</button>' +
             '</div>';
     }
 
     function openChat(itemId) {
+        if (isSleeping(itemId)) return;
         if (chatPanels[itemId]) return;
         // Single-chat mode: close any existing panel first.
         if (activeChatId !== null && chatPanels[activeChatId]) {
@@ -1916,18 +2376,18 @@ var thermalCamera = (function () {
             var isSystem = m.kind && m.kind !== "user";
             var kindClass = isSystem
                 ? (m.kind === "flood700" ? "tc-chat-flood700" :
-                   m.kind === "ack"     ? "tc-chat-ack"     : "tc-chat-flood200")
+                    m.kind === "ack" ? "tc-chat-ack" : "tc-chat-flood200")
                 : "tc-chat-user";
             var timeStr = formatChatTime(m.timestampMs);
             html += '<div class="tc-chat-msg ' + kindClass +
                 (selectedId === m.id ? " tc-chat-selected" : "") +
                 '" data-msg-id="' + m.id + '" data-kind="' + (m.kind || "user") + '">' +
                 '<div class="tc-chat-bubble">' +
-                    '<div class="tc-chat-meta">' +
-                        '<span class="tc-chat-author">' + escapeHtml(m.author || "") + '</span>' +
-                        '<span class="tc-chat-time">' + timeStr + '</span>' +
-                    '</div>' +
-                    '<div class="tc-chat-text">' + escapeHtml(m.text || "") + '</div>' +
+                '<div class="tc-chat-meta">' +
+                '<span class="tc-chat-author">' + escapeHtml(m.author || "") + '</span>' +
+                '<span class="tc-chat-time">' + timeStr + '</span>' +
+                '</div>' +
+                '<div class="tc-chat-text">' + escapeHtml(m.text || "") + '</div>' +
                 '</div>' +
                 (isSystem || !isAdmin ? "" :
                     '<button type="button" class="tc-chat-del" data-msg-id="' + m.id +
@@ -2075,10 +2535,10 @@ var thermalCamera = (function () {
     }
 
     function showPhoto(photoPath, name) {
-        var overlay  = document.getElementById("tcPhotoModal");
-        var img      = document.getElementById("imgPhoto");
+        var overlay = document.getElementById("tcPhotoModal");
+        var img = document.getElementById("imgPhoto");
         var errorDiv = document.getElementById("divPhotoError");
-        var titleEl  = document.getElementById("tcPhotoTitle");
+        var titleEl = document.getElementById("tcPhotoTitle");
         if (!overlay) return;
 
         var url = "/Api/ThermalCamera/GetPhoto?path=" + encodeURIComponent(photoPath);
