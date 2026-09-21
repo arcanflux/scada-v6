@@ -135,6 +135,7 @@ var thermalCamera = (function () {
         document.body.classList.remove("tc-booting");
         document.body.classList.add("tc-ready");
         initPhotoModal();
+        initSchemeModal();
         requestData();
         startAutoUpdate();
         bindChatKeyboard();

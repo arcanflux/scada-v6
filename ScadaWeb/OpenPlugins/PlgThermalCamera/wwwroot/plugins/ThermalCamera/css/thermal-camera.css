@@ -1261,6 +1261,10 @@ th.tc-col-status {
     font-family: var(--tc-font);
 }
 
+.tc-scheme-panel {
+    width: min(1100px, 90vw);
+}
+
 .tc-photo-body {
     display: flex;
     align-items: center;
