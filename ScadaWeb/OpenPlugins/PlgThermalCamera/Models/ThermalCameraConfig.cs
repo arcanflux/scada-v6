@@ -75,6 +75,11 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
         public string SchemeUrl { get; set; } = "";
 
         /// <summary>
+        /// Gets or sets the URL of the live Rapid SCADA view resolved from <see cref="SchemeUrl"/>.
+        /// </summary>
+        public string SchemeViewUrl { get; set; } = "";
+
+        /// <summary>
         /// Gets or sets the channel number for online status.
         /// </summary>
         public int OnlineCnlNum { get; set; }

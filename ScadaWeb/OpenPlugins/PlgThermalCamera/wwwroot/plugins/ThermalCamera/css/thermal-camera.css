@@ -665,6 +665,7 @@ body.tc-ready {
     width: 15px;
     color: var(--tc-accent);
     text-align: center;
+    transform: translateX(-2px);
 }
 
 .tc-scheme-trigger:hover,
@@ -1315,6 +1316,60 @@ th.tc-col-status {
     font-family: var(--tc-font);
     transition: box-shadow 0.15s;
     animation: tcScaleIn 0.22s ease both;
+}
+
+/* Scheme uses the same movable mini-window as chat, but starts substantially wider. */
+.tc-scheme-panel {
+    min-width: 520px;
+    min-height: 320px;
+}
+
+.tc-scheme-content {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: auto;
+    background: var(--tc-surface-soft);
+}
+
+.tc-scheme-frame {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #fff;
+}
+
+.tc-scheme-panel.tc-panel-interacting .tc-scheme-frame {
+    pointer-events: none;
+}
+
+.tc-scheme-image {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.tc-scheme-error {
+    max-width: 520px;
+    padding: 24px;
+    color: var(--tc-alarm);
+    font-size: 0.95rem;
+    text-align: center;
+}
+
+.tc-scheme-trigger.tc-scheme-trigger-active {
+    color: #fff;
+    background: var(--tc-accent);
+    border-color: var(--tc-accent);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+}
+
+.tc-scheme-trigger.tc-scheme-trigger-active i {
+    color: #fff;
 }
 
     /* Active panel — the one currently "focused" by the user */

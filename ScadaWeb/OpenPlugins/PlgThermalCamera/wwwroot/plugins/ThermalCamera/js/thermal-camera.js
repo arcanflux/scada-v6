@@ -35,6 +35,7 @@ var thermalCamera = (function () {
     var chatPanels = {};                // itemId -> { el }  (max 1 entry)
     var activeChatId = null;            // itemId of the open panel (or null)
     var selectedMessageId = null;       // currently selected message for admin delete
+    var schemePanel = null;              // { el, itemId, dragged } (max 1 panel)
 
 
     // Persistent state timers — start timestamps (UTC ms) from the server.
@@ -140,6 +141,7 @@ var thermalCamera = (function () {
         bindChatKeyboard();
         window.addEventListener("resize", function () {
             repositionChat();
+            repositionScheme();
             requestAnimationFrame(positionJournal);
         });
         var tableWrapper = document.querySelector(".tc-table-wrapper");
@@ -215,6 +217,7 @@ var thermalCamera = (function () {
             row.style.display = (searchOk && districtOk) ? "" : "none";
         }
         updateChatDistrictNotice();
+        updateSchemeDistrictNotice();
         updateHeaderCounters();
         renderJournalEvents();
         renderJournalAck();
@@ -571,7 +574,9 @@ var thermalCamera = (function () {
                 e.stopPropagation();
                 var itemId = parseInt(this.getAttribute("data-item-id"));
                 var item = items.find(function (x) { return x.id === itemId; });
-                if (item && item.schemeUrl) showScheme(item.schemeUrl, item.name);
+                if (!item || !item.schemeUrl) return;
+                if (schemePanel && schemePanel.itemId === itemId) closeScheme();
+                else openScheme(item);
             });
         }
 
@@ -630,6 +635,7 @@ var thermalCamera = (function () {
         // tbody was rebuilt — the fresh triggers don't carry highlight state,
         // so re-apply the "active chat" marker if there is one.
         syncChatTriggerHighlights();
+        syncSchemeTriggerHighlights();
     }
 
     // ---- Hover hint tooltip — used by flood cells and header stat dots ----
@@ -2523,6 +2529,10 @@ var thermalCamera = (function () {
 
     function bindChatKeyboard() {
         document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape" && schemePanel) {
+                closeScheme();
+                return;
+            }
             if (activeChatId === null) return;
             if (e.key === "Escape") {
                 closeChat(activeChatId);
@@ -2583,47 +2593,156 @@ var thermalCamera = (function () {
         if (overlay) overlay.classList.remove("show");
     }
 
-    function initSchemeModal() {
-        var overlay = document.getElementById("tcSchemeModal");
-        if (!overlay) return;
-        overlay.addEventListener("click", function (e) {
-            if (e.target === overlay) closeSchemeModal();
-        });
-        var closeBtn = overlay.querySelector(".tc-menu-close");
-        if (closeBtn) closeBtn.addEventListener("click", closeSchemeModal);
-        document.addEventListener("keydown", function (e) {
-            if (e.key === "Escape" && overlay.classList.contains("show")) closeSchemeModal();
-        });
-    }
+    function buildSchemePanelHtml(item) {
+        var district = escapeHtml(String(item.districtNumber || "—"));
+        var name = escapeHtml(item.name || "Объект ТК");
+        var address = escapeHtml(item.descr || "");
+        var title = '<span class="tc-chat-title-district">' + district + '</span>' +
+            '<span class="tc-chat-title-name">' + name + '</span>';
+        if (address) title += '<span class="tc-chat-title-address">' + address + '</span>';
 
-    function showScheme(schemePath, name) {
-        var overlay = document.getElementById("tcSchemeModal");
-        var img = document.getElementById("imgScheme");
-        var errorDiv = document.getElementById("divSchemeError");
-        var titleEl = document.getElementById("tcSchemeTitle");
-        if (!overlay || !img) return;
-
-        titleEl.textContent = "Схема объекта — " + (name || "");
-        errorDiv.classList.add("d-none");
-        img.classList.remove("d-none");
-        img.onload = function () { errorDiv.classList.add("d-none"); };
-        img.onerror = function () {
-            img.classList.add("d-none");
-            errorDiv.classList.remove("d-none");
-        };
-        img.src = "/Api/ThermalCamera/GetPhoto?path=" + encodeURIComponent(schemePath);
-        overlay.classList.add("show");
-    }
-
-    function closeSchemeModal() {
-        var overlay = document.getElementById("tcSchemeModal");
-        var img = document.getElementById("imgScheme");
-        if (overlay) overlay.classList.remove("show");
-        if (img) {
-            img.onload = null;
-            img.onerror = null;
-            img.src = "";
+        var content;
+        if (item.schemeViewUrl) {
+            content = '<iframe class="tc-scheme-frame" src="' + escapeHtmlAttr(item.schemeViewUrl) + '" ' +
+                'title="Схема ' + escapeHtmlAttr(item.name || "") + '"></iframe>';
+        } else if (/\.(png|jpe?g|gif|webp|bmp)(\?.*)?$/i.test(item.schemeUrl || "")) {
+            content = '<img class="tc-scheme-image" alt="Схема ' + escapeHtmlAttr(item.name || "") + '" ' +
+                'src="/Api/ThermalCamera/GetPhoto?path=' + encodeURIComponent(item.schemeUrl) + '">' +
+                '<div class="tc-scheme-error d-none">Схема не найдена</div>';
+        } else {
+            content = '<div class="tc-scheme-error">Представление схемы недоступно. ' +
+                'Проверьте ID или имя файла .mim в поле Scheme.</div>';
         }
+
+        return '<div class="tc-chat-resize-grip"></div>' +
+            '<div class="tc-chat-header"><div class="tc-chat-header-title">' +
+            '<i class="fa-solid fa-diagram-project"></i>' + title + '</div>' +
+            '<div class="tc-chat-header-actions">' +
+            '<button type="button" class="tc-menu-close tc-scheme-close" aria-label="Закрыть">' +
+            '<i class="fa-solid fa-xmark"></i></button></div></div>' +
+            '<div class="tc-scheme-content">' + content + '</div>';
+    }
+
+    function openScheme(item) {
+        closeScheme();
+        var panel = document.createElement("div");
+        panel.id = "tcSchemePanel-" + item.id;
+        panel.className = "tc-chat-panel tc-chat-active tc-scheme-panel";
+        panel.setAttribute("data-item-id", item.id);
+        panel.innerHTML = buildSchemePanelHtml(item);
+        document.body.appendChild(panel);
+        schemePanel = { el: panel, itemId: item.id, dragged: false };
+
+        var image = panel.querySelector(".tc-scheme-image");
+        if (image) image.addEventListener("error", function () {
+            image.classList.add("d-none");
+            var error = panel.querySelector(".tc-scheme-error");
+            if (error) error.classList.remove("d-none");
+        });
+
+        repositionScheme();
+        bindSchemePanelEvents();
+        updateSchemeDistrictNotice();
+        syncSchemeTriggerHighlights();
+    }
+
+    function repositionScheme() {
+        if (!schemePanel || schemePanel.dragged) return;
+        var w = Math.min(900, Math.max(600, window.innerWidth - 80));
+        var h = Math.min(650, Math.max(400, window.innerHeight - 120));
+        schemePanel.el.style.left = Math.max(0, Math.round((window.innerWidth - w) / 2)) + "px";
+        schemePanel.el.style.top = Math.max(40, Math.round((window.innerHeight - h) / 2)) + "px";
+        schemePanel.el.style.width = w + "px";
+        schemePanel.el.style.height = h + "px";
+    }
+
+    function bindSchemePanelEvents() {
+        if (!schemePanel) return;
+        var state = schemePanel;
+        var panel = state.el;
+        var closeBtn = panel.querySelector(".tc-scheme-close");
+        var header = panel.querySelector(".tc-chat-header");
+        var grip = panel.querySelector(".tc-chat-resize-grip");
+        if (closeBtn) closeBtn.addEventListener("click", closeScheme);
+
+        if (header) header.addEventListener("mousedown", function (e) {
+            if (e.target.closest(".tc-scheme-close")) return;
+            var startX = e.clientX, startY = e.clientY;
+            var startLeft = parseInt(panel.style.left) || 0;
+            var startTop = parseInt(panel.style.top) || 0;
+            panel.classList.add("tc-panel-interacting");
+            e.preventDefault();
+            function move(ev) {
+                state.dragged = true;
+                panel.style.left = (startLeft + ev.clientX - startX) + "px";
+                panel.style.top = (startTop + ev.clientY - startY) + "px";
+            }
+            function up() {
+                panel.classList.remove("tc-panel-interacting");
+                document.removeEventListener("mousemove", move);
+                document.removeEventListener("mouseup", up);
+            }
+            document.addEventListener("mousemove", move);
+            document.addEventListener("mouseup", up);
+        });
+
+        if (grip) grip.addEventListener("mousedown", function (e) {
+            e.stopPropagation();
+            var startX = e.clientX, startY = e.clientY;
+            var startW = panel.offsetWidth, startH = panel.offsetHeight;
+            var startLeft = parseInt(panel.style.left) || 0;
+            var startTop = parseInt(panel.style.top) || 0;
+            panel.classList.add("tc-panel-interacting");
+            e.preventDefault();
+            function resize(ev) {
+                var width = Math.max(520, startW - (ev.clientX - startX));
+                var height = Math.max(320, startH - (ev.clientY - startY));
+                panel.style.width = width + "px";
+                panel.style.height = height + "px";
+                panel.style.left = (startLeft + startW - width) + "px";
+                panel.style.top = (startTop + startH - height) + "px";
+                state.dragged = true;
+            }
+            function up() {
+                panel.classList.remove("tc-panel-interacting");
+                document.removeEventListener("mousemove", resize);
+                document.removeEventListener("mouseup", up);
+            }
+            document.addEventListener("mousemove", resize);
+            document.addEventListener("mouseup", up);
+        });
+    }
+
+    function updateSchemeDistrictNotice() {
+        if (!schemePanel) return;
+        var row = document.querySelector("tr[data-item-id='" + schemePanel.itemId + "']");
+        var hidden = !row || row.style.display === "none";
+        var notice = schemePanel.el.querySelector(".tc-chat-notice");
+        if (hidden && !notice) {
+            notice = document.createElement("div");
+            notice.className = "tc-chat-notice";
+            notice.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>' +
+                '<span>Данной ТК нет в списке: объект скрыт текущим фильтром.</span>';
+            var header = schemePanel.el.querySelector(".tc-chat-header");
+            header.insertAdjacentElement("afterend", notice);
+        } else if (!hidden && notice) {
+            notice.remove();
+        }
+    }
+
+    function syncSchemeTriggerHighlights() {
+        var activeId = schemePanel ? schemePanel.itemId : null;
+        document.querySelectorAll(".tc-scheme-trigger").forEach(function (trigger) {
+            trigger.classList.toggle("tc-scheme-trigger-active",
+                parseInt(trigger.getAttribute("data-item-id")) === activeId);
+        });
+    }
+
+    function closeScheme() {
+        if (!schemePanel) return;
+        schemePanel.el.remove();
+        schemePanel = null;
+        syncSchemeTriggerHighlights();
     }
 
     function escapeHtml(text) {
@@ -2636,10 +2755,14 @@ var thermalCamera = (function () {
         return text.replace(/'/g, "\\'").replace(/"/g, '\\"');
     }
 
+    function escapeHtmlAttr(text) {
+        return escapeHtml(String(text)).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
     return {
         init: init,
         showPhoto: showPhoto,
-        showScheme: showScheme,
+        openScheme: openScheme,
         openChat: openChat,
         closeChat: closeChat
     };
