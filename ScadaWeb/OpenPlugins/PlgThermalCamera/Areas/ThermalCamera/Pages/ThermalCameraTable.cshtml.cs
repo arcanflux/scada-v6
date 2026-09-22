@@ -51,6 +51,23 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
             if (int.TryParse(scheme, out int viewID))
                 return FindViewByID(nodes, viewID);
 
+            string normalizedScheme = scheme.Replace('\\', '/');
+            string fileName = Path.GetFileName(normalizedScheme);
+            string fileStem = Path.GetFileNameWithoutExtension(fileName);
+            foreach (ViewNode node in nodes)
+            {
+                if (!node.IsEmpty)
+                {
+                    string normalizedNodePath = node.ShortPath.Replace('\\', '/');
+                    string nodeFileName = Path.GetFileName(normalizedNodePath);
+                    string nodeFileStem = Path.GetFileNameWithoutExtension(nodeFileName);
+
+                    if (string.Equals(normalizedNodePath, normalizedScheme, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(nodeFileName, fileName, StringComparison.OrdinalIgnoreCase) ||
+                        (!string.IsNullOrEmpty(fileStem) &&
+                         string.Equals(nodeFileStem, fileStem, StringComparison.OrdinalIgnoreCase)))
+                        return node;
+                }
             string fileName = Path.GetFileName(scheme.Replace('\\', '/'));
             foreach (ViewNode node in nodes)
             {
@@ -105,6 +122,23 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
 
                 foreach (ThermalCameraItem item in sortedItems)
                 {
+                    if (!string.IsNullOrEmpty(item.SchemeUrl))
+                    {
+                        string normalizedScheme = item.SchemeUrl.Replace('\\', '/');
+                        string extension = Path.GetExtension(normalizedScheme);
+                        bool isImage = extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                            extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                            extension.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
+                            extension.Equals(".gif", StringComparison.OrdinalIgnoreCase) ||
+                            extension.Equals(".webp", StringComparison.OrdinalIgnoreCase) ||
+                            extension.Equals(".bmp", StringComparison.OrdinalIgnoreCase);
+
+                        if (!isImage)
+                        {
+                            ViewNode schemeNode = FindViewByScheme(userContext.Views.ViewNodes, item.SchemeUrl);
+                            if (schemeNode != null)
+                                item.SchemeViewUrl = Url.Content(schemeNode.ViewFrameUrl);
+                        }
                     if (!string.IsNullOrEmpty(item.SchemeUrl) &&
                         (int.TryParse(item.SchemeUrl, out _) ||
                          string.Equals(Path.GetExtension(item.SchemeUrl), ".mim", StringComparison.OrdinalIgnoreCase)))

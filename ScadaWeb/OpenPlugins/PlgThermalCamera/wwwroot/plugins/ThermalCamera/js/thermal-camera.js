@@ -113,6 +113,11 @@ var thermalCamera = (function () {
 
         sortItemsByDistrict();
         renderTable();
+        // Start the essential live-data path immediately after the table exists.
+        // Optional filters, journal and scheme UI must not be able to prevent the
+        // server clock or SCADA channel values from being requested.
+        requestData();
+        startAutoUpdate();
         updateDistrictCounts();
         initCommissionMenu();
         bindHeaderSort();
