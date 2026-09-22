@@ -140,6 +140,9 @@ var thermalCamera = (function () {
         document.body.classList.remove("tc-booting");
         document.body.classList.add("tc-ready");
         initPhotoModal();
+        initSchemeModal();
+        requestData();
+        startAutoUpdate();
         bindChatKeyboard();
         window.addEventListener("resize", function () {
             repositionChat();
@@ -641,6 +644,7 @@ var thermalCamera = (function () {
         // optional scheme UI out of the critical init path ensures that a scheme
         // presentation issue cannot prevent the clock and SCADA polling from starting.
         if (schemePanel) syncSchemeTriggerHighlights();
+        syncSchemeTriggerHighlights();
     }
 
     // ---- Hover hint tooltip — used by flood cells and header stat dots ----
@@ -2750,6 +2754,10 @@ var thermalCamera = (function () {
                 trigger.classList.remove("tc-scheme-trigger-active");
             }
         }
+        document.querySelectorAll(".tc-scheme-trigger").forEach(function (trigger) {
+            trigger.classList.toggle("tc-scheme-trigger-active",
+                parseInt(trigger.getAttribute("data-item-id")) === activeId);
+        });
     }
 
     function closeScheme() {

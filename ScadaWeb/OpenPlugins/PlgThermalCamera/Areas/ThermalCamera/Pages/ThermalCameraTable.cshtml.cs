@@ -68,6 +68,13 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
                          string.Equals(nodeFileStem, fileStem, StringComparison.OrdinalIgnoreCase)))
                         return node;
                 }
+            string fileName = Path.GetFileName(scheme.Replace('\\', '/'));
+            foreach (ViewNode node in nodes)
+            {
+                if (!node.IsEmpty &&
+                    (string.Equals(node.ShortPath, scheme, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(node.ShortPath, fileName, StringComparison.OrdinalIgnoreCase)))
+                    return node;
 
                 ViewNode found = FindViewByScheme(node.ChildNodes, scheme);
                 if (found != null) return found;
@@ -132,6 +139,13 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
                             if (schemeNode != null)
                                 item.SchemeViewUrl = Url.Content(schemeNode.ViewFrameUrl);
                         }
+                    if (!string.IsNullOrEmpty(item.SchemeUrl) &&
+                        (int.TryParse(item.SchemeUrl, out _) ||
+                         string.Equals(Path.GetExtension(item.SchemeUrl), ".mim", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        ViewNode schemeNode = FindViewByScheme(userContext.Views.ViewNodes, item.SchemeUrl);
+                        if (schemeNode != null)
+                            item.SchemeViewUrl = Url.Content(schemeNode.ViewFrameUrl);
                     }
                 }
 
