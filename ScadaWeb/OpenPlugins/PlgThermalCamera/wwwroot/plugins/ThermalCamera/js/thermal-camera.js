@@ -2732,6 +2732,19 @@ var thermalCamera = (function () {
 
     function syncSchemeTriggerHighlights() {
         var activeId = schemePanel ? schemePanel.itemId : null;
+        // Do not use NodeList.forEach or the two-argument classList.toggle here.
+        // Webstation can run in older embedded browser engines. An exception in
+        // this function is especially destructive because renderTable calls it
+        // during init, before the clock and the SCADA polling loop are started.
+        var triggers = document.querySelectorAll(".tc-scheme-trigger");
+        for (var i = 0; i < triggers.length; i++) {
+            var trigger = triggers[i];
+            if (parseInt(trigger.getAttribute("data-item-id")) === activeId) {
+                trigger.classList.add("tc-scheme-trigger-active");
+            } else {
+                trigger.classList.remove("tc-scheme-trigger-active");
+            }
+        }
         document.querySelectorAll(".tc-scheme-trigger").forEach(function (trigger) {
             trigger.classList.toggle("tc-scheme-trigger-active",
                 parseInt(trigger.getAttribute("data-item-id")) === activeId);
