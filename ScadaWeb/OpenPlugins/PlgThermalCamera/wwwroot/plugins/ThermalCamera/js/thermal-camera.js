@@ -2635,6 +2635,22 @@ var thermalCamera = (function () {
         panel.className = "tc-chat-panel tc-chat-active tc-scheme-panel";
         panel.setAttribute("data-item-id", item.id);
         panel.innerHTML = buildSchemePanelHtml(item);
+
+        var frame = panel.querySelector(".tc-scheme-frame");
+        if (frame) frame.addEventListener("load", function () {
+            // Open every embedded mimic in the same mode as the
+            // "Fit to screen" button in the standard scheme toolbar.
+            // The frame is normally same-origin, but keep the optional UI
+            // isolated if a custom view URL points to another origin.
+            try {
+                var fitScreenButton = frame.contentDocument &&
+                    frame.contentDocument.getElementById("spanFitScreenBtn");
+                if (fitScreenButton) fitScreenButton.click();
+            } catch (ex) {
+                console.warn("Unable to fit the scheme to the screen.", ex);
+            }
+        });
+
         document.body.appendChild(panel);
         schemePanel = { el: panel, itemId: item.id, dragged: false };
 
