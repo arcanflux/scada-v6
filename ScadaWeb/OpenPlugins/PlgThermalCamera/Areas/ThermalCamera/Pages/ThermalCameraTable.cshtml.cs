@@ -46,6 +46,35 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
             return null;
         }
 
+        private static ViewNode FindViewByScheme(List<ViewNode> nodes, string scheme)
+        {
+            if (int.TryParse(scheme, out int viewID))
+                return FindViewByID(nodes, viewID);
+
+            string normalizedScheme = scheme.Replace('\\', '/');
+            string fileName = Path.GetFileName(normalizedScheme);
+            string fileStem = Path.GetFileNameWithoutExtension(fileName);
+            foreach (ViewNode node in nodes)
+            {
+                if (!node.IsEmpty)
+                {
+                    string normalizedNodePath = node.ShortPath.Replace('\\', '/');
+                    string nodeFileName = Path.GetFileName(normalizedNodePath);
+                    string nodeFileStem = Path.GetFileNameWithoutExtension(nodeFileName);
+
+                    if (string.Equals(normalizedNodePath, normalizedScheme, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(nodeFileName, fileName, StringComparison.OrdinalIgnoreCase) ||
+                        (!string.IsNullOrEmpty(fileStem) &&
+                         string.Equals(nodeFileStem, fileStem, StringComparison.OrdinalIgnoreCase)))
+                        return node;
+                }
+
+                ViewNode found = FindViewByScheme(node.ChildNodes, scheme);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
         public void OnGet(int? id)
         {
             int viewID = id ?? userContext.Views.GetFirstViewID() ?? 0;
@@ -83,6 +112,28 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
                     .OrderBy(i => i.DistrictNumber)
                     .ThenBy(i => i.Name)
                     .ToList();
+
+                foreach (ThermalCameraItem item in sortedItems)
+                {
+                    if (!string.IsNullOrEmpty(item.SchemeUrl))
+                    {
+                        string normalizedScheme = item.SchemeUrl.Replace('\\', '/');
+                        string extension = Path.GetExtension(normalizedScheme);
+                        bool isImage = extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                            extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                            extension.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
+                            extension.Equals(".gif", StringComparison.OrdinalIgnoreCase) ||
+                            extension.Equals(".webp", StringComparison.OrdinalIgnoreCase) ||
+                            extension.Equals(".bmp", StringComparison.OrdinalIgnoreCase);
+
+                        if (!isImage)
+                        {
+                            ViewNode schemeNode = FindViewByScheme(userContext.Views.ViewNodes, item.SchemeUrl);
+                            if (schemeNode != null)
+                                item.SchemeViewUrl = Url.Content(schemeNode.ViewFrameUrl);
+                        }
+                    }
+                }
 
                 ItemsJson = JsonSerializer.Serialize(sortedItems, JsonOpts);
 
