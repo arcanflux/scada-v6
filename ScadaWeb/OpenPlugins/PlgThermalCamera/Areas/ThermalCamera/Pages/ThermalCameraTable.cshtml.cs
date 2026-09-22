@@ -7,6 +7,7 @@ using Scada.Web.Plugins.PlgThermalCamera.Code;
 using Scada.Web.Plugins.PlgThermalCamera.Models;
 using Scada.Web.Services;
 using Scada.Web.TreeView;
+using System.IO;
 using System.Text.Json;
 
 namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
@@ -19,6 +20,10 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
         private static readonly JsonSerializerOptions JsonOpts = new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+        private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"
         };
 
         public int ViewID { get; private set; }
@@ -44,6 +49,41 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
                 if (found != null) return found;
             }
             return null;
+        }
+
+        private static ViewNode FindViewByScheme(List<ViewNode> nodes, string scheme)
+        {
+            if (int.TryParse(scheme, out int viewID))
+                return FindViewByID(nodes, viewID);
+
+            string normalizedScheme = scheme.Replace('\\', '/');
+            string fileName = Path.GetFileName(normalizedScheme);
+            string fileStem = Path.GetFileNameWithoutExtension(fileName);
+            foreach (ViewNode node in nodes)
+            {
+                if (!node.IsEmpty)
+                {
+                    string normalizedNodePath = node.ShortPath.Replace('\\', '/');
+                    string nodeFileName = Path.GetFileName(normalizedNodePath);
+                    string nodeFileStem = Path.GetFileNameWithoutExtension(nodeFileName);
+
+                    if (string.Equals(normalizedNodePath, normalizedScheme, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(nodeFileName, fileName, StringComparison.OrdinalIgnoreCase) ||
+                        (!string.IsNullOrEmpty(fileStem) &&
+                         string.Equals(nodeFileStem, fileStem, StringComparison.OrdinalIgnoreCase)))
+                        return node;
+                }
+
+                ViewNode found = FindViewByScheme(node.ChildNodes, scheme);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
+        private static bool IsSchemeImage(string scheme)
+        {
+            string normalizedScheme = scheme.Replace('\\', '/');
+            return ImageExtensions.Contains(Path.GetExtension(normalizedScheme));
         }
 
         public void OnGet(int? id)
@@ -83,6 +123,19 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Areas.ThermalCamera.Pages
                     .OrderBy(i => i.DistrictNumber)
                     .ThenBy(i => i.Name)
                     .ToList();
+
+                foreach (ThermalCameraItem item in sortedItems)
+                {
+                    if (!string.IsNullOrEmpty(item.SchemeUrl))
+                    {
+                        if (!IsSchemeImage(item.SchemeUrl))
+                        {
+                            ViewNode schemeNode = FindViewByScheme(userContext.Views.ViewNodes, item.SchemeUrl);
+                            if (schemeNode != null)
+                                item.SchemeViewUrl = Url.Content(schemeNode.ViewFrameUrl);
+                        }
+                    }
+                }
 
                 ItemsJson = JsonSerializer.Serialize(sortedItems, JsonOpts);
 
