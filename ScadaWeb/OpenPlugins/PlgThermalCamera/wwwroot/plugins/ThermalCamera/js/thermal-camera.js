@@ -635,6 +635,10 @@ var thermalCamera = (function () {
         // tbody was rebuilt — the fresh triggers don't carry highlight state,
         // so re-apply the "active chat" marker if there is one.
         syncChatTriggerHighlights();
+        // There is nothing to restore during initial page startup. Keeping the
+        // optional scheme UI out of the critical init path ensures that a scheme
+        // presentation issue cannot prevent the clock and SCADA polling from starting.
+        if (schemePanel) syncSchemeTriggerHighlights();
         syncSchemeTriggerHighlights();
     }
 
