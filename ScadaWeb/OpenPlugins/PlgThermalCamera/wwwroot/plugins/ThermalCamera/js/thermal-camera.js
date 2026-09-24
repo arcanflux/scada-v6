@@ -475,6 +475,7 @@ var thermalCamera = (function () {
             var sleeping = !ud.isCommissioned;
 
             html += '<tr data-item-id="' + item.id + '"' +
+                (item.isFloodDoor ? ' data-is-flood-door="true"' : '') +
                 (sleeping ? ' class="tc-row-sleeping"' : '') + '>';
 
             // 1. Commissioned status (В работе) — first column
@@ -523,29 +524,38 @@ var thermalCamera = (function () {
                 '<span id="online-' + item.id + '" class="tc-online-indicator tc-status-unknown">' +
                 '<i class="fa-solid fa-circle"></i></span></td>';
 
-            // 6. Flooding status: two signal blocks (200mm yellow, 700mm red)
+            // 6. Flooding status: regular 200/700mm signals or FloodDoor signals.
             html += '<td class="tc-col-flooding"><div class="tc-flooding-container">';
 
-            // 200mm signal
-            if (item.flood200CnlNum > 0 || item.temp200CnlNum > 0) {
-                html += '<div class="tc-flooding-signal tc-flood-unknown" id="flood200-' + item.id + '">' +
-                    '<div class="tc-signal-label">200мм</div>' +
-                    '<div class="tc-signal-body">' +
-                    '<div class="tc-signal-temp" id="flood200-temp-' + item.id + '">\u2014</div>' +
-                    '</div></div>';
-            }
+            if (item.isFloodDoor) {
+                html += '<div class="tc-flooding-signal tc-flood-unknown" id="floodDoorFlood-' + item.id + '">' +
+                    '<div class="tc-signal-label">Затопление</div>' +
+                    '<div class="tc-signal-body"><div class="tc-signal-temp" id="floodDoorFlood-value-' + item.id + '">\u2014</div></div></div>' +
+                    '<div class="tc-flooding-signal tc-flood-unknown" id="floodDoorDoor-' + item.id + '">' +
+                    '<div class="tc-signal-label">Дверь</div>' +
+                    '<div class="tc-signal-body"><div class="tc-signal-temp" id="floodDoorDoor-value-' + item.id + '">\u2014</div></div></div>';
+            } else {
+                // 200mm signal
+                if (item.flood200CnlNum > 0 || item.temp200CnlNum > 0) {
+                    html += '<div class="tc-flooding-signal tc-flood-unknown" id="flood200-' + item.id + '">' +
+                        '<div class="tc-signal-label">200мм</div>' +
+                        '<div class="tc-signal-body">' +
+                        '<div class="tc-signal-temp" id="flood200-temp-' + item.id + '">\u2014</div>' +
+                        '</div></div>';
+                }
 
-            // 700mm signal
-            if (item.flood700CnlNum > 0 || item.temp700CnlNum > 0) {
-                html += '<div class="tc-flooding-signal tc-flood-unknown" id="flood700-' + item.id + '">' +
-                    '<div class="tc-signal-label">700мм</div>' +
-                    '<div class="tc-signal-body">' +
-                    '<div class="tc-signal-temp" id="flood700-temp-' + item.id + '">\u2014</div>' +
-                    '</div></div>';
-            }
+                // 700mm signal
+                if (item.flood700CnlNum > 0 || item.temp700CnlNum > 0) {
+                    html += '<div class="tc-flooding-signal tc-flood-unknown" id="flood700-' + item.id + '">' +
+                        '<div class="tc-signal-label">700мм</div>' +
+                        '<div class="tc-signal-body">' +
+                        '<div class="tc-signal-temp" id="flood700-temp-' + item.id + '">\u2014</div>' +
+                        '</div></div>';
+                }
 
-            if (!item.flood200CnlNum && !item.temp200CnlNum && !item.flood700CnlNum && !item.temp700CnlNum) {
-                html += '<span class="text-muted">\u2014</span>';
+                if (!item.flood200CnlNum && !item.temp200CnlNum && !item.flood700CnlNum && !item.temp700CnlNum) {
+                    html += '<span class="text-muted">\u2014</span>';
+                }
             }
             html += '</div></td>';
 
@@ -624,7 +634,8 @@ var thermalCamera = (function () {
                 var itemId = parseInt(tr.getAttribute("data-item-id"));
                 if (isSleeping(itemId)) return;
                 var item = items.find(function (x) { return x.id === itemId; });
-                if (!item) return;
+                // FloodDoor is deliberately excluded from the 200/700mm archive.
+                if (!item || item.isFloodDoor) return;
                 if (typeof tcFloodHistory !== "undefined" && tcFloodHistory) {
                     var itemAcks = ackHistory.filter(function (r) {
                         return r.itemId === item.id || r.itemName === item.name;
@@ -658,6 +669,7 @@ var thermalCamera = (function () {
             // Спящая ТК: ячейка некликабельна, подсказку не показываем.
             var tr = floodCell.closest("tr");
             if (tr && tr.classList.contains("tc-row-sleeping")) return null;
+            if (tr && tr.getAttribute("data-is-flood-door") === "true") return null;
             return { el: floodCell, text: FLOOD_CELL_HINT };
         }
         var hinted = targetEl.closest("[data-tc-hint]");
@@ -715,7 +727,7 @@ var thermalCamera = (function () {
         var list = [];
         for (var i = 0; i < items.length; i++) {
             var item = items[i];
-            if (isSleeping(item.id)) continue;
+            if (isSleeping(item.id) || item.isFloodDoor) continue;
             var t = timersByItem[item.id];
             if (!t) continue;
             // Use the highest-severity flood start that is currently active (> 0)
@@ -879,6 +891,12 @@ var thermalCamera = (function () {
             // Online status
             updateOnlineStatus(item, data);
 
+            if (item.isFloodDoor) {
+                updateFloodDoorSignal(item, data);
+                updateBattery(item, data);
+                continue;
+            }
+
             // 200mm flooding (yellow when flooded)
             updateFloodingSignal(item.id, "200", item.flood200CnlNum, item.temp200CnlNum, data, "tc-flood-warning");
 
@@ -891,6 +909,31 @@ var thermalCamera = (function () {
 
         hasLiveData = true;
         updateHeaderCounters();
+    }
+
+    function updateFloodDoorSignal(item, data) {
+        updateBinarySignal("floodDoorFlood-" + item.id, "floodDoorFlood-value-" + item.id,
+            item.flood200CnlNum, data, 0, "Затопление", "Норма");
+        updateBinarySignal("floodDoorDoor-" + item.id, "floodDoorDoor-value-" + item.id,
+            item.flood700CnlNum, data, 1, "Открыта", "Закрыта");
+    }
+
+    function updateBinarySignal(signalId, valueId, cnlNum, data, alarmValue, alarmText, normalText) {
+        var signalEl = document.getElementById(signalId);
+        var valueEl = document.getElementById(valueId);
+        if (!signalEl || !valueEl || cnlNum <= 0) return;
+
+        var cnlData = data[cnlNum];
+        if (!cnlData || cnlData.stat <= 0) {
+            signalEl.className = "tc-flooding-signal tc-flood-unknown";
+            valueEl.textContent = "\u2014";
+            return;
+        }
+
+        var isAlarm = cnlData.val === alarmValue;
+        signalEl.className = "tc-flooding-signal " +
+            (isAlarm ? "tc-flood-alarm" : "tc-flood-normal");
+        valueEl.textContent = isAlarm ? alarmText : normalText;
     }
 
     function updateBattery(item, data) {
@@ -1132,7 +1175,7 @@ var thermalCamera = (function () {
     function updateActiveFloodEvents() {
         for (var i = 0; i < items.length; i++) {
             var item = items[i];
-            if (isSleeping(item.id)) {
+            if (isSleeping(item.id) || item.isFloodDoor) {
                 delete activeFloodEvents[item.id];
                 continue;
             }
@@ -1171,6 +1214,8 @@ var thermalCamera = (function () {
         for (var i = 0; i < result.pendingAcks.length; i++) {
             var pa = result.pendingAcks[i];
             if (isSleeping(pa.itemId)) continue;
+            var pendingItem = findItemById(pa.itemId);
+            if (pendingItem && pendingItem.isFloodDoor) continue;
             newPending[pa.itemId] = { itemName: pa.itemName, flood700StartMs: pa.flood700StartMs };
         }
         var newKeys = Object.keys(newPending).sort().join(",");
@@ -1211,6 +1256,16 @@ var thermalCamera = (function () {
             if (fTimer) fTimer.remove();
             var clearBadge = document.getElementById("flood" + size + "Clear-" + itemId);
             if (clearBadge) clearBadge.remove();
+        }
+
+        var floodDoorSignals = ["Flood", "Door"];
+        for (var j = 0; j < floodDoorSignals.length; j++) {
+            var signalName = floodDoorSignals[j];
+            var floodDoorEl = document.getElementById("floodDoor" + signalName + "-" + itemId);
+            if (floodDoorEl) floodDoorEl.className = "tc-flooding-signal tc-flood-unknown";
+            var floodDoorValue = document.getElementById(
+                "floodDoor" + signalName + "-value-" + itemId);
+            if (floodDoorValue) floodDoorValue.textContent = "—";
         }
         var ackBadge = document.getElementById("flood700AckBadge-" + itemId);
         if (ackBadge) ackBadge.remove();

@@ -80,6 +80,17 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
         public string SchemeViewUrl { get; set; } = "";
 
         /// <summary>
+        /// Gets or sets the camera display type. The FloodDoor type uses the two
+        /// flooding cells for a flooding sensor and a door sensor.
+        /// </summary>
+        public string CameraType { get; set; } = "";
+
+        /// <summary>
+        /// Gets a value indicating whether this is a flooding and door camera.
+        /// </summary>
+        public bool IsFloodDoor => string.Equals(CameraType, "FloodDoor", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
         /// Gets or sets the channel number for online status.
         /// </summary>
         public int OnlineCnlNum { get; set; }
@@ -139,6 +150,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
                 Descr = GetChildText(locationNode, "Descr"),
                 PhotoUrl = GetChildText(locationNode, "Photo"),
                 SchemeUrl = GetChildText(locationNode, "Scheme"),
+                CameraType = GetChildText(locationNode, "CameraType"),
                 StatusCnlNum = GetChildInt(locationNode, "StatusCnlNum"),
                 DistrictNumber = GetChildInt(locationNode, "District")
             };
@@ -161,6 +173,7 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
                     string labelLower = label.ToLowerInvariant();
                     bool is200 = labelLower.Contains("200");
                     bool is700 = labelLower.Contains("700");
+                    bool isDoor = labelLower.Contains("двер") || labelLower.Contains("door");
 
                     bool isFlood = labelLower.Contains("затопл") || labelLower.Contains("flood") ||
                                    labelLower.Contains("наводн");
@@ -170,7 +183,19 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Models
                                     labelLower.Contains("связь");
 
                     // Flooding is checked FIRST because "Затопление 200мм" also contains "200".
-                    if (isFlood)
+                    if (item.IsFloodDoor && isDoor)
+                    {
+                        // Reuse the second signal channel for the door. It is not
+                        // treated as a 700mm flooding channel by the server/client.
+                        item.Flood700CnlNum = cnlNum;
+                    }
+                    else if (item.IsFloodDoor && isFlood)
+                    {
+                        // Reuse the first signal channel for flooding without
+                        // including it in the regular 200/700mm statistics.
+                        item.Flood200CnlNum = cnlNum;
+                    }
+                    else if (isFlood)
                     {
                         if (is200)
                             item.Flood200CnlNum = cnlNum;

@@ -18,6 +18,11 @@
            расширения для живой мнемосхемы (например "Scheme/TK-1500").
            Также поддерживается относительный путь к обычному изображению в Views.
            Если Scheme указан, имя ТК становится кнопкой просмотра схемы.
+
+  CameraType — необязательный тип объекта. Значение FloodDoor заменяет блоки
+               "200мм" и "700мм" блоками "Затопление" и "Дверь".
+               Для двери: 0 = закрыта (зелёный), 1 = открыта (красный).
+               Такой объект не учитывается в статистике затоплений 200/700мм.
 -->
 <MapView>
   <InitialView>
@@ -51,7 +56,24 @@
         <DataItem cnlNum="500102">Температура 700мм</DataItem>
         <DataItem cnlNum="500103">Затопление 200мм</DataItem>
         <DataItem cnlNum="500104">Затопление 700мм</DataItem>
-<DataItem cnlNum="500106">Онлайн</DataItem>
+        <DataItem cnlNum="500106">Онлайн</DataItem>
+      </Data>
+    </Location>
+
+    <!-- Камера с датчиками затопления и двери -->
+    <Location>
+      <Lat>55.025000</Lat>
+      <Lon>82.905000</Lon>
+      <Name>TK-1500</Name>
+      <Descr>ул. Примерная, 10</Descr>
+      <Type>Triangle</Type>
+      <CameraType>FloodDoor</CameraType>
+      <District>2</District>
+      <StatusCnlNum>0</StatusCnlNum>
+      <Data>
+        <DataItem cnlNum="500401">Затопление</DataItem>
+        <DataItem cnlNum="500402">Дверь</DataItem>
+        <DataItem cnlNum="500403">Онлайн</DataItem>
       </Data>
     </Location>
 
