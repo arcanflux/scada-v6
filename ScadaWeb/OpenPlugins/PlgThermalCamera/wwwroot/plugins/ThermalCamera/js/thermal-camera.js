@@ -35,6 +35,7 @@ var thermalCamera = (function () {
     var chatPanels = {};                // itemId -> { el }  (max 1 entry)
     var activeChatId = null;            // itemId of the open panel (or null)
     var selectedMessageId = null;       // currently selected message for admin delete
+    var schemePanel = null;              // { el, itemId, dragged } (max 1 panel)
 
 
     // Persistent state timers — start timestamps (UTC ms) from the server.
@@ -112,6 +113,11 @@ var thermalCamera = (function () {
 
         sortItemsByDistrict();
         renderTable();
+        // Start the essential live-data path immediately after the table exists.
+        // Optional filters, journal and scheme UI must not be able to prevent the
+        // server clock or SCADA channel values from being requested.
+        requestData();
+        startAutoUpdate();
         updateDistrictCounts();
         initCommissionMenu();
         bindHeaderSort();
@@ -134,11 +140,10 @@ var thermalCamera = (function () {
         document.body.classList.remove("tc-booting");
         document.body.classList.add("tc-ready");
         initPhotoModal();
-        requestData();
-        startAutoUpdate();
         bindChatKeyboard();
         window.addEventListener("resize", function () {
             repositionChat();
+            repositionScheme();
             requestAnimationFrame(positionJournal);
         });
         var tableWrapper = document.querySelector(".tc-table-wrapper");
@@ -214,6 +219,7 @@ var thermalCamera = (function () {
             row.style.display = (searchOk && districtOk) ? "" : "none";
         }
         updateChatDistrictNotice();
+        updateSchemeDistrictNotice();
         updateHeaderCounters();
         renderJournalEvents();
         renderJournalAck();
@@ -469,6 +475,7 @@ var thermalCamera = (function () {
             var sleeping = !ud.isCommissioned;
 
             html += '<tr data-item-id="' + item.id + '"' +
+                (item.isFloodDoor ? ' data-is-flood-door="true"' : '') +
                 (sleeping ? ' class="tc-row-sleeping"' : '') + '>';
 
             // 1. Commissioned status (В работе) — first column
@@ -486,8 +493,16 @@ var thermalCamera = (function () {
                 '<span class="tc-district-badge">' + escapeHtml(String(item.districtNumber || "—")) + '</span></td>';
 
             // 3. Object name + chat button (icon only, right of name)
-            html += '<td class="tc-col-name"><div class="tc-name-cell">' +
-                '<span class="tc-name-text">' + escapeHtml(item.name) + '</span>' +
+            html += '<td class="tc-col-name"><div class="tc-name-cell">';
+            if (item.schemeUrl) {
+                html += '<button type="button" class="tc-scheme-trigger" data-item-id="' + item.id + '" ' +
+                    'data-tc-hint="Нажмите для просмотра схемы">' +
+                    '<i class="fa-solid fa-diagram-project" aria-hidden="true"></i>' +
+                    '<span>' + escapeHtml(item.name) + '</span></button>';
+            } else {
+                html += '<span class="tc-name-text">' + escapeHtml(item.name) + '</span>';
+            }
+            html +=
                 '<button type="button" class="tc-chat-trigger tc-name-chat-btn" data-item-id="' + item.id + '">' +
                 '<i class="fa-solid fa-comments"></i>' +
                 '</button>' +
@@ -509,29 +524,38 @@ var thermalCamera = (function () {
                 '<span id="online-' + item.id + '" class="tc-online-indicator tc-status-unknown">' +
                 '<i class="fa-solid fa-circle"></i></span></td>';
 
-            // 6. Flooding status: two signal blocks (200mm yellow, 700mm red)
+            // 6. Flooding status: regular 200/700mm signals or FloodDoor signals.
             html += '<td class="tc-col-flooding"><div class="tc-flooding-container">';
 
-            // 200mm signal
-            if (item.flood200CnlNum > 0 || item.temp200CnlNum > 0) {
-                html += '<div class="tc-flooding-signal tc-flood-unknown" id="flood200-' + item.id + '">' +
-                    '<div class="tc-signal-label">200мм</div>' +
-                    '<div class="tc-signal-body">' +
-                    '<div class="tc-signal-temp" id="flood200-temp-' + item.id + '">\u2014</div>' +
-                    '</div></div>';
-            }
+            if (item.isFloodDoor) {
+                html += '<div class="tc-flooding-signal tc-flood-unknown" id="floodDoorFlood-' + item.id + '">' +
+                    '<div class="tc-signal-label">Затопление</div>' +
+                    '<div class="tc-signal-body"><div class="tc-signal-temp" id="floodDoorFlood-value-' + item.id + '">\u2014</div></div></div>' +
+                    '<div class="tc-flooding-signal tc-flood-unknown" id="floodDoorDoor-' + item.id + '">' +
+                    '<div class="tc-signal-label">Дверь</div>' +
+                    '<div class="tc-signal-body"><div class="tc-signal-temp" id="floodDoorDoor-value-' + item.id + '">\u2014</div></div></div>';
+            } else {
+                // 200mm signal
+                if (item.flood200CnlNum > 0 || item.temp200CnlNum > 0) {
+                    html += '<div class="tc-flooding-signal tc-flood-unknown" id="flood200-' + item.id + '">' +
+                        '<div class="tc-signal-label">200мм</div>' +
+                        '<div class="tc-signal-body">' +
+                        '<div class="tc-signal-temp" id="flood200-temp-' + item.id + '">\u2014</div>' +
+                        '</div></div>';
+                }
 
-            // 700mm signal
-            if (item.flood700CnlNum > 0 || item.temp700CnlNum > 0) {
-                html += '<div class="tc-flooding-signal tc-flood-unknown" id="flood700-' + item.id + '">' +
-                    '<div class="tc-signal-label">700мм</div>' +
-                    '<div class="tc-signal-body">' +
-                    '<div class="tc-signal-temp" id="flood700-temp-' + item.id + '">\u2014</div>' +
-                    '</div></div>';
-            }
+                // 700mm signal
+                if (item.flood700CnlNum > 0 || item.temp700CnlNum > 0) {
+                    html += '<div class="tc-flooding-signal tc-flood-unknown" id="flood700-' + item.id + '">' +
+                        '<div class="tc-signal-label">700мм</div>' +
+                        '<div class="tc-signal-body">' +
+                        '<div class="tc-signal-temp" id="flood700-temp-' + item.id + '">\u2014</div>' +
+                        '</div></div>';
+                }
 
-            if (!item.flood200CnlNum && !item.temp200CnlNum && !item.flood700CnlNum && !item.temp700CnlNum) {
-                html += '<span class="text-muted">\u2014</span>';
+                if (!item.flood200CnlNum && !item.temp200CnlNum && !item.flood700CnlNum && !item.temp700CnlNum) {
+                    html += '<span class="text-muted">\u2014</span>';
+                }
             }
             html += '</div></td>';
 
@@ -556,6 +580,18 @@ var thermalCamera = (function () {
     }
 
     function bindEvents() {
+        var schemeTriggers = document.querySelectorAll(".tc-scheme-trigger");
+        for (var s = 0; s < schemeTriggers.length; s++) {
+            schemeTriggers[s].addEventListener("click", function (e) {
+                e.stopPropagation();
+                var itemId = parseInt(this.getAttribute("data-item-id"));
+                var item = items.find(function (x) { return x.id === itemId; });
+                if (!item || !item.schemeUrl) return;
+                if (schemePanel && schemePanel.itemId === itemId) closeScheme();
+                else openScheme(item);
+            });
+        }
+
         var chatTriggers = document.querySelectorAll(".tc-chat-trigger");
         for (var i = 0; i < chatTriggers.length; i++) {
             chatTriggers[i].addEventListener("click", function (e) {
@@ -590,7 +626,7 @@ var thermalCamera = (function () {
         if (tbody && !tbody._tcFloodHistoryBound) {
             tbody._tcFloodHistoryBound = true;
             tbody.addEventListener("click", function (e) {
-                if (e.target.closest(".tc-photo-btn, .tc-chat-trigger, .tc-commissioned-toggle, input")) return;
+                if (e.target.closest(".tc-photo-btn, .tc-scheme-trigger, .tc-chat-trigger, .tc-commissioned-toggle, input")) return;
                 var td = e.target.closest("td.tc-col-flooding");
                 if (!td) return;
                 var tr = td.closest("tr");
@@ -598,7 +634,8 @@ var thermalCamera = (function () {
                 var itemId = parseInt(tr.getAttribute("data-item-id"));
                 if (isSleeping(itemId)) return;
                 var item = items.find(function (x) { return x.id === itemId; });
-                if (!item) return;
+                // FloodDoor is deliberately excluded from the 200/700mm archive.
+                if (!item || item.isFloodDoor) return;
                 if (typeof tcFloodHistory !== "undefined" && tcFloodHistory) {
                     var itemAcks = ackHistory.filter(function (r) {
                         return r.itemId === item.id || r.itemName === item.name;
@@ -611,6 +648,10 @@ var thermalCamera = (function () {
         // tbody was rebuilt — the fresh triggers don't carry highlight state,
         // so re-apply the "active chat" marker if there is one.
         syncChatTriggerHighlights();
+        // There is nothing to restore during initial page startup. Keeping the
+        // optional scheme UI out of the critical init path ensures that a scheme
+        // presentation issue cannot prevent the clock and SCADA polling from starting.
+        if (schemePanel) syncSchemeTriggerHighlights();
     }
 
     // ---- Hover hint tooltip — used by flood cells and header stat dots ----
@@ -628,6 +669,7 @@ var thermalCamera = (function () {
             // Спящая ТК: ячейка некликабельна, подсказку не показываем.
             var tr = floodCell.closest("tr");
             if (tr && tr.classList.contains("tc-row-sleeping")) return null;
+            if (tr && tr.getAttribute("data-is-flood-door") === "true") return null;
             return { el: floodCell, text: FLOOD_CELL_HINT };
         }
         var hinted = targetEl.closest("[data-tc-hint]");
@@ -685,7 +727,7 @@ var thermalCamera = (function () {
         var list = [];
         for (var i = 0; i < items.length; i++) {
             var item = items[i];
-            if (isSleeping(item.id)) continue;
+            if (isSleeping(item.id) || item.isFloodDoor) continue;
             var t = timersByItem[item.id];
             if (!t) continue;
             // Use the highest-severity flood start that is currently active (> 0)
@@ -849,6 +891,12 @@ var thermalCamera = (function () {
             // Online status
             updateOnlineStatus(item, data);
 
+            if (item.isFloodDoor) {
+                updateFloodDoorSignal(item, data);
+                updateBattery(item, data);
+                continue;
+            }
+
             // 200mm flooding (yellow when flooded)
             updateFloodingSignal(item.id, "200", item.flood200CnlNum, item.temp200CnlNum, data, "tc-flood-warning");
 
@@ -861,6 +909,40 @@ var thermalCamera = (function () {
 
         hasLiveData = true;
         updateHeaderCounters();
+    }
+
+    function updateFloodDoorSignal(item, data) {
+        updateBinarySignal("floodDoorFlood-" + item.id, "floodDoorFlood-value-" + item.id,
+            item.flood200CnlNum, data, 0, "Затопление", "Норма", item.temp200CnlNum);
+        updateBinarySignal("floodDoorDoor-" + item.id, "floodDoorDoor-value-" + item.id,
+            item.flood700CnlNum, data, 1, "Открыта", "Закрыта", 0);
+    }
+
+    function updateBinarySignal(signalId, valueId, cnlNum, data, alarmValue,
+        alarmText, normalText, displayCnlNum) {
+        var signalEl = document.getElementById(signalId);
+        var valueEl = document.getElementById(valueId);
+        if (!signalEl || !valueEl || cnlNum <= 0) return;
+
+        var cnlData = data[cnlNum];
+        if (!cnlData || cnlData.stat <= 0) {
+            signalEl.className = "tc-flooding-signal tc-flood-unknown";
+            valueEl.textContent = "\u2014";
+            return;
+        }
+
+        var isAlarm = cnlData.val === alarmValue;
+        signalEl.className = "tc-flooding-signal " +
+            (isAlarm ? "tc-flood-alarm" : "tc-flood-normal");
+
+        var displayData = displayCnlNum > 0 ? data[displayCnlNum] : null;
+        if (displayCnlNum > 0) {
+            valueEl.textContent = displayData && displayData.stat > 0
+                ? displayData.val.toFixed(1) + "\u00b0C"
+                : "\u2014";
+        } else {
+            valueEl.textContent = isAlarm ? alarmText : normalText;
+        }
     }
 
     function updateBattery(item, data) {
@@ -1102,7 +1184,7 @@ var thermalCamera = (function () {
     function updateActiveFloodEvents() {
         for (var i = 0; i < items.length; i++) {
             var item = items[i];
-            if (isSleeping(item.id)) {
+            if (isSleeping(item.id) || item.isFloodDoor) {
                 delete activeFloodEvents[item.id];
                 continue;
             }
@@ -1141,6 +1223,8 @@ var thermalCamera = (function () {
         for (var i = 0; i < result.pendingAcks.length; i++) {
             var pa = result.pendingAcks[i];
             if (isSleeping(pa.itemId)) continue;
+            var pendingItem = findItemById(pa.itemId);
+            if (pendingItem && pendingItem.isFloodDoor) continue;
             newPending[pa.itemId] = { itemName: pa.itemName, flood700StartMs: pa.flood700StartMs };
         }
         var newKeys = Object.keys(newPending).sort().join(",");
@@ -1181,6 +1265,16 @@ var thermalCamera = (function () {
             if (fTimer) fTimer.remove();
             var clearBadge = document.getElementById("flood" + size + "Clear-" + itemId);
             if (clearBadge) clearBadge.remove();
+        }
+
+        var floodDoorSignals = ["Flood", "Door"];
+        for (var j = 0; j < floodDoorSignals.length; j++) {
+            var signalName = floodDoorSignals[j];
+            var floodDoorEl = document.getElementById("floodDoor" + signalName + "-" + itemId);
+            if (floodDoorEl) floodDoorEl.className = "tc-flooding-signal tc-flood-unknown";
+            var floodDoorValue = document.getElementById(
+                "floodDoor" + signalName + "-value-" + itemId);
+            if (floodDoorValue) floodDoorValue.textContent = "—";
         }
         var ackBadge = document.getElementById("flood700AckBadge-" + itemId);
         if (ackBadge) ackBadge.remove();
@@ -2504,6 +2598,10 @@ var thermalCamera = (function () {
 
     function bindChatKeyboard() {
         document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape" && schemePanel) {
+                closeScheme();
+                return;
+            }
             if (activeChatId === null) return;
             if (e.key === "Escape") {
                 closeChat(activeChatId);
@@ -2564,6 +2662,183 @@ var thermalCamera = (function () {
         if (overlay) overlay.classList.remove("show");
     }
 
+    function buildSchemePanelHtml(item) {
+        var district = escapeHtml(String(item.districtNumber || "—"));
+        var name = escapeHtml(item.name || "Объект ТК");
+        var address = escapeHtml(item.descr || "");
+        var title = '<span class="tc-chat-title-district">' + district + '</span>' +
+            '<span class="tc-chat-title-name">' + name + '</span>';
+        if (address) title += '<span class="tc-chat-title-address">' + address + '</span>';
+
+        var content;
+        if (item.schemeViewUrl) {
+            content = '<iframe class="tc-scheme-frame" src="' + escapeHtmlAttr(item.schemeViewUrl) + '" ' +
+                'title="Схема ' + escapeHtmlAttr(item.name || "") + '"></iframe>';
+        } else if (/\.(png|jpe?g|gif|webp|bmp)(\?.*)?$/i.test(item.schemeUrl || "")) {
+            content = '<img class="tc-scheme-image" alt="Схема ' + escapeHtmlAttr(item.name || "") + '" ' +
+                'src="/Api/ThermalCamera/GetPhoto?path=' + encodeURIComponent(item.schemeUrl) + '">' +
+                '<div class="tc-scheme-error d-none">Схема не найдена</div>';
+        } else {
+            content = '<div class="tc-scheme-error">Представление схемы недоступно. ' +
+                'Проверьте ID или имя файла .mim в поле Scheme.</div>';
+        }
+
+        return '<div class="tc-chat-resize-grip"></div>' +
+            '<div class="tc-chat-header"><div class="tc-chat-header-title">' +
+            '<i class="fa-solid fa-diagram-project"></i>' + title + '</div>' +
+            '<div class="tc-chat-header-actions">' +
+            '<button type="button" class="tc-menu-close tc-scheme-close" aria-label="Закрыть">' +
+            '<i class="fa-solid fa-xmark"></i></button></div></div>' +
+            '<div class="tc-scheme-content">' + content + '</div>';
+    }
+
+    function openScheme(item) {
+        closeScheme();
+        var panel = document.createElement("div");
+        panel.id = "tcSchemePanel-" + item.id;
+        panel.className = "tc-chat-panel tc-chat-active tc-scheme-panel";
+        panel.setAttribute("data-item-id", item.id);
+        panel.innerHTML = buildSchemePanelHtml(item);
+
+        var frame = panel.querySelector(".tc-scheme-frame");
+        if (frame) frame.addEventListener("load", function () {
+            // Open every embedded mimic in the same mode as the
+            // "Fit to screen" button in the standard scheme toolbar.
+            // The frame is normally same-origin, but keep the optional UI
+            // isolated if a custom view URL points to another origin.
+            try {
+                var fitScreenButton = frame.contentDocument &&
+                    frame.contentDocument.getElementById("spanFitScreenBtn");
+                if (fitScreenButton) fitScreenButton.click();
+            } catch (ex) {
+                console.warn("Unable to fit the scheme to the screen.", ex);
+            }
+        });
+
+        document.body.appendChild(panel);
+        schemePanel = { el: panel, itemId: item.id, dragged: false };
+
+        var image = panel.querySelector(".tc-scheme-image");
+        if (image) image.addEventListener("error", function () {
+            image.classList.add("d-none");
+            var error = panel.querySelector(".tc-scheme-error");
+            if (error) error.classList.remove("d-none");
+        });
+
+        repositionScheme();
+        bindSchemePanelEvents();
+        updateSchemeDistrictNotice();
+        syncSchemeTriggerHighlights();
+    }
+
+    function repositionScheme() {
+        if (!schemePanel || schemePanel.dragged) return;
+        var w = Math.min(900, Math.max(600, window.innerWidth - 80));
+        var h = Math.min(650, Math.max(400, window.innerHeight - 120));
+        schemePanel.el.style.left = Math.max(0, Math.round((window.innerWidth - w) / 2)) + "px";
+        schemePanel.el.style.top = Math.max(40, Math.round((window.innerHeight - h) / 2)) + "px";
+        schemePanel.el.style.width = w + "px";
+        schemePanel.el.style.height = h + "px";
+    }
+
+    function bindSchemePanelEvents() {
+        if (!schemePanel) return;
+        var state = schemePanel;
+        var panel = state.el;
+        var closeBtn = panel.querySelector(".tc-scheme-close");
+        var header = panel.querySelector(".tc-chat-header");
+        var grip = panel.querySelector(".tc-chat-resize-grip");
+        if (closeBtn) closeBtn.addEventListener("click", closeScheme);
+
+        if (header) header.addEventListener("mousedown", function (e) {
+            if (e.target.closest(".tc-scheme-close")) return;
+            var startX = e.clientX, startY = e.clientY;
+            var startLeft = parseInt(panel.style.left) || 0;
+            var startTop = parseInt(panel.style.top) || 0;
+            panel.classList.add("tc-panel-interacting");
+            e.preventDefault();
+            function move(ev) {
+                state.dragged = true;
+                panel.style.left = (startLeft + ev.clientX - startX) + "px";
+                panel.style.top = (startTop + ev.clientY - startY) + "px";
+            }
+            function up() {
+                panel.classList.remove("tc-panel-interacting");
+                document.removeEventListener("mousemove", move);
+                document.removeEventListener("mouseup", up);
+            }
+            document.addEventListener("mousemove", move);
+            document.addEventListener("mouseup", up);
+        });
+
+        if (grip) grip.addEventListener("mousedown", function (e) {
+            e.stopPropagation();
+            var startX = e.clientX, startY = e.clientY;
+            var startW = panel.offsetWidth, startH = panel.offsetHeight;
+            var startLeft = parseInt(panel.style.left) || 0;
+            var startTop = parseInt(panel.style.top) || 0;
+            panel.classList.add("tc-panel-interacting");
+            e.preventDefault();
+            function resize(ev) {
+                var width = Math.max(520, startW - (ev.clientX - startX));
+                var height = Math.max(320, startH - (ev.clientY - startY));
+                panel.style.width = width + "px";
+                panel.style.height = height + "px";
+                panel.style.left = (startLeft + startW - width) + "px";
+                panel.style.top = (startTop + startH - height) + "px";
+                state.dragged = true;
+            }
+            function up() {
+                panel.classList.remove("tc-panel-interacting");
+                document.removeEventListener("mousemove", resize);
+                document.removeEventListener("mouseup", up);
+            }
+            document.addEventListener("mousemove", resize);
+            document.addEventListener("mouseup", up);
+        });
+    }
+
+    function updateSchemeDistrictNotice() {
+        if (!schemePanel) return;
+        var row = document.querySelector("tr[data-item-id='" + schemePanel.itemId + "']");
+        var hidden = !row || row.style.display === "none";
+        var notice = schemePanel.el.querySelector(".tc-chat-notice");
+        if (hidden && !notice) {
+            notice = document.createElement("div");
+            notice.className = "tc-chat-notice";
+            notice.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>' +
+                '<span>Данной ТК нет в списке: объект скрыт текущим фильтром.</span>';
+            var header = schemePanel.el.querySelector(".tc-chat-header");
+            header.insertAdjacentElement("afterend", notice);
+        } else if (!hidden && notice) {
+            notice.remove();
+        }
+    }
+
+    function syncSchemeTriggerHighlights() {
+        var activeId = schemePanel ? schemePanel.itemId : null;
+        // Do not use NodeList.forEach or the two-argument classList.toggle here.
+        // Webstation can run in older embedded browser engines. An exception in
+        // this function is especially destructive because renderTable calls it
+        // during init, before the clock and the SCADA polling loop are started.
+        var triggers = document.querySelectorAll(".tc-scheme-trigger");
+        for (var i = 0; i < triggers.length; i++) {
+            var trigger = triggers[i];
+            if (parseInt(trigger.getAttribute("data-item-id")) === activeId) {
+                trigger.classList.add("tc-scheme-trigger-active");
+            } else {
+                trigger.classList.remove("tc-scheme-trigger-active");
+            }
+        }
+    }
+
+    function closeScheme() {
+        if (!schemePanel) return;
+        schemePanel.el.remove();
+        schemePanel = null;
+        syncSchemeTriggerHighlights();
+    }
+
     function escapeHtml(text) {
         var div = document.createElement("div");
         div.appendChild(document.createTextNode(text));
@@ -2574,9 +2849,14 @@ var thermalCamera = (function () {
         return text.replace(/'/g, "\\'").replace(/"/g, '\\"');
     }
 
+    function escapeHtmlAttr(text) {
+        return escapeHtml(String(text)).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
     return {
         init: init,
         showPhoto: showPhoto,
+        openScheme: openScheme,
         openChat: openChat,
         closeChat: closeChat
     };

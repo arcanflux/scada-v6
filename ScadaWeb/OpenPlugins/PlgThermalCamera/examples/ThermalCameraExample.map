@@ -13,7 +13,18 @@
     содержит "200" (не затопление)     - температура трубы 200мм (напр. "Температура 200мм")
     содержит "700" (не затопление)     - температура трубы 700мм (напр. "Температура 700мм")
 
-  Photo — относительный путь к фото в папке Views, например "Photo/1.png"
+  Photo  — относительный путь к фото в папке Views, например "Photo/1.png".
+  Scheme — ID представления Rapid SCADA, путь/имя файла .mim или путь без
+           расширения для живой мнемосхемы (например "Scheme/TK-1500").
+           Также поддерживается относительный путь к обычному изображению в Views.
+           Если Scheme указан, имя ТК становится кнопкой просмотра схемы.
+
+  CameraType — необязательный тип объекта. Значение FloodDoor заменяет блоки
+               "200мм" и "700мм" блоками "Затопление" и "Дверь".
+               Состояние первого блока задаёт канал "Датчик затопления", а
+               внутри блока выводится канал "Температура затопления".
+               Для двери: 0 = закрыта (зелёный), 1 = открыта (красный).
+               Такой объект не учитывается в статистике затоплений 200/700мм.
 -->
 <MapView>
   <InitialView>
@@ -40,13 +51,32 @@
       <Type>Triangle</Type>
       <District>1</District>
       <Photo>Photo/tk-1152a.png</Photo>
+      <Scheme>125</Scheme>
       <StatusCnlNum>0</StatusCnlNum>
       <Data>
         <DataItem cnlNum="500101">Температура 200мм</DataItem>
         <DataItem cnlNum="500102">Температура 700мм</DataItem>
         <DataItem cnlNum="500103">Затопление 200мм</DataItem>
         <DataItem cnlNum="500104">Затопление 700мм</DataItem>
-<DataItem cnlNum="500106">Онлайн</DataItem>
+        <DataItem cnlNum="500106">Онлайн</DataItem>
+      </Data>
+    </Location>
+
+    <!-- Камера с датчиками затопления и двери -->
+    <Location>
+      <Lat>55.025000</Lat>
+      <Lon>82.905000</Lon>
+      <Name>TK-1500</Name>
+      <Descr>ул. Примерная, 10</Descr>
+      <Type>Triangle</Type>
+      <CameraType>FloodDoor</CameraType>
+      <District>2</District>
+      <StatusCnlNum>0</StatusCnlNum>
+      <Data>
+        <DataItem cnlNum="500401">Температура затопления</DataItem>
+        <DataItem cnlNum="500402">Датчик затопления</DataItem>
+        <DataItem cnlNum="500403">Датчик вскрытия дверей</DataItem>
+        <DataItem cnlNum="500404">Онлайн</DataItem>
       </Data>
     </Location>
 

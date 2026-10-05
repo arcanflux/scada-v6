@@ -115,12 +115,16 @@ namespace Scada.Web.Plugins.PlgThermalCamera.Controllers
                 foreach (ThermalCameraItem item in activeItems)
                 {
                     FloodStateSnapshot snap = new();
-                    if (item.Flood200CnlNum > 0 && rawByCnl.TryGetValue(item.Flood200CnlNum, out CnlData d200))
+                    // FloodDoor signals have different meaning (including inverse
+                    // door semantics) and must not create 200/700mm flood events.
+                    if (!item.IsFloodDoor && item.Flood200CnlNum > 0 &&
+                        rawByCnl.TryGetValue(item.Flood200CnlNum, out CnlData d200))
                     {
                         snap.Flood200HasValue = d200.Stat > 0;
                         snap.Flood200 = d200.Stat > 0 && d200.Val == 0;
                     }
-                    if (item.Flood700CnlNum > 0 && rawByCnl.TryGetValue(item.Flood700CnlNum, out CnlData d700))
+                    if (!item.IsFloodDoor && item.Flood700CnlNum > 0 &&
+                        rawByCnl.TryGetValue(item.Flood700CnlNum, out CnlData d700))
                     {
                         snap.Flood700HasValue = d700.Stat > 0;
                         snap.Flood700 = d700.Stat > 0 && d700.Val == 0;
